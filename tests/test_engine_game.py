@@ -117,3 +117,21 @@ def test_game_end_conditions(scores, round_idx, renchan, expected):
 def test_mortal_tonpuu():
     game = run_game(Game(Rules(length="tonpuu"), seed=0), [MortalAgent(i) for i in range(4)])
     _assert_finished(game)
+
+
+class _NoActorAgent(SimpleAgent):
+    """Replies without the "actor" field (like Mortal's bare {"type": "ryukyoku"})."""
+
+    def react(self, event):
+        out = super().react(event)
+        if out:
+            out = {k: v for k, v in out.items() if k != "actor"}
+        return out
+
+
+def test_actions_without_actor_are_accepted():
+    # seed 8: includes a kyuushu kyuuhai declared as a bare {"type": "ryukyoku"}
+    game = run_game(Game(seed=8), [_NoActorAgent(i, seed=8 * 4 + i) for i in range(4)])
+    _assert_finished(game)
+    assert any(r.reason == "kyuushu_kyuuhai" for r in game.results)
+    assert all("actor" in e for e in game.log if e["type"] in ("dahai", "pon", "chi", "reach", "hora"))

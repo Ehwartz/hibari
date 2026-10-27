@@ -361,17 +361,25 @@ export function SettingsPage() {
             <ErrorBox message={error} />
           </div>
         )}
-        <SaveRow
-          onSave={() =>
+      </Card>
+
+      {/* save: fixed at the right side, stays put while scrolling */}
+      <div className="fixed top-24 right-8 z-40 flex w-[150px] flex-col items-center gap-2 rounded-xl border border-white/10 bg-black/60 p-4 shadow-2xl backdrop-blur">
+        <button
+          onClick={() =>
             save({
               ...settings,
               // an emptied name falls back to the default
               bot_names: (settings.bot_names ?? DEFAULT_BOT_NAMES).map((n, i) => n.trim() || DEFAULT_BOT_NAMES[i]),
             })
           }
-          saved={saved}
-        />
-      </Card>
+          className="w-full rounded-full bg-emerald-600 py-2 font-bold hover:bg-emerald-500"
+        >
+          保存设置
+        </button>
+        <span className={`text-[12px] ${saved ? 'text-emerald-300' : 'text-white/45'}`}>{saved ? '已保存 ✓' : '修改后点此保存'}</span>
+        <span className="text-center text-[11px] leading-snug text-white/35">头像上传后立即生效，无需保存</span>
+      </div>
     </Shell>
   )
 }

@@ -127,6 +127,8 @@ class Game:
         for seat in need:
             action = actions.get(seat) or NONE
             clean = {k: v for k, v in action.items() if k != "meta"}
+            if clean.get("type") != "none" and "actor" not in clean:
+                clean["actor"] = seat  # e.g. Mortal's kyuushu reply is a bare {"type": "ryukyoku"}
             if clean.get("type") != "none" and clean.get("actor") != seat:
                 raise IllegalAction(seat, clean, "wrong actor")
             try:
