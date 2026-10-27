@@ -351,23 +351,37 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
 
 ## 7. Storage
 
-- `game`: id, started/ended at, rules JSON, seat names, final scores,
-  placements, log path.
-- `kyoku`: game id, round / honba, winner, loser, han / fu / points,
-  draw type, riichi / call flags per seat.
-- `decision` (filled by review): game id, kyoku, turn, human action,
-  Mortal top-3 with probabilities, Q-loss.
-- Logs: `data/logs/{game_id}.jsonl.gz`, one mjai event per line, unmasked.
-  Optional exporter to tenhou.net/6 JSON for external viewers.
+`backend/storage/__init__.py`. No database for now: the **log folder is the
+source of truth**.
+
+- Settings: `data/settings.json` (`player_name`, `log_dir`,
+  `default_length`, `think_min` / `think_max`). `POST /api/games` falls
+  back to these for anything not given.
+- Logs: one `{game_id}.json.gz` per finished game in `log_dir`. Game ids look
+  like `20261027-221824-ab12cd`. `start_game` carries `started_at` and
+  `length`; `end_game` carries the final `scores`.
+- `list_games` scans the folder and reads metadata (date, length, names,
+  scores, the human's rank / pt, kyoku count). It is cached by
+  (path, mtime), so files copied in show up and deleted ones disappear.
+- API: `GET/PUT /api/settings`, `GET /api/logs`, `GET /api/logs/{id}`
+  (events), `DELETE /api/logs/{id}`, `POST /api/stats {game_ids?}`.
+- Tests point `storage.load_settings` / `SETTINGS_FILE` at a temp dir and
+  never write to `data/`.
 
 ## 8. Analysis
 
 - **Review**: replay the log into a seat-0 `Bot`; at each human decision
   point read `q_values` / `mask_bits`, compare to the actual action → agreement
   rate, per-decision top-3, ranked mistakes by Q gap.
-- **Stats**: `libriichi.stat.Stat` over the human's logs gives the standard
-  metrics directly; the `kyoku` / `game` tables add per-game trends and
-  filters.
+- **Stats** (`compute_stats`): `libriichi.stat.Stat.from_dir` over the
+  selected logs. Seat 0 is the human; its name is rewritten to a fixed
+  token in temp copies, because `Stat` matches players by name and a
+  rename would split the stats. `Stat` can't be summed and `avg_pt` needs a
+  pt table, so average / total pt (uma 20/10/-10/-20 + oka) come from our
+  own metadata. NaN (no samples) becomes `null`.
+- UI: `#/stats` shows headline tiles, rank distribution (bars), rank trend
+  (last 50 games) and metric groups (win / deal-in / style). Filters: last
+  10 / 30 / 100 games, hanchan / tonpuu.
 - Later: live hints (run a shadow seat-0 Bot during play), discard drills.
 
 ## 9. Milestones & status
@@ -377,9 +391,9 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
 | M0 | Env: uv + Python 3.12 + CPU torch; load Mortal in-process; bot answers sample events; `PlayerState` works | ✅ done 2026-10-27 |
 | M1 | Engine: Mortal ×4 self-play finishes hanchan; `PlayerState` referee; 1000+ hanchan without errors | ✅ done 2026-10-27 |
 | M2 | Human vs 3 bots in the browser (WebSocket + React table) | ✅ done 2026-10-27 |
-| M3 | Persist games, replay viewer | — |
+| M3 | Persist games, replay viewer | ✅ done 2026-10-27 (log folder + list / replay / delete) |
 | M4 | Mortal review | — |
-| M5 | Stats dashboard, training features | — |
+| M5 | Stats dashboard, training features | stats dashboard done; training features open |
 | M6 | Desktop packaging | — |
 
 ## 10. Decision log
@@ -396,6 +410,10 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
   2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
   deposits to the first winner only). Logs carry extra fields (han / fu /
   yaku, ryukyoku reason) — libriichi tolerates them.
+- 2026-10-27 — M3: main menu (对局 / 牌谱 / 数据分析 / 设置 / 用户). Logs are
+  files in a configurable folder, with no database; stats come from
+  libriichi `Stat`. The replay viewer is shared with the UI preview
+  (`components/ReplayViewer.tsx`).
 - 2026-10-27 — Desktop: Chrome `--app` launcher for now (local WebView2
   is v98, too old for Tailwind 4). Electron stays the option for
   distribution (M6). The backend serves `frontend/dist`, so the app needs a

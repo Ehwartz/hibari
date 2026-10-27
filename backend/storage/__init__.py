@@ -1,0 +1,192 @@
+"""User settings and saved game logs.
+
+Logs are plain ``.json.gz`` mjai files in the configured folder; the folder
+is the source of truth (files copied in show up, deleted files disappear).
+Metadata is read from the logs and cached by (path, mtime).
+"""
+from __future__ import annotations
+
+import gzip
+import json
+import re
+import tempfile
+import threading
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
+
+from backend import mortal
+
+ROOT = Path(__file__).resolve().parents[2]
+DATA = ROOT / "data"
+SETTINGS_FILE = DATA / "settings.json"
+HUMAN_SEAT = 0
+_ID = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
+
+
+# -- settings ------------------------------------------------------------------
+
+
+@dataclass
+class Settings:
+    player_name: str = "You"
+    log_dir: str = str(DATA / "games")
+    default_length: str = "hanchan"  # hanchan | tonpuu
+    think_min: float = 1.0  # bots' thinking time per decision, seconds
+    think_max: float = 3.0
+
+    @property
+    def log_path(self) -> Path:
+        p = Path(self.log_dir)
+        return p if p.is_absolute() else ROOT / p
+
+
+_settings_lock = threading.Lock()
+
+
+def load_settings() -> Settings:
+    try:
+        raw = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return Settings()
+    known = {k: v for k, v in raw.items() if k in Settings.__dataclass_fields__}
+    return Settings(**known)
+
+
+def save_settings(s: Settings) -> Settings:
+    with _settings_lock:
+        DATA.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.write_text(json.dumps(asdict(s), ensure_ascii=False, indent=2), encoding="utf-8")
+    return s
+
+
+# -- logs ----------------------------------------------------------------------
+
+
+@dataclass
+class GameMeta:
+    id: str
+    started_at: str  # ISO 8601
+    length: str
+    names: list[str]
+    scores: list[int]
+    rank: int  # the human's rank (seat 0)
+    point: float  # the human's final pt (uma + oka)
+    kyoku: int
+    finished: bool
+    size: int = 0
+
+
+_meta_cache: dict[Path, tuple[float, GameMeta]] = {}
+UMA = (20, 10, -10, -20)
+
+
+def log_file(settings: Settings, game_id: str) -> Path:
+    if not _ID.match(game_id):
+        raise ValueError("bad game id")
+    return settings.log_path / f"{game_id}.json.gz"
+
+
+def read_events(path: Path) -> list[dict]:
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def _meta(path: Path) -> GameMeta | None:
+    mtime = path.stat().st_mtime
+    cached = _meta_cache.get(path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    try:
+        events = read_events(path)
+    except (OSError, ValueError, EOFError):
+        return None
+    if not events or events[0].get("type") != "start_game":
+        return None
+    start = events[0]
+    end = next((e for e in reversed(events) if e["type"] == "end_game"), None)
+    scores = (end or {}).get("scores")
+    if scores is None:  # older logs: last known scores
+        last = next((e for e in reversed(events) if e["type"] == "start_kyoku"), None)
+        scores = last["scores"] if last else [25000] * 4
+    order = sorted(range(4), key=lambda s: (-scores[s], s))
+    rank = order.index(HUMAN_SEAT) + 1
+    started = start.get("started_at") or datetime.fromtimestamp(mtime).isoformat(timespec="seconds")
+    meta = GameMeta(
+        id=path.name.removesuffix(".json.gz"),
+        started_at=started,
+        length=start.get("length", "hanchan"),
+        names=start.get("names", ["?"] * 4),
+        scores=scores,
+        rank=rank,
+        point=round((scores[HUMAN_SEAT] - 30000) / 1000 + UMA[rank - 1] + (20 if rank == 1 else 0), 1),
+        kyoku=len({(e.get("bakaze"), e.get("kyoku"), e.get("honba")) for e in events if e["type"] == "start_kyoku"}),
+        finished=end is not None,
+        size=path.stat().st_size,
+    )
+    _meta_cache[path] = (mtime, meta)
+    return meta
+
+
+def list_games(settings: Settings) -> list[GameMeta]:
+    folder = settings.log_path
+    if not folder.is_dir():
+        return []
+    metas = [m for p in folder.glob("*.json.gz") if (m := _meta(p))]
+    return sorted(metas, key=lambda m: m.started_at, reverse=True)
+
+
+def delete_game(settings: Settings, game_id: str) -> bool:
+    path = log_file(settings, game_id)
+    if not path.exists():
+        return False
+    path.unlink()
+    _meta_cache.pop(path, None)
+    return True
+
+
+# -- stats ---------------------------------------------------------------------
+
+_ME = "__trainer_human__"
+
+# (key, label) of libriichi Stat attributes shown in the UI, grouped
+STAT_FIELDS = {
+    "overview": ["game", "round", "avg_rank", "rank_1_rate", "rank_2_rate", "rank_3_rate", "rank_4_rate", "tobi_rate"],
+    "win": ["agari_rate", "avg_point_per_agari", "avg_agari_jun", "agari_rate_after_riichi", "agari_rate_after_fuuro", "agari_rate_as_oya", "dama_agari", "yakuman_rate"],
+    "dealin": ["houjuu_rate", "avg_point_per_houjuu", "avg_houjuu_jun", "houjuu_rate_after_riichi", "houjuu_rate_after_fuuro"],
+    "style": ["riichi_rate", "fuuro_rate", "avg_fuuro_num", "avg_riichi_jun", "chasing_riichi_rate", "riichi_chased_rate", "ryukyoku_rate", "avg_point_per_round"],
+}
+
+
+def compute_stats(settings: Settings, game_ids: list[str] | None = None) -> dict:
+    """libriichi ``Stat`` for the human seat over the selected (default: all) games.
+
+    Seat 0's name is replaced with a fixed token in temporary copies, because
+    ``Stat.from_dir`` matches players by name (renames would split the stats).
+    """
+    games = [g for g in list_games(settings) if g.finished and (game_ids is None or g.id in game_ids)]
+    out: dict = {"games": [asdict(g) for g in games]}
+    if not games:
+        out["stat"] = None
+        return out
+    with tempfile.TemporaryDirectory() as tmp:
+        for g in games:
+            events = read_events(log_file(settings, g.id))
+            events[0] = {**events[0], "names": [_ME, *events[0]["names"][1:]]}
+            with gzip.open(Path(tmp) / f"{g.id}.json.gz", "wt", encoding="utf-8") as f:
+                for ev in events:
+                    f.write(json.dumps(ev, separators=(",", ":"), ensure_ascii=False) + "\n")
+        stat = mortal.libriichi().stat.Stat.from_dir(tmp, _ME)
+    out["stat"] = {k: _num(getattr(stat, k)) for group in STAT_FIELDS.values() for k in group}
+    # final pt (uma + oka) per game, from our own metadata
+    out["stat"]["avg_point"] = round(sum(g.point for g in games) / len(games), 2)
+    out["stat"]["total_point"] = round(sum(g.point for g in games), 1)
+    out["groups"] = STAT_FIELDS
+    return out
+
+
+def _num(v):
+    if isinstance(v, float):
+        return None if v != v else round(v, 4)  # NaN (no samples) -> null
+    return v
+

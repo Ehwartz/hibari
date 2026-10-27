@@ -89,11 +89,18 @@ Gen = Generator[Prompt, "dict[int, dict] | None", Any]
 
 
 class Game:
-    def __init__(self, rules: Rules | None = None, seed: int | None = None, names: list[str] | None = None):
+    def __init__(
+        self,
+        rules: Rules | None = None,
+        seed: int | None = None,
+        names: list[str] | None = None,
+        meta: dict | None = None,
+    ):
         self.rules = rules or Rules()
         self.seed = seed if seed is not None else random.randrange(2**63)
         self.rng = random.Random(self.seed)
         self.names = names or [f"player{i}" for i in range(4)]
+        self.meta = meta or {}  # extra fields for start_game (e.g. started_at, length)
         self.log: list[dict] = []
         self.results: list[KyokuResult] = []
         self.scores = [self.rules.start_points] * 4
@@ -136,7 +143,7 @@ class Game:
     def play(self) -> Gen:
         lib = mortal.libriichi()
         self._refs = [lib.state.PlayerState(i) for i in range(4)]
-        yield from self._emit({"type": "start_game", "names": self.names, "seed": [self.seed, 0]})
+        yield from self._emit({"type": "start_game", "names": self.names, "seed": [self.seed, 0], **self.meta})
 
         rules = self.rules
         round_idx, honba, kyotaku = 0, 0, 0  # round_idx = wind * 4 + kyoku

@@ -240,7 +240,7 @@ export function Play({ gameId }: { gameId: string }) {
   return (
     <div className="flex h-full flex-col items-center" onContextMenu={onRightClick}>
       <div className="flex h-12 w-full shrink-0 items-center gap-3 border-b border-white/10 bg-black/40 px-4 text-[13px] text-white">
-        <a href="#/" className="text-white/60 hover:text-white">← 返回</a>
+        <a href="#/" className="text-white/60 hover:text-white">← 主界面</a>
         <span className="font-bold tracking-wide">对局</span>
         <span className="font-mono text-white/35">{gameId}</span>
         <span
@@ -281,7 +281,22 @@ export function Play({ gameId }: { gameId: string }) {
             </div>
           )}
           {modal === 'result' && <ResultModal table={table} onClose={closeModal} />}
-          {modal === 'end' && <EndModal table={table} uma={UMA} onClose={() => (location.hash = '#/')} />}
+          {modal === 'end' && (
+            <EndModal
+              table={table}
+              uma={UMA}
+              actions={
+                <>
+                  <a href={`#/replay/${gameId}`} className="rounded-full bg-white/10 px-5 py-2 font-bold hover:bg-white/20">
+                    查看牌谱
+                  </a>
+                  <a href="#/" className="rounded-full bg-emerald-600 px-6 py-2 font-bold hover:bg-emerald-500">
+                    返回主界面
+                  </a>
+                </>
+              }
+            />
+          )}
         </Table>
       </ScaledStage>
     </div>

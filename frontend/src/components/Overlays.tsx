@@ -261,7 +261,17 @@ export function ResultModal({ table, onClose }: { table: TableState; onClose?: (
   )
 }
 
-export function EndModal({ table, uma, onClose }: { table: TableState; uma: number[]; onClose?: () => void }) {
+export function EndModal({
+  table,
+  uma,
+  onClose,
+  actions,
+}: {
+  table: TableState
+  uma: number[]
+  onClose?: () => void
+  actions?: React.ReactNode
+}) {
   const scores = table.finalScores ?? table.scores
   const order = [0, 1, 2, 3].sort((a, b) => scores[b] - scores[a] || a - b)
   return (
@@ -286,11 +296,14 @@ export function EndModal({ table, uma, onClose }: { table: TableState; uma: numb
           )
         })}
       </div>
-      {onClose && (
-        <div className="mt-6 text-right">
-          <button onClick={onClose} className="rounded-full bg-emerald-600 px-6 py-2 font-bold hover:bg-emerald-500">
-            返回
-          </button>
+      {(onClose || actions) && (
+        <div className="mt-6 flex justify-end gap-3">
+          {actions}
+          {onClose && (
+            <button onClick={onClose} className="rounded-full bg-emerald-600 px-6 py-2 font-bold hover:bg-emerald-500">
+              返回
+            </button>
+          )}
         </div>
       )}
     </Modal>

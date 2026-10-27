@@ -6,21 +6,15 @@ export type ServerMsg =
   | { type: 'saved'; path: string }
 
 export interface NewGameOptions {
-  length: 'hanchan' | 'tonpuu'
+  length?: 'hanchan' | 'tonpuu' // default: settings
   seed?: number
-  playerName?: string
 }
 
 export async function createGame(opts: NewGameOptions): Promise<string> {
   const res = await fetch('/api/games', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      length: opts.length,
-      seed: opts.seed,
-      player_name: opts.playerName || 'You',
-      hints: true,
-    }),
+    body: JSON.stringify({ length: opts.length, seed: opts.seed, hints: true }),
   })
   if (!res.ok) throw new Error(`创建对局失败：HTTP ${res.status}`)
   return (await res.json()).game_id
@@ -29,4 +23,64 @@ export async function createGame(opts: NewGameOptions): Promise<string> {
 export function wsUrl(gameId: string): string {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${location.host}/api/games/${gameId}/ws`
+}
+
+// -- settings / logs / stats ------------------------------------------------------
+
+export interface Settings {
+  player_name: string
+  log_dir: string
+  log_dir_resolved?: string
+  default_length: 'hanchan' | 'tonpuu'
+  think_min: number
+  think_max: number
+}
+
+export interface GameMeta {
+  id: string
+  started_at: string
+  length: 'hanchan' | 'tonpuu'
+  names: string[]
+  scores: number[]
+  rank: number
+  point: number
+  kyoku: number
+  finished: boolean
+  size: number
+}
+
+export type StatValues = Record<string, number | null>
+
+export interface StatsResponse {
+  games: GameMeta[]
+  stat: StatValues | null
+}
+
+async function json<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try {
+      const body = await res.json()
+      detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)
+    } catch {
+      /* not json */
+    }
+    throw new Error(detail)
+  }
+  return res.json()
+}
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' }
+
+export const api = {
+  settings: () => fetch('/api/settings').then((r) => json<Settings>(r)),
+  saveSettings: (s: Settings) =>
+    fetch('/api/settings', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(s) }).then((r) => json<Settings>(r)),
+  logs: () => fetch('/api/logs').then((r) => json<{ folder: string; games: GameMeta[] }>(r)),
+  log: (id: string) => fetch(`/api/logs/${id}`).then((r) => json<{ id: string; events: MjaiEvent[] }>(r)),
+  deleteLog: (id: string) => fetch(`/api/logs/${id}`, { method: 'DELETE' }).then((r) => json<{ deleted: string }>(r)),
+  stats: (gameIds?: string[]) =>
+    fetch('/api/stats', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ game_ids: gameIds ?? null }) }).then(
+      (r) => json<StatsResponse>(r),
+    ),
 }

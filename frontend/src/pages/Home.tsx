@@ -1,69 +1,71 @@
-import { useState } from 'react'
-import { createGame } from '../lib/api'
+import { useEffect, useState } from 'react'
+import { NAV } from '../components/Shell'
+import { type GameMeta, api } from '../lib/api'
 
+/** Main menu. */
 export function Home() {
-  const [length, setLength] = useState<'hanchan' | 'tonpuu'>('hanchan')
-  const [name, setName] = useState('You')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [name, setName] = useState<string | null>(null)
+  const [recent, setRecent] = useState<GameMeta[] | null>(null)
 
-  const start = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const id = await createGame({ length, playerName: name.trim() })
-      location.hash = `#/play/${id}`
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-      setBusy(false)
-    }
-  }
+  useEffect(() => {
+    api.settings().then((s) => setName(s.player_name)).catch(() => setName(null))
+    api.logs().then((r) => setRecent(r.games.filter((g) => g.finished))).catch(() => setRecent(null))
+  }, [])
 
-  const choice = (value: typeof length, label: string, sub: string) => (
-    <button
-      onClick={() => setLength(value)}
-      className={`flex-1 rounded-xl px-4 py-3 text-left ring-1 transition ${length === value ? 'bg-emerald-500/20 ring-emerald-400' : 'bg-white/5 ring-white/10 hover:bg-white/10'}`}
-    >
-      <div className="text-[17px] font-bold">{label}</div>
-      <div className="text-[12px] text-white/55">{sub}</div>
-    </button>
-  )
+  const last10 = recent?.slice(0, 10) ?? []
+  const avgRank = last10.length ? last10.reduce((a, g) => a + g.rank, 0) / last10.length : null
 
   return (
-    <div className="felt flex h-full items-center justify-center rounded-none">
-      <div className="w-[420px] rounded-2xl border border-white/10 bg-black/45 p-7 shadow-2xl">
-        <h1 className="text-[26px] font-bold tracking-wide">Mahjong AI Trainer</h1>
-        <p className="mt-1 text-[13px] text-white/60">四人立直麻将 · 你 vs 三个 Mortal</p>
+    <div className="felt flex h-full flex-col items-center justify-center rounded-none text-white">
+      <h1 className="text-[40px] font-black tracking-wider">Mahjong AI Trainer</h1>
+      <p className="mt-1 text-[14px] text-white/60">
+        四人立直麻将 · 你 vs 三个 Mortal{name ? ` · 欢迎，${name}` : ''}
+      </p>
 
-        <div className="mt-6 text-[13px] text-white/70">对局长度</div>
-        <div className="mt-2 flex gap-3">
-          {choice('hanchan', '半庄', '东风场 + 南风场')}
-          {choice('tonpuu', '东风', '只打东风场')}
-        </div>
-
-        <label className="mt-5 block text-[13px] text-white/70">
-          昵称
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={16}
-            className="mt-2 block w-full rounded-lg bg-white/10 px-3 py-2 text-[15px] text-white ring-1 ring-white/10 outline-none focus:ring-emerald-400"
-          />
-        </label>
-
-        {error && <div className="mt-4 rounded-lg bg-rose-900/50 px-3 py-2 text-[13px] text-rose-200">{error}</div>}
-
-        <button
-          onClick={start}
-          disabled={busy}
-          className="mt-6 w-full rounded-full bg-gradient-to-b from-emerald-500 to-emerald-700 py-3 text-[18px] font-bold tracking-widest shadow-lg hover:brightness-110 disabled:opacity-50"
-        >
-          {busy ? '准备中…' : '开始对局'}
-        </button>
-        <div className="mt-4 text-center text-[12px] text-white/40">
-          <a href="#/preview" className="hover:text-white/70">界面预览（无需后端）</a>
+      <div className="mt-10 grid w-[760px] grid-cols-3 gap-4">
+        {NAV.map((n, i) => (
+          <a
+            key={n.href}
+            href={n.href}
+            className={`group rounded-2xl border border-white/10 bg-black/35 p-5 shadow-lg transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:bg-black/45 ${i === 0 ? 'col-span-3 flex items-center gap-5 bg-gradient-to-r from-emerald-700/50 to-black/40 py-7' : ''}`}
+          >
+            <div className={i === 0 ? 'text-[44px]' : 'text-[28px]'}>{n.icon}</div>
+            <div>
+              <div className={`font-bold ${i === 0 ? 'text-[28px]' : 'mt-2 text-[19px]'}`}>{n.label}</div>
+              <div className="mt-0.5 text-[13px] text-white/55">{n.desc}</div>
+            </div>
+          </a>
+        ))}
+        <div className="flex flex-col justify-center rounded-2xl border border-white/10 bg-black/25 p-5 text-[13px] text-white/70">
+          {recent === null ? (
+            <span className="text-white/40">无法连接后端</span>
+          ) : recent.length === 0 ? (
+            <span>还没有对局记录</span>
+          ) : (
+            <>
+              <div>已完成 {recent.length} 局</div>
+              <div className="mt-1">
+                最近 {last10.length} 局平均顺位{' '}
+                <span className="font-mono text-[18px] text-white">{avgRank!.toFixed(2)}</span>
+              </div>
+              <div className="mt-2 flex gap-1">
+                {last10.map((g) => (
+                  <span
+                    key={g.id}
+                    title={g.started_at}
+                    className={`flex h-6 w-6 items-center justify-center rounded text-[12px] font-bold ${g.rank === 1 ? 'bg-amber-400 text-black' : g.rank === 4 ? 'bg-white/10 text-white/60' : 'bg-white/20'}`}
+                  >
+                    {g.rank}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
+      <a href="#/preview" className="mt-8 text-[12px] text-white/35 hover:text-white/70">
+        界面预览（演示数据）
+      </a>
     </div>
   )
 }

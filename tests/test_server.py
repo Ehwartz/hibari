@@ -1,7 +1,17 @@
 """Server: a full game over WebSocket with a scripted human (simple bots for speed)."""
+import pytest
 from fastapi.testclient import TestClient
 
+from backend import storage
 from backend.server.app import app
+
+
+@pytest.fixture(autouse=True)
+def tmp_settings(tmp_path, monkeypatch):
+    """Keep settings and saved logs out of the real data/ folder."""
+    monkeypatch.setattr(storage, "SETTINGS_FILE", tmp_path / "settings.json")
+    monkeypatch.setattr(storage, "load_settings", lambda: storage.Settings(log_dir=str(tmp_path / "games")))
+    return tmp_path
 
 
 def _pick(actions):
@@ -67,3 +77,48 @@ def test_think_time_only_for_real_decisions():
     s.game.state.seats[1].riichi_accepted = True
     assert s._think_time({1: {"type": "dahai", "actor": 1, "pai": "1m", "tsumogiri": True}}) <= 1.0
     assert GameSession("t", Rules(), think=(0, 0))._think_time({1: {"type": "pon"}}) == 0.0
+
+
+def _play_to_end(client, game_id):
+    with client.websocket_connect(f"/api/games/{game_id}/ws") as ws:
+        while True:
+            msg = ws.receive_json()
+            if msg["type"] == "saved":
+                return msg["path"]
+            if "actions" in msg:
+                ws.send_json({"type": "action", "action": _pick(msg["actions"])})
+
+
+def test_logs_and_stats_api(tmp_settings):
+    with TestClient(app) as client:
+        game_id = client.post(
+            "/api/games", json={"length": "tonpuu", "seed": 11, "bots": "simple", "hints": False, "think": [0, 0]}
+        ).json()["game_id"]
+        path = _play_to_end(client, game_id)
+        assert str(tmp_settings) in path
+
+        listed = client.get("/api/logs").json()["games"]
+        assert [g["id"] for g in listed] == [game_id]
+        meta = listed[0]
+        assert meta["finished"] and meta["length"] == "tonpuu" and 1 <= meta["rank"] <= 4
+
+        events = client.get(f"/api/logs/{game_id}").json()["events"]
+        assert events[0]["type"] == "start_game" and events[0]["started_at"]
+
+        stats = client.post("/api/stats", json={}).json()
+        assert stats["stat"]["game"] == 1 and stats["stat"]["round"] >= 4
+        assert stats["stat"]["avg_rank"] == meta["rank"]
+
+        assert client.get("/api/logs/..%2Fsecret").status_code in (400, 404)
+        assert client.delete(f"/api/logs/{game_id}").status_code == 200
+        assert client.get("/api/logs").json()["games"] == []
+        assert client.post("/api/stats", json={}).json()["stat"] is None
+
+
+def test_settings_roundtrip(tmp_settings):
+    with TestClient(app) as client:
+        body = {"player_name": "雀士", "log_dir": str(tmp_settings / "logs2"), "default_length": "tonpuu", "think_min": 0.5, "think_max": 2}
+        r = client.put("/api/settings", json=body)
+        assert r.status_code == 200 and (tmp_settings / "logs2").is_dir()
+        assert storage.SETTINGS_FILE.exists() and "雀士" in storage.SETTINGS_FILE.read_text(encoding="utf-8")
+        assert client.put("/api/settings", json={**body, "think_min": 3, "think_max": 1}).status_code == 422

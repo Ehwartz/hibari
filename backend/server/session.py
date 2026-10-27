@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import random
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +57,8 @@ class GameSession:
         log_dir: Path = Path("data/games"),
     ):
         self.id = game_id
-        self.game = Game(rules, seed=seed, names=[player_name, *BOT_NAMES])
+        meta = {"started_at": datetime.now().isoformat(timespec="seconds"), "length": rules.length}
+        self.game = Game(rules, seed=seed, names=[player_name, *BOT_NAMES], meta=meta)
         self.bot_kind = bots
         self.hints = hints
         self.think = think  # bots' simulated thinking time range, seconds
