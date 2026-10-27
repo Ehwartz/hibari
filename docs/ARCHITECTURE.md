@@ -283,6 +283,14 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
 | `src/components/Overlays.tsx` | Action bar (with option picker), Mortal hint panel, round result, final standings |
 | `src/pages/Preview.tsx` | Backend-free preview: steps through `src/mock/game.json` |
 
+- Tsumogiri vs tedashi: during play the difference is shown **on the
+  discard action**, not on the river tile. For ~0.5 s the actor's hand is
+  drawn as it was before the discard; the leaving tile lifts out from its
+  slot with a 摸切 / 手切 tag. Tsumogiri uses the separate drawn tile;
+  tedashi uses the tile's position in the hand, or a stable pseudo-random
+  slot for hidden hands, since the real slot is not in the event stream.
+  In review the 摸切明暗 toggle darkens tsumogiri tiles in the rivers. Called
+  tiles stay in the river, translucent, and are shaded the same way.
 - Tiles: [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)
   SVG faces (CC0) in `public/tiles/`, drawn over a CSS tile body. Haku gets a
   drawn frame (blank in this set).

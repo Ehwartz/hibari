@@ -2,7 +2,15 @@ import type { Meld, RiverTile } from '../lib/table'
 import type { Tile as TileT } from '../lib/tiles'
 import { Tile } from './Tile'
 
-export function River({ river, w, lastIndex }: { river: RiverTile[]; w: number; lastIndex: number | null }) {
+interface RiverProps {
+  river: RiverTile[]
+  w: number
+  lastIndex: number | null
+  /** Review mode: tsumogiri tiles dark, tedashi tiles light. */
+  showTsumogiri?: boolean
+}
+
+export function River({ river, w, lastIndex, showTsumogiri }: RiverProps) {
   const rows: RiverTile[][] = []
   for (let i = 0; i < river.length; i += 6) rows.push(river.slice(i, i + 6))
   return (
@@ -12,11 +20,12 @@ export function River({ river, w, lastIndex }: { river: RiverTile[]; w: number; 
           {row.map((t, c) => {
             const i = r * 6 + c
             return (
-              <div key={i} className={`relative ${i === lastIndex ? 'last-discard' : ''}`}>
-                <Tile tile={t.pai} w={w} sideways={t.riichi} dim={t.called} />
-                {t.tsumogiri && !t.called && (
-                  <div className="pointer-events-none absolute right-[3px] bottom-[5px] h-1.5 w-1.5 rounded-full bg-sky-500/70" />
-                )}
+              <div
+                key={i}
+                className={`relative ${i === lastIndex ? 'last-discard' : ''} ${t.called ? 'opacity-45' : ''}`}
+                title={showTsumogiri ? (t.tsumogiri ? '摸切' : '手切') : undefined}
+              >
+                <Tile tile={t.pai} w={w} sideways={t.riichi} dim={showTsumogiri && t.tsumogiri} />
               </div>
             )
           })}
@@ -66,20 +75,40 @@ export function Melds({ melds, actor, w }: { melds: Meld[]; actor: number; w: nu
   )
 }
 
+/** The tile leaving the hand during a discard: a hand index, or the separate drawn tile. */
+export type Leaving = { from: number | 'drawn'; key: number }
+
 interface HandProps {
   hand: TileT[]
   drawn: TileT | null
   w: number
   hidden?: boolean
+  leaving?: Leaving | null
   /** Tiles that may be discarded now; undefined = not discarding. */
   discardable?: Set<TileT>
   hover?: TileT | null
   onDiscard?: (tile: TileT, fromDrawn: boolean) => void
 }
 
-export function Hand({ hand, drawn, w, hidden, discardable, hover, onDiscard }: HandProps) {
-  const tile = (t: TileT, key: string, fromDrawn: boolean) => {
+export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard }: HandProps) {
+  const tile = (t: TileT, key: string, fromDrawn: boolean, slot: number | 'drawn') => {
     const can = discardable?.has(t)
+    if (leaving && leaving.from === slot) {
+      const tsumogiri = slot === 'drawn'
+      return (
+        <div key={`${key}-${leaving.key}`} className="relative">
+          <div className={`discard-leave ${tsumogiri ? 'tsumogiri' : 'tedashi'}`}>
+            <Tile tile={t} w={w} back={hidden} />
+          </div>
+          <div
+            className={`discard-tag absolute left-1/2 rounded-full px-1.5 font-bold whitespace-nowrap text-white shadow ${tsumogiri ? 'bg-slate-500' : 'bg-amber-500'}`}
+            style={{ bottom: '100%', fontSize: Math.max(11, w * 0.3) }}
+          >
+            {tsumogiri ? '摸切' : '手切'}
+          </div>
+        </div>
+      )
+    }
     return (
       <Tile
         key={key}
@@ -94,8 +123,8 @@ export function Hand({ hand, drawn, w, hidden, discardable, hover, onDiscard }: 
   }
   return (
     <div className="flex items-end">
-      <div className="flex items-end gap-[2px]">{hand.map((t, i) => tile(t, `h${i}`, false))}</div>
-      {drawn !== null && <div style={{ marginLeft: w * 0.35 }}>{tile(drawn, 'drawn', true)}</div>}
+      <div className="flex items-end gap-[2px]">{hand.map((t, i) => tile(t, `h${i}`, false, i))}</div>
+      {drawn !== null && <div style={{ marginLeft: w * 0.35 }}>{tile(drawn, 'drawn', true, 'drawn')}</div>}
     </div>
   )
 }

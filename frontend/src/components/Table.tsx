@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
-import type { TableState } from '../lib/table'
+import { type ReactNode, useEffect, useState } from 'react'
+import type { SeatView, TableState } from '../lib/table'
 import { SEAT_WIND, type Tile as TileT, WIND_NAME } from '../lib/tiles'
 import { Tile } from './Tile'
-import { Hand, Melds, River } from './TableParts'
+import { Hand, type Leaving, Melds, River } from './TableParts'
 
 export const STAGE_W = 1280
 export const STAGE_H = 880
@@ -14,6 +14,24 @@ const OPP_W = 30
 const OPP_MELD_W = 27
 const OWN_W = 58
 const OWN_MELD_W = 42
+const DISCARD_MS = 520
+
+/** A discard that just happened, animated from the actor's hand as it was before it. */
+export interface DiscardFx {
+  key: number // changes per discard event
+  actor: number
+  pai: TileT
+  tsumogiri: boolean
+  prev: SeatView // the actor's seat before the discard
+}
+
+function leavingSlot(fx: DiscardFx): Leaving {
+  const { hand, drawn } = fx.prev
+  if (fx.tsumogiri && drawn !== null) return { from: 'drawn', key: fx.key }
+  const i = hand.indexOf(fx.pai)
+  // Hidden hand: the real slot is unknown, pick a stable pseudo-random one.
+  return { from: i >= 0 ? i : (fx.key * 7) % Math.max(1, hand.length), key: fx.key }
+}
 
 interface Props {
   table: TableState
@@ -23,6 +41,9 @@ interface Props {
   discardable?: Set<TileT>
   hover?: TileT | null
   onDiscard?: (tile: TileT, fromDrawn: boolean) => void
+  /** Review mode: show tsumogiri (dark) vs tedashi (light) in the rivers. */
+  showTsumogiri?: boolean
+  discardFx?: DiscardFx | null
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
 }
 
@@ -103,7 +124,21 @@ function DoraPanel({ table }: { table: TableState }) {
   )
 }
 
-export function Table({ table, me, openHands, discardable, hover, onDiscard, children }: Props) {
+export function Table({ table, me, openHands, discardable, hover, onDiscard, showTsumogiri, discardFx, children }: Props) {
+  const [fx, setFx] = useState<DiscardFx | null>(null)
+  useEffect(() => {
+    setFx(discardFx ?? null)
+    if (!discardFx) return
+    const t = setTimeout(() => setFx(null), DISCARD_MS)
+    return () => clearTimeout(t)
+  }, [discardFx?.key])
+
+  // While a discard animates, the actor's hand is drawn as it was before it.
+  const handOf = (seat: number) => {
+    if (fx && fx.actor === seat) return { hand: fx.prev.hand, drawn: fx.prev.drawn, leaving: leavingSlot(fx) }
+    return { hand: table.seats[seat].hand, drawn: table.seats[seat].drawn, leaving: null }
+  }
+
   return (
     <div className="felt relative overflow-hidden rounded-[28px]" style={{ width: STAGE_W, height: STAGE_H }}>
       <DoraPanel table={table} />
@@ -116,11 +151,11 @@ export function Table({ table, me, openHands, discardable, hover, onDiscard, chi
         return (
           <Rotated key={seat} r={r}>
             <div className="absolute" style={{ left: -108, top: 116 }}>
-              <River river={s.river} w={RIVER_W} lastIndex={last} />
+              <River river={s.river} w={RIVER_W} lastIndex={last} showTsumogiri={showTsumogiri} />
             </div>
             {r !== 0 && (
               <div className="absolute flex items-end gap-4" style={{ left: 0, top: 326, transform: 'translateX(-50%)' }}>
-                <Hand hand={s.hand} drawn={s.drawn} w={OPP_W} hidden={!openHands} />
+                <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
               </div>
             )}
@@ -147,8 +182,7 @@ export function Table({ table, me, openHands, discardable, hover, onDiscard, chi
       {/* own hand: not rotated, larger tiles */}
       <div className="absolute flex items-end gap-6" style={{ left: CX, top: CY + 330, transform: 'translateX(-50%)' }}>
         <Hand
-          hand={table.seats[me].hand}
-          drawn={table.seats[me].drawn}
+          {...handOf(me)}
           w={OWN_W}
           discardable={discardable}
           hover={hover}

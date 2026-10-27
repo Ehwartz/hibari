@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ActionBar, EndModal, HintPanel, ResultModal } from '../components/Overlays'
-import { STAGE_H, STAGE_W, Table } from '../components/Table'
+import { type DiscardFx, STAGE_H, STAGE_W, Table } from '../components/Table'
 import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { tileName } from '../lib/tiles'
@@ -89,6 +89,7 @@ export function Preview() {
   })
   const [openHands, setOpenHands] = useState(false)
   const [showHints, setShowHints] = useState(true)
+  const [showTsumogiri, setShowTsumogiri] = useState(() => new URLSearchParams(location.search).has('review'))
   const [playing, setPlaying] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const scale = useStageScale(56)
@@ -96,7 +97,13 @@ export function Preview() {
   const last = frames.length - 1
   const go = (i: number) => setIndex(Math.max(0, Math.min(last, i)))
   const frame = frames[index]
-  const table = (openHands ? open : masked)[index]
+  const view = openHands ? open : masked
+  const table = view[index]
+  const ev = frame.event
+  const discardFx: DiscardFx | null =
+    ev.type === 'dahai' && index > 0
+      ? { key: index, actor: ev.actor, pai: ev.pai, tsumogiri: ev.tsumogiri, prev: view[index - 1].seats[ev.actor] }
+      : null
   const names = (mock as { names: string[] }).names
 
   const findFrom = (from: number, step: number, pred: (f: Frame) => boolean) => {
@@ -108,7 +115,7 @@ export function Preview() {
 
   useEffect(() => {
     if (!playing) return
-    const t = setTimeout(() => (index < last ? go(index + 1) : setPlaying(false)), 350)
+    const t = setTimeout(() => (index < last ? go(index + 1) : setPlaying(false)), 600)
     return () => clearTimeout(t)
   })
   useEffect(() => {
@@ -165,6 +172,9 @@ export function Preview() {
         <label className="flex items-center gap-1.5 text-[13px]">
           <input type="checkbox" checked={openHands} onChange={(e) => setOpenHands(e.target.checked)} /> 明牌
         </label>
+        <label className="ml-3 flex items-center gap-1.5 text-[13px]" title="复盘用：牌河里摸切的牌变暗，手切的牌保持明亮">
+          <input type="checkbox" checked={showTsumogiri} onChange={(e) => setShowTsumogiri(e.target.checked)} /> 摸切明暗
+        </label>
         <label className="ml-3 flex items-center gap-1.5 text-[13px]">
           <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} /> AI 提示
         </label>
@@ -179,6 +189,8 @@ export function Preview() {
               openHands={openHands}
               discardable={discardable}
               hover={topHint}
+              showTsumogiri={showTsumogiri}
+              discardFx={discardFx}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
               {showHints && <HintPanel hints={frame.hint ?? null} chosen={chosenText} />}

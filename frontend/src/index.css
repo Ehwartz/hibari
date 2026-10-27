@@ -33,6 +33,45 @@ body {
   box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.45), 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
+/* discard action: the tile lifts out of the hand and fades; tsumogiri = grey glow, tedashi = amber */
+.discard-leave {
+  animation: discard-leave 520ms ease-in forwards;
+  border-radius: 12%;
+}
+.discard-leave.tedashi {
+  filter: drop-shadow(0 0 6px #fbbf24);
+}
+.discard-leave.tsumogiri {
+  filter: drop-shadow(0 0 6px #94a3b8);
+}
+@keyframes discard-leave {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  35% {
+    transform: translateY(-35%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-70%);
+    opacity: 0;
+  }
+}
+.discard-tag {
+  transform: translate(-50%, -4px);
+  animation: discard-tag 900ms ease-out forwards;
+}
+@keyframes discard-tag {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .last-discard::after {
   content: "";
   position: absolute;
