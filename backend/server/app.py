@@ -22,6 +22,8 @@ class NewGame(BaseModel):
     seed: int | None = None
     hints: bool = True
     player_name: str = "You"
+    # bots' simulated thinking time per decision, [min, max] seconds
+    think: tuple[float, float] = (2.0, 8.0)
     # "simple" swaps Mortal for the rule-based fuzzing agent (tests, quick UI checks)
     bots: Literal["mortal", "simple"] = "mortal"
 
@@ -36,6 +38,7 @@ async def create_game(req: NewGame) -> dict:
         bots=req.bots,
         hints=req.hints,
         player_name=req.player_name,
+        think=req.think,
     )
     sessions[game_id] = session
     session.start()

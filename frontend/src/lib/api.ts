@@ -9,13 +9,21 @@ export interface NewGameOptions {
   length: 'hanchan' | 'tonpuu'
   seed?: number
   playerName?: string
+  /** Bots' thinking time per decision, [min, max] seconds. */
+  think?: [number, number]
 }
 
 export async function createGame(opts: NewGameOptions): Promise<string> {
   const res = await fetch('/api/games', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ length: opts.length, seed: opts.seed, player_name: opts.playerName || 'You', hints: true }),
+    body: JSON.stringify({
+      length: opts.length,
+      seed: opts.seed,
+      player_name: opts.playerName || 'You',
+      hints: true,
+      think: opts.think ?? [2, 8],
+    }),
   })
   if (!res.ok) throw new Error(`创建对局失败：HTTP ${res.status}`)
   return (await res.json()).game_id

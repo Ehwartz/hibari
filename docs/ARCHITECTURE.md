@@ -263,7 +263,10 @@ class Agent(Protocol):
   shadow Mortal in the human's seat for hints, run in `asyncio.to_thread`.
   When the human may act, the message carries `actions` (from
   `legal_actions`) and `hint`; the reply must be one of those actions,
-  anything else gets a non-fatal `error`. Every message is kept in
+  anything else gets a non-fatal `error`. Bots get a simulated thinking time
+  (`think`, default uniform 2–8 s, chosen on the home page) before their
+  decisions take effect. Passing on a call is instant, so a pause never
+  reveals a possible call; a forced tsumogiri after riichi takes 0.3–1 s. Every message is kept in
   `history`; a (re)connecting client gets all of it again with
   `replay: true`, except the still-pending decision. The full log is saved
   to `data/games/{id}.json.gz` at the end. Sessions live in memory only, so

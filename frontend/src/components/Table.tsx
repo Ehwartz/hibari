@@ -159,23 +159,16 @@ export function Table({ table, me, openHands, discardable, hover, onDiscard, sho
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
               </div>
             )}
+            {r !== 0 && (
+              // behind the hand, facing the same way as that player's tiles
+              <div
+                className="absolute -translate-x-1/2 rounded-full bg-black/30 px-2.5 py-0.5 text-[13px] whitespace-nowrap text-white/80"
+                style={{ left: 0, top: 388 }}
+              >
+                {table.names[seat]}
+              </div>
+            )}
           </Rotated>
-        )
-      })}
-
-      {/* opponent names, kept upright */}
-      {[0, 1, 2, 3].map((seat) => {
-        const r = rel(seat, me)
-        if (r === 0) return null
-        const pos = [null, { left: CX + 330, top: CY + 236 }, { left: CX, top: CY - 300 }, { left: CX - 330, top: CY - 262 }][r]!
-        return (
-          <div
-            key={seat}
-            className="absolute -translate-x-1/2 rounded-full bg-black/30 px-2.5 py-0.5 text-[13px] whitespace-nowrap text-white/80"
-            style={pos}
-          >
-            {table.names[seat]}
-          </div>
         )
       })}
 

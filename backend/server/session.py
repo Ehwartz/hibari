@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,7 @@ log = logging.getLogger(__name__)
 
 HUMAN = 0
 BOT_NAMES = ["Mortal-A", "Mortal-B", "Mortal-C"]
+FORCED_THINK = (0.3, 1.0)  # forced tsumogiri after riichi
 
 
 def _key(action: dict) -> str:
@@ -50,12 +52,15 @@ class GameSession:
         bots: str = "mortal",
         hints: bool = True,
         player_name: str = "You",
+        think: tuple[float, float] = (2.0, 8.0),
         log_dir: Path = Path("data/games"),
     ):
         self.id = game_id
         self.game = Game(rules, seed=seed, names=[player_name, *BOT_NAMES])
         self.bot_kind = bots
         self.hints = hints
+        self.think = think  # bots' simulated thinking time range, seconds
+        self.rng = random.Random()
         self.log_dir = log_dir
         self.history: list[dict] = []
         self.pending: dict | None = None  # the message awaiting the human's action
@@ -134,6 +139,7 @@ class GameSession:
                     self.pending = None
                 else:
                     await self._send(msg)
+                    await asyncio.sleep(self._think_time(actions))
 
                 try:
                     prompt = gen.send(actions)
@@ -146,6 +152,23 @@ class GameSession:
         except Exception as ex:
             log.exception("game %s crashed", self.id)
             await self._send({"type": "error", "message": f"{type(ex).__name__}: {ex}", "fatal": True})
+
+    def _think_time(self, actions: dict[int, Any]) -> float:
+        """Simulated thinking before the bots' decisions take effect.
+
+        Only real decisions take time: a bot passing on a call is instant, or
+        its pause would reveal that it could have called.
+        """
+        lo, hi = self.think
+        if hi <= 0:
+            return 0.0
+        t = 0.0
+        for seat, action in actions.items():
+            if not action or action.get("type") == "none":
+                continue
+            forced = action.get("type") == "dahai" and self.game.state.seats[seat].riichi_accepted
+            t = max(t, self.rng.uniform(*FORCED_THINK) if forced else self.rng.uniform(lo, hi))
+        return t
 
     async def _wait_human(self, legal: list[dict]) -> dict:
         allowed = {_key(a): a for a in legal}
