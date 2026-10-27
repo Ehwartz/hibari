@@ -34,7 +34,8 @@ export interface Settings {
   default_length: 'hanchan' | 'tonpuu'
   think_min: number
   think_max: number
-  bot_temps: number[] // Mortal-A/B/C sampling temperature
+  bot_temps: number[] // the three bots' sampling temperature
+  bot_names: string[] // the three bots' display names
   felt: string
   background: string
   assets: Record<string, number> // uploaded asset -> version

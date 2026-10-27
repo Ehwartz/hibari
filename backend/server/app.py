@@ -35,8 +35,9 @@ class NewGame(BaseModel):
     player_name: str | None = None
     # bots' simulated thinking time per decision, [min, max] seconds
     think: tuple[float, float] | None = None
-    # sampling temperature of Mortal-A/B/C
+    # sampling temperature / display name of the three bots
     bot_temps: tuple[float, float, float] | None = None
+    bot_names: tuple[str, str, str] | None = None
     # the human's seat (0 = first dealer); random when unset
     seat: int | None = Field(default=None, ge=0, le=3)
     # "simple" swaps Mortal for the rule-based fuzzing agent (tests, quick UI checks)
@@ -61,6 +62,7 @@ async def create_game(req: NewGame) -> dict:
         player_name=req.player_name or settings.player_name,
         think=req.think or (settings.think_min, settings.think_max),
         bot_temps=req.bot_temps or tuple(settings.bot_temps),
+        bot_names=req.bot_names or tuple(settings.bot_names),
         human_seat=req.seat,
         log_dir=settings.log_path,
     )
@@ -105,6 +107,7 @@ class SettingsIn(BaseModel):
     think_min: float = Field(ge=0, le=30)
     think_max: float = Field(ge=0, le=30)
     bot_temps: list[float] = Field(default=[0.0, 0.0, 0.0], min_length=3, max_length=3)
+    bot_names: list[str] = Field(default=["Mortal-A", "Mortal-B", "Mortal-C"], min_length=3, max_length=3)
     felt: str = Field(default="green", max_length=32)
     background: str = Field(default="dark", max_length=32)
 
@@ -124,6 +127,9 @@ async def put_settings(body: SettingsIn) -> dict:
         raise HTTPException(422, "think_max < think_min")
     if not all(0 <= t <= 2 for t in body.bot_temps):
         raise HTTPException(422, "bot temperature must be within 0..2")
+    body.bot_names = [n.strip() for n in body.bot_names]
+    if not all(1 <= len(n) <= 16 for n in body.bot_names):
+        raise HTTPException(422, "bot names must be 1-16 characters")
     # uploaded assets are managed by /api/assets; keep them
     s = storage.Settings(**body.model_dump(), assets=storage.load_settings().assets)
     try:

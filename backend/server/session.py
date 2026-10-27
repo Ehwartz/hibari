@@ -35,7 +35,7 @@ from backend.engine.rules import Rules
 log = logging.getLogger(__name__)
 
 BOT_IDS = ["ai1", "ai2", "ai3"]
-BOT_NAMES = {"ai1": "Mortal-A", "ai2": "Mortal-B", "ai3": "Mortal-C"}
+DEFAULT_BOT_NAMES = ("Mortal-A", "Mortal-B", "Mortal-C")
 FORCED_THINK = (0.3, 1.0)  # forced tsumogiri after riichi
 
 
@@ -55,6 +55,7 @@ class GameSession:
         player_name: str = "You",
         think: tuple[float, float] = (1.0, 3.0),
         bot_temps: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        bot_names: tuple[str, str, str] = DEFAULT_BOT_NAMES,
         human_seat: int | None = None,
         log_dir: Path = Path("data/games"),
     ):
@@ -67,13 +68,14 @@ class GameSession:
         self.rng.shuffle(bots)
         self.players = ["human" if s == self.human else bots.pop() for s in range(4)]
         self.bot_temps = dict(zip(BOT_IDS, bot_temps))
-        names = [player_name if p == "human" else BOT_NAMES[p] for p in self.players]
+        bot_name = dict(zip(BOT_IDS, bot_names))
+        names = [player_name if p == "human" else bot_name[p] for p in self.players]
         meta = {
             "started_at": datetime.now().isoformat(timespec="seconds"),
             "length": rules.length,
             "human": self.human,
             "players": self.players,
-            "temperatures": {BOT_NAMES[b]: t for b, t in self.bot_temps.items()},
+            "temperatures": {bot_name[b]: t for b, t in self.bot_temps.items()},
         }
         self.game = Game(rules, seed=seed, names=names, meta=meta)
         self.bot_kind = bots

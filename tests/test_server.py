@@ -128,6 +128,9 @@ def test_settings_roundtrip(tmp_settings):
         assert r.status_code == 200 and (tmp_settings / "logs2").is_dir()
         assert storage.SETTINGS_FILE.exists() and "雀士" in storage.SETTINGS_FILE.read_text(encoding="utf-8")
         assert client.put("/api/settings", json={**body, "think_min": 3, "think_max": 1}).status_code == 422
+        named = client.put("/api/settings", json={**body, "bot_names": [" 小A ", "B", "C"]})
+        assert named.status_code == 200 and named.json()["bot_names"] == ["小A", "B", "C"]
+        assert client.put("/api/settings", json={**body, "bot_names": ["", "B", "C"]}).status_code == 422
 
 
 def test_assets_upload_get_delete(tmp_settings, monkeypatch):
@@ -164,10 +167,12 @@ def test_random_seat_and_bot_assignment():
 
     seats = set()
     for i in range(40):
-        sess = GameSession(f"t{i}", Rules(), bot_temps=(0.0, 0.3, 1.0))
+        sess = GameSession(f"t{i}", Rules(), bot_temps=(0.0, 0.3, 1.0), bot_names=("东", "南", "西"))
         seats.add(sess.human)
         assert sorted(sess.players) == ["ai1", "ai2", "ai3", "human"]
         assert sess.players[sess.human] == "human"
         assert sess.game.names[sess.human] == "You"
+        named = {p: sess.game.names[s] for s, p in enumerate(sess.players)}
+        assert (named["ai1"], named["ai2"], named["ai3"]) == ("东", "南", "西")
     assert seats == {0, 1, 2, 3}
     assert sess.bot_temps == {"ai1": 0.0, "ai2": 0.3, "ai3": 1.0}

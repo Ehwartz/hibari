@@ -36,6 +36,7 @@ class Settings:
     think_max: float = 3.0
     # sampling temperature of Mortal-A/B/C (0 = always the top action)
     bot_temps: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
+    bot_names: list[str] = field(default_factory=lambda: ["Mortal-A", "Mortal-B", "Mortal-C"])
     felt: str = "green"  # table cloth preset, or "custom" (uploaded image)
     background: str = "dark"  # page background preset, or "custom"
     # uploaded asset name -> version (unix ms), for cache busting; managed by save_asset

@@ -171,6 +171,8 @@ export function SaveRow({ onSave, saved }: { onSave: () => void; saved: boolean 
   )
 }
 
+const DEFAULT_BOT_NAMES = ['Mortal-A', 'Mortal-B', 'Mortal-C']
+
 function tempLabel(t: number) {
   if (t === 0) return '严格'
   if (t <= 0.15) return '接近严格'
@@ -246,6 +248,7 @@ export function SettingsPage() {
 
       <Card className="mt-5 max-w-[640px]">
         <div className="text-[15px] font-semibold">AI 对手</div>
+        <div className="mt-1 text-[12px] text-white/45">名字、头像和温度都可以分别设置；名字从下一局开始生效。</div>
         <div className="mt-1 text-[12px] text-white/45">
           温度控制出牌的随机度：0 时总是选 Mortal 认为最好的动作；调高后按概率抽选，越高越随机。设为 0.3
           时，正好按「Mortal 推荐」面板上显示的概率来选。座位每局随机分配。
@@ -253,20 +256,32 @@ export function SettingsPage() {
         <div className="mt-4 flex flex-col gap-4">
           {(['avatar_ai1', 'avatar_ai2', 'avatar_ai3'] as const).map((a, i) => {
             const t = settings.bot_temps?.[i] ?? 0
+            const name = settings.bot_names?.[i] ?? DEFAULT_BOT_NAMES[i]
             return (
               <div key={a} className="flex items-center gap-6">
-                <div className="w-[230px]">
+                <div className="w-[190px]">
                   <AvatarPicker
                     settings={settings}
                     asset={a}
-                    name={`Mortal-${'ABC'[i]}`}
-                    label={`Mortal-${'ABC'[i]}`}
+                    name={name || DEFAULT_BOT_NAMES[i]}
+                    label={<span className="text-white/70">头像</span>}
                     size={52}
                     onUpload={upload}
                   />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-baseline justify-between text-[13px]">
+                  <input
+                    value={name}
+                    maxLength={16}
+                    placeholder={DEFAULT_BOT_NAMES[i]}
+                    onChange={(e) => {
+                      const names = [...(settings.bot_names ?? DEFAULT_BOT_NAMES)]
+                      names[i] = e.target.value
+                      set('bot_names', names)
+                    }}
+                    className={`${inputCls} mt-0 py-1.5`}
+                  />
+                  <div className="mt-2 flex items-baseline justify-between text-[13px]">
                     <span className="text-white/70">温度</span>
                     <span>
                       <span className="font-mono tabular-nums">{t.toFixed(2)}</span>
@@ -328,7 +343,16 @@ export function SettingsPage() {
             <ErrorBox message={error} />
           </div>
         )}
-        <SaveRow onSave={() => save(settings)} saved={saved} />
+        <SaveRow
+          onSave={() =>
+            save({
+              ...settings,
+              // an emptied name falls back to the default
+              bot_names: (settings.bot_names ?? DEFAULT_BOT_NAMES).map((n, i) => n.trim() || DEFAULT_BOT_NAMES[i]),
+            })
+          }
+          saved={saved}
+        />
       </Card>
     </Shell>
   )
