@@ -9,8 +9,6 @@ export interface NewGameOptions {
   length: 'hanchan' | 'tonpuu'
   seed?: number
   playerName?: string
-  /** Bots' thinking time per decision, [min, max] seconds. */
-  think?: [number, number]
 }
 
 export async function createGame(opts: NewGameOptions): Promise<string> {
@@ -22,7 +20,6 @@ export async function createGame(opts: NewGameOptions): Promise<string> {
       seed: opts.seed,
       player_name: opts.playerName || 'You',
       hints: true,
-      think: opts.think ?? [2, 8],
     }),
   })
   if (!res.ok) throw new Error(`创建对局失败：HTTP ${res.status}`)

@@ -264,7 +264,7 @@ class Agent(Protocol):
   When the human may act, the message carries `actions` (from
   `legal_actions`) and `hint`; the reply must be one of those actions,
   anything else gets a non-fatal `error`. Bots get a simulated thinking time
-  (`think`, default uniform 2–8 s, chosen on the home page) before their
+  (`think`, default uniform 1–3 s) before their
   decisions take effect. Passing on a call is instant, so a pause never
   reveals a possible call; a forced tsumogiri after riichi takes 0.3–1 s. Every message is kept in
   `history`; a (re)connecting client gets all of it again with
@@ -275,7 +275,8 @@ class Agent(Protocol):
   per-event delays (discard animation, opponent draws, calls). It stops at
   decisions and at round results until the player acts, and skips delays
   for `replay` messages. After an accepted riichi, a forced tsumogiri is
-  played automatically.
+  played automatically. Right click passes on a call, or tsumogiris on your
+  own turn (which also skips riichi). It does nothing when a win is offered.
 
 ### Server → client contract (M2)
 
@@ -372,6 +373,10 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
   2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
   deposits to the first winner only). Logs carry extra fields (han / fu /
   yaku, ryukyoku reason) — libriichi tolerates them.
+- 2026-10-27 — Desktop: Chrome `--app` launcher for now (local WebView2
+  is v98, too old for Tailwind 4). Electron stays the option for
+  distribution (M6). The backend serves `frontend/dist`, so the app needs a
+  single process.
 - 2026-10-27 — M2: FastAPI + WebSocket. The client rebuilds state from
   masked mjai events and the server sends concrete legal actions, so the
   client holds no rules logic. Pacing happens on the client; reconnects
@@ -403,7 +408,14 @@ npm install
 npm run dev          # http://localhost:5173  (#/preview: UI preview; ?frame=N jumps to a frame)
 ```
 
-Play: double-click `dev.cmd` (or run it from any shell). It opens two
+**App**: double-click `start.cmd`. `scripts/launch.py` rebuilds
+`frontend/dist` if the sources changed and starts the backend on a free port
+(it also serves the built UI, one process). It then opens Chrome in `--app`
+mode with its own profile (`data/chrome-app`): a separate window with no
+address bar. Closing the window stops the backend. Logs are in
+`data/launcher.log` and `data/server.log`.
+
+**Development**: double-click `dev.cmd` (or run it from any shell). It opens two
 windows, backend on :8000 and frontend on :5173 (which proxies `/api`), and
 then the browser. By hand, in two terminals (Windows PowerShell 5.1 has no
 `&&`):

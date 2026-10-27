@@ -1,16 +1,8 @@
 import { useState } from 'react'
 import { createGame } from '../lib/api'
 
-const THINK_PRESETS: { label: string; value: [number, number] }[] = [
-  { label: '无', value: [0, 0] },
-  { label: '0.5–2 秒', value: [0.5, 2] },
-  { label: '2–8 秒', value: [2, 8] },
-  { label: '0–10 秒', value: [0, 10] },
-]
-
 export function Home() {
   const [length, setLength] = useState<'hanchan' | 'tonpuu'>('hanchan')
-  const [think, setThink] = useState(2)
   const [name, setName] = useState('You')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,7 +11,7 @@ export function Home() {
     setBusy(true)
     setError(null)
     try {
-      const id = await createGame({ length, playerName: name.trim(), think: THINK_PRESETS[think].value })
+      const id = await createGame({ length, playerName: name.trim() })
       location.hash = `#/play/${id}`
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -47,19 +39,6 @@ export function Home() {
         <div className="mt-2 flex gap-3">
           {choice('hanchan', '半庄', '东风场 + 南风场')}
           {choice('tonpuu', '东风', '只打东风场')}
-        </div>
-
-        <div className="mt-5 text-[13px] text-white/70">AI 思考时间（每次行动随机）</div>
-        <div className="mt-2 flex gap-2">
-          {THINK_PRESETS.map((p, i) => (
-            <button
-              key={p.label}
-              onClick={() => setThink(i)}
-              className={`flex-1 rounded-lg py-1.5 text-[13px] ring-1 transition ${think === i ? 'bg-emerald-500/20 ring-emerald-400' : 'bg-white/5 ring-white/10 hover:bg-white/10'}`}
-            >
-              {p.label}
-            </button>
-          ))}
         </div>
 
         <label className="mt-5 block text-[13px] text-white/70">

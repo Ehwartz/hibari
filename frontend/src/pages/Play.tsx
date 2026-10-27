@@ -187,13 +187,22 @@ export function Play({ gameId }: { gameId: string }) {
     if (a) act(a)
   }
 
+  // Right click = the "default" move: pass on a call, or tsumogiri (which also skips riichi).
+  // Never when a win is on offer, so a stray right click can't throw it away.
+  const onRightClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!pending || actions.some((a) => a.type === 'hora')) return
+    const pass = actions.find((a) => a.type === 'none') ?? discards.find((a) => a.tsumogiri)
+    if (pass) act(pass)
+  }
+
   const toggleHints = (v: boolean) => {
     setShowHints(v)
     localStorageSet('hints', v ? '1' : '0')
   }
 
   return (
-    <div className="flex h-full flex-col items-center">
+    <div className="flex h-full flex-col items-center" onContextMenu={onRightClick}>
       <div className="flex h-12 w-full shrink-0 items-center gap-3 border-b border-white/10 bg-black/40 px-4 text-[13px] text-white">
         <a href="#/" className="text-white/60 hover:text-white">← 返回</a>
         <span className="font-bold tracking-wide">对局</span>
@@ -204,7 +213,8 @@ export function Play({ gameId }: { gameId: string }) {
           {status === 'live' ? '已连接' : status === 'connecting' ? '连接中…' : '重连中…'}
         </span>
         <span className="flex-1" />
-        <label className="flex items-center gap-1.5">
+        <span className="text-white/40">右键：摸切 / 跳过</span>
+        <label className="ml-3 flex items-center gap-1.5">
           <input type="checkbox" checked={showHints} onChange={(e) => toggleHints(e.target.checked)} /> AI 提示
         </label>
       </div>

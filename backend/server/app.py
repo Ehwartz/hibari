@@ -1,13 +1,18 @@
 """FastAPI app: create games and play them over WebSocket.
 
     uv run uvicorn backend.server.app:app --port 8000
+
+If ``frontend/dist`` exists (``npm run build``), the built UI is served at
+``/`` as well, so a single process is enough (used by ``scripts/launch.py``).
 """
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.engine.rules import Rules
@@ -23,9 +28,14 @@ class NewGame(BaseModel):
     hints: bool = True
     player_name: str = "You"
     # bots' simulated thinking time per decision, [min, max] seconds
-    think: tuple[float, float] = (2.0, 8.0)
+    think: tuple[float, float] = (1.0, 3.0)
     # "simple" swaps Mortal for the rule-based fuzzing agent (tests, quick UI checks)
     bots: Literal["mortal", "simple"] = "mortal"
+
+
+@app.get("/api/health")
+async def health() -> dict:
+    return {"ok": True}
 
 
 @app.post("/api/games")
@@ -68,3 +78,8 @@ async def play(ws: WebSocket, game_id: str) -> None:
                 await session.submit(msg["action"])
     except WebSocketDisconnect:
         session.detach(ws)
+
+
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if FRONTEND_DIST.is_dir():  # mounted last so /api routes take precedence
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

@@ -52,7 +52,7 @@ class GameSession:
         bots: str = "mortal",
         hints: bool = True,
         player_name: str = "You",
-        think: tuple[float, float] = (2.0, 8.0),
+        think: tuple[float, float] = (1.0, 3.0),
         log_dir: Path = Path("data/games"),
     ):
         self.id = game_id
