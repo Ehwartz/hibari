@@ -9,9 +9,11 @@ interface RiverProps {
   lastIndex: number | null
   /** Review mode: tsumogiri tiles dark, tedashi tiles light. */
   showTsumogiri?: boolean
+  /** The newest discard is still leaving the hand: keep its place but don't show it yet. */
+  hideLast?: boolean
 }
 
-export function River({ river, w, lastIndex, showTsumogiri }: RiverProps) {
+export function River({ river, w, lastIndex, showTsumogiri, hideLast }: RiverProps) {
   const rows: RiverTile[][] = []
   for (let i = 0; i < river.length; i += 6) rows.push(river.slice(i, i + 6))
   return (
@@ -20,10 +22,12 @@ export function River({ river, w, lastIndex, showTsumogiri }: RiverProps) {
         <div key={r} className="flex items-end gap-px">
           {row.map((t, c) => {
             const i = r * 6 + c
+            const newest = i === river.length - 1
+            const hidden = newest && hideLast
             return (
               <div
                 key={i}
-                className={`relative ${i === lastIndex ? 'last-discard' : ''} ${t.called ? 'opacity-45' : ''}`}
+                className={`relative ${hidden ? 'opacity-0' : `${i === lastIndex ? 'last-discard' : ''} ${newest ? 'river-drop' : ''}`} ${t.called ? 'opacity-45' : ''}`}
                 title={showTsumogiri ? (t.tsumogiri ? '摸切' : '手切') : undefined}
               >
                 <Tile tile={t.pai} w={w} sideways={t.riichi} dim={showTsumogiri && t.tsumogiri} />

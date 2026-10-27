@@ -115,7 +115,10 @@ function HandAvatar({
 }
 
 // beside the hand row (you, top player) / behind the hand on the seat's axis (left, right)
-const BESIDE = { right: '100%', marginRight: 10, top: '50%', transform: 'translateY(-50%)' }
+// Hand rows are anchored at their bottom (outer) edge: a taller meld (stacked kakan, sideways
+// tiles) grows the row towards the centre instead of pushing the hand outwards.
+const tileH = (w: number) => Math.round((w * 4) / 3) + Math.max(2, Math.round(w / 14))
+const beside = (w: number) => ({ right: '100%', marginRight: 10, bottom: tileH(w) / 2, transform: 'translateY(50%)' })
 const behind = (size: number) => ({ left: -(size + 40) / 2, top: 372 })
 
 /** A big announcement next to a player: 吃 碰 杠 立直 荣 自摸. */
@@ -325,12 +328,21 @@ export function Table({
         return (
           <Rotated key={seat} r={r} raised={dangerOpen === seat}>
             <div className="absolute" style={{ left: -108, top: 116 }}>
-              <River river={s.river} w={RIVER_W} lastIndex={last} showTsumogiri={showTsumogiri} />
+              <River
+                river={s.river}
+                w={RIVER_W}
+                lastIndex={last}
+                showTsumogiri={showTsumogiri}
+                hideLast={fx?.actor === seat}
+              />
             </div>
             {r !== 0 && (
-              <div className="absolute flex items-end gap-4" style={{ left: 0, top: 326, transform: 'translateX(-50%)' }}>
+              <div
+                className="absolute flex items-end gap-4"
+                style={{ left: 0, top: 326 + tileH(OPP_W), transform: 'translate(-50%, -100%)' }}
+              >
                 {/* top player: beside the hand, mirroring yours */}
-                {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={BESIDE} danger={dangerFor(seat)} {...card(seat)} />}
+                {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={beside(OPP_W)} danger={dangerFor(seat)} {...card(seat)} />}
                 <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
               </div>
@@ -344,8 +356,11 @@ export function Table({
       })}
 
       {/* own hand: not rotated, larger tiles */}
-      <div className="absolute flex items-end gap-6" style={{ left: CX, top: CY + 330, transform: 'translateX(-50%)' }}>
-        <HandAvatar r={0} size={OWN_AVATAR} place={BESIDE} {...card(me)} />
+      <div
+        className="absolute flex items-end gap-6"
+        style={{ left: CX, top: CY + 330 + tileH(OWN_W), transform: 'translate(-50%, -100%)' }}
+      >
+        <HandAvatar r={0} size={OWN_AVATAR} place={beside(OWN_W)} {...card(me)} />
         <Hand
           {...handOf(me)}
           w={OWN_W}
