@@ -2,8 +2,9 @@
 // (src/mock/game.json, exported by scripts/export_mock.py) from seat 0's view.
 
 import { useEffect, useMemo, useState } from 'react'
+import { ScaledStage } from '../components/Stage'
 import { ActionBar, EndModal, HintPanel, ResultModal } from '../components/Overlays'
-import { type DiscardFx, STAGE_H, STAGE_W, Table } from '../components/Table'
+import { type DiscardFx, Table } from '../components/Table'
 import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { tileName } from '../lib/tiles'
@@ -69,17 +70,6 @@ function interestingFrame(states: TableState[]): number {
   return busy >= 0 ? busy : 0
 }
 
-function useStageScale(reserved: number) {
-  const calc = () => Math.min(window.innerWidth / (STAGE_W + 32), (window.innerHeight - reserved) / (STAGE_H + 24))
-  const [scale, setScale] = useState(calc)
-  useEffect(() => {
-    const onResize = () => setScale(calc())
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  })
-  return scale
-}
-
 export function Preview() {
   const masked = useMemo(() => buildStates(false), [])
   const open = useMemo(() => buildStates(true), [])
@@ -92,7 +82,6 @@ export function Preview() {
   const [showTsumogiri, setShowTsumogiri] = useState(() => new URLSearchParams(location.search).has('review'))
   const [playing, setPlaying] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-  const scale = useStageScale(56)
 
   const last = frames.length - 1
   const go = (i: number) => setIndex(Math.max(0, Math.min(last, i)))
@@ -150,6 +139,7 @@ export function Preview() {
   return (
     <div className="flex h-full flex-col items-center">
       <div className="flex h-14 w-full shrink-0 items-center gap-2 border-b border-white/10 bg-black/40 px-4 text-white">
+        <a href="#/" className="mr-1 text-white/60 hover:text-white">←</a>
         <span className="mr-3 font-bold tracking-wide">界面预览</span>
         <button className={btn} onClick={() => kyokuStart(-1)} title="上一局">⏮</button>
         <button className={btn} onClick={() => go(index - 1)} title="上一步 (←)">◀</button>
@@ -180,9 +170,7 @@ export function Preview() {
         </label>
       </div>
 
-      <div className="flex flex-1 items-center justify-center">
-        <div style={{ width: STAGE_W * scale, height: STAGE_H * scale }}>
-          <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+      <ScaledStage reserved={56}>
             <Table
               table={table}
               me={ME}
@@ -203,9 +191,7 @@ export function Preview() {
               {showResult && <ResultModal table={table} />}
               {t === 'end_game' && <EndModal table={table} uma={[20, 10, -10, -20]} />}
             </Table>
-          </div>
-        </div>
-      </div>
+      </ScaledStage>
     </div>
   )
 }

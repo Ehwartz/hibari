@@ -253,8 +253,26 @@ class Agent(Protocol):
   for engine fuzzing, no neural net.
 - `HumanAgent`: pushes the (masked) event + legal actions to the browser over
   WebSocket and awaits the reply.
-- Server: `POST /games` (create with rules), `WS /games/{id}` (play),
-  `GET /games`, `GET /games/{id}/log`, `GET /games/{id}/review`, `GET /stats`.
+- Server (`backend/server/`, M2):
+  - `POST /api/games` `{length, seed?, player_name?, hints?}` → `{game_id, seed}`
+  - `GET /api/games/{id}` → `{finished, scores}`
+  - `WS /api/games/{id}/ws`, play (message format in `session.py`).
+  - Planned for later milestones: `GET /api/games` (list), `GET /api/games/{id}/log`,
+    `GET /api/games/{id}/review`, `GET /api/stats`.
+- `GameSession`: drives `Game.play()` in an asyncio task. Bots, plus a
+  shadow Mortal in the human's seat for hints, run in `asyncio.to_thread`.
+  When the human may act, the message carries `actions` (from
+  `legal_actions`) and `hint`; the reply must be one of those actions,
+  anything else gets a non-fatal `error`. Every message is kept in
+  `history`; a (re)connecting client gets all of it again with
+  `replay: true`, except the still-pending decision. The full log is saved
+  to `data/games/{id}.json.gz` at the end. Sessions live in memory only, so
+  a server restart loses running games.
+- Client pacing: the browser queues messages and plays them back with
+  per-event delays (discard animation, opponent draws, calls). It stops at
+  decisions and at round results until the player acts, and skips delays
+  for `replay` messages. After an accepted riichi, a forced tsumogiri is
+  played automatically.
 
 ### Server → client contract (M2)
 
@@ -331,7 +349,7 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
 |---|---|---|
 | M0 | Env: uv + Python 3.12 + CPU torch; load Mortal in-process; bot answers sample events; `PlayerState` works | ✅ done 2026-10-27 |
 | M1 | Engine: Mortal ×4 self-play finishes hanchan; `PlayerState` referee; 1000+ hanchan without errors | ✅ done 2026-10-27 |
-| M2 | Human vs 3 bots in the browser (WebSocket + React table) | UI preview done (mock data); server wiring next |
+| M2 | Human vs 3 bots in the browser (WebSocket + React table) | ✅ done 2026-10-27 |
 | M3 | Persist games, replay viewer | — |
 | M4 | Mortal review | — |
 | M5 | Stats dashboard, training features | — |
@@ -351,6 +369,11 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
   2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
   deposits to the first winner only). Logs carry extra fields (han / fu /
   yaku, ryukyoku reason) — libriichi tolerates them.
+- 2026-10-27 — M2: FastAPI + WebSocket. The client rebuilds state from
+  masked mjai events and the server sends concrete legal actions, so the
+  client holds no rules logic. Pacing happens on the client; reconnects
+  replay the session history. Hash routing (`#/`, `#/play/{id}`,
+  `#/preview`), no router library.
 - 2026-10-27 — Edge rules aligned with the arena / Tenhou: minkan dora no
   longer counts for rinshan kaihou; pao uses the whole hand value, and on a
   ron the liable player pays the honba.
@@ -374,5 +397,12 @@ odejs`):
 ```
 cd frontend
 npm install
-npm run dev          # http://localhost:5173  (UI preview; ?frame=N jumps to a frame)
+npm run dev          # http://localhost:5173  (#/preview: UI preview; ?frame=N jumps to a frame)
+```
+
+Play (two terminals):
+
+```
+python -m uv run uvicorn backend.server.app:app --port 8000   # backend
+cd frontend && npm run dev                                     # http://localhost:5173 (proxies /api)
 ```
