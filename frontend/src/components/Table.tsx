@@ -16,6 +16,30 @@ const OWN_W = 58
 const OWN_MELD_W = 42
 const DISCARD_MS = 520
 
+/** A big announcement next to a player: 吃 碰 杠 立直 荣 自摸. */
+export interface Callout {
+  key: number
+  seat: number
+  text: string
+  tone: 'call' | 'riichi' | 'win'
+}
+
+const CALLOUT_POS = [
+  { left: CX, top: CY + 250 },
+  { left: CX + 250, top: CY },
+  { left: CX, top: CY - 250 },
+  { left: CX - 250, top: CY },
+]
+
+/** The callout for an event, if it deserves one. */
+export function calloutFor(ev: { type: string; actor?: number; target?: number }, key: number): Callout | null {
+  const text: Record<string, string> = { chi: '吃', pon: '碰', daiminkan: '杠', ankan: '杠', kakan: '杠', reach: '立直' }
+  if (ev.actor === undefined) return null
+  if (ev.type === 'hora') return { key, seat: ev.actor, text: ev.actor === ev.target ? '自摸' : '荣', tone: 'win' }
+  if (!text[ev.type]) return null
+  return { key, seat: ev.actor, text: text[ev.type], tone: ev.type === 'reach' ? 'riichi' : 'call' }
+}
+
 /** A discard that just happened, animated from the actor's hand as it was before it. */
 export interface DiscardFx {
   key: number // changes per discard event
@@ -47,6 +71,7 @@ interface Props {
   /** Auto-sort the own hand (otherwise kept tiles stay at the right end). */
   sortHand?: boolean
   discardFx?: DiscardFx | null
+  callouts?: Callout[]
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
 }
 
@@ -137,6 +162,7 @@ export function Table({
   showTsumogiri,
   sortHand = true,
   discardFx,
+  callouts = [],
   children,
 }: Props) {
   const [fx, setFx] = useState<DiscardFx | null>(null)
@@ -201,6 +227,15 @@ export function Table({
         />
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} />
       </div>
+      {callouts.map((c) => (
+        <div
+          key={c.key}
+          className={`callout callout-${c.tone} pointer-events-none absolute z-10`}
+          style={CALLOUT_POS[rel(c.seat, me)]}
+        >
+          {c.text}
+        </div>
+      ))}
       {children}
     </div>
   )

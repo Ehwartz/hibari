@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActionBar, AutoPanel, type AutoSettings, DEFAULT_AUTO, EndModal, HintPanel, ResultModal } from '../components/Overlays'
 import { ScaledStage } from '../components/Stage'
-import { type DiscardFx, Table } from '../components/Table'
+import { type Callout, type DiscardFx, Table, calloutFor } from '../components/Table'
 import { type ServerMsg, wsUrl } from '../lib/api'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
@@ -21,15 +21,16 @@ const DELAY: Partial<Record<MjaiEvent['type'], number>> = {
   start_kyoku: 900,
   tsumo: 120,
   dahai: 520,
-  chi: 650,
-  pon: 650,
-  daiminkan: 650,
-  ankan: 650,
-  kakan: 650,
-  reach: 450,
+  // calls / riichi / wins get a callout and time to take it in
+  chi: 1100,
+  pon: 1100,
+  daiminkan: 1100,
+  ankan: 1100,
+  kakan: 1100,
+  reach: 1000,
   reach_accepted: 150,
   dora: 300,
-  hora: 400,
+  hora: 1400,
   ryukyoku: 400,
 }
 
@@ -38,6 +39,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 function usePlaySession(gameId: string) {
   const [table, setTable] = useState<TableState>(initialTable)
   const [fx, setFx] = useState<DiscardFx | null>(null)
+  const [callouts, setCallouts] = useState<Callout[]>([])
   const [pending, setPending] = useState<{ actions: Action[]; hint?: Hint[] } | null>(null)
   const [modal, setModal] = useState<'result' | 'end' | null>(null)
   const [status, setStatus] = useState<'connecting' | 'live' | 'reconnecting'>('connecting')
@@ -77,6 +79,11 @@ function usePlaySession(gameId: string) {
     const prev = s.table
     s.table = applyEvent(prev, ev)
     setTable(s.table)
+    const callout = m.replay ? null : calloutFor(ev, ++s.fxKey)
+    if (callout) {
+      setCallouts((cs) => [...cs, callout])
+      setTimeout(() => setCallouts((cs) => cs.filter((c) => c !== callout)), 1400)
+    }
     if (ev.type === 'dahai' && !m.replay) {
       const before = prev.seats[ev.actor]
       setFx({
@@ -163,11 +170,11 @@ function usePlaySession(gameId: string) {
   }
   const closeModal = () => resume()
 
-  return { table, fx, pending, modal, status, error, notice, setNotice, act, closeModal }
+  return { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal }
 }
 
 export function Play({ gameId }: { gameId: string }) {
-  const { table, fx, pending, modal, status, error, notice, setNotice, act, closeModal } = usePlaySession(gameId)
+  const { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal } = usePlaySession(gameId)
   const [showHints, setShowHints] = useState(() => localStorageGet('hints') !== '0')
   const [auto, setAuto] = useState<AutoSettings>(() => {
     try {
@@ -263,6 +270,7 @@ export function Play({ gameId }: { gameId: string }) {
           onDiscard={onDiscard}
           sortHand={auto.autoSort}
           discardFx={fx}
+          callouts={callouts}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
           {showHints && <HintPanel hints={hint} />}

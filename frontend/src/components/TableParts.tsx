@@ -115,7 +115,8 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
   return (
     <div className="flex items-end">
       <div className="flex items-end gap-[2px]">{hand.map((t, i) => tile(t, `h${i}`, false, i))}</div>
-      {drawn !== null && <div style={{ marginLeft: w * 0.35 }}>{tile(drawn, 'drawn', true, 'drawn')}</div>}
+      {/* the drawn slot always takes space, so the hand doesn't shift on draw / discard */}
+      <div style={{ marginLeft: w * 0.35, minWidth: w }}>{drawn !== null && tile(drawn, 'drawn', true, 'drawn')}</div>
     </div>
   )
 }

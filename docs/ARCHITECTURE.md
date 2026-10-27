@@ -291,6 +291,11 @@ class Agent(Protocol):
   is offered). A single legal discard, e.g. after riichi, is always played
   automatically. The client keeps hands in arrangement order; sorting is a
   display choice (`arrange`).
+- Calls, riichi and wins show a big callout (吃 碰 杠 立直 荣 自摸) on the
+  actor's side, with longer pauses (calls 1.1 s, riichi 1 s, win 1.4 s
+  before the result), so there is time to react.
+- The drawn-tile slot always takes space, so a hand doesn't shift on draw
+  or discard; only calls change its layout.
 - Opponents' hands are treated as unordered: a hand discard animates from a
   random slot, so the position carries no information. A sorted layout
   would leak the tile, which is the classic 手出し位置 read. Review shows

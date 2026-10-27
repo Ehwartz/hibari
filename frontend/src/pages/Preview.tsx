@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ScaledStage } from '../components/Stage'
 import { ActionBar, EndModal, HintPanel, ResultModal } from '../components/Overlays'
-import { type DiscardFx, Table } from '../components/Table'
+import { type DiscardFx, Table, calloutFor } from '../components/Table'
 import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { tileName } from '../lib/tiles'
@@ -179,6 +179,7 @@ export function Preview() {
               hover={topHint}
               showTsumogiri={showTsumogiri}
               discardFx={discardFx}
+              callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
               {showHints && <HintPanel hints={frame.hint ?? null} chosen={chosenText} />}
