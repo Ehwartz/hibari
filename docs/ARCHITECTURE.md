@@ -400,9 +400,12 @@ npm install
 npm run dev          # http://localhost:5173  (#/preview: UI preview; ?frame=N jumps to a frame)
 ```
 
-Play (two terminals):
+Play: double-click `dev.cmd` (or run it from any shell). It opens two
+windows, backend on :8000 and frontend on :5173 (which proxies `/api`), and
+then the browser. By hand, in two terminals (Windows PowerShell 5.1 has no
+`&&`):
 
 ```
-python -m uv run uvicorn backend.server.app:app --port 8000   # backend
-cd frontend && npm run dev                                     # http://localhost:5173 (proxies /api)
+python -m uv run uvicorn backend.server.app:app --port 8000
+cd frontend; npm run dev
 ```
