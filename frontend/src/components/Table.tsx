@@ -17,31 +17,34 @@ const OWN_W = 58
 const OWN_MELD_W = 42
 const DISCARD_MS = 520
 
-// Avatar cards, upright, at each player's left-hand side towards them (Mahjong Soul style):
-// you bottom-left, right player right-lower, top player top-right, left player left-upper.
+// Avatar cards, upright, one per corner: each player's left-hand corner as seen from their
+// seat (rotationally symmetric): you bottom-left, right player bottom-right, top player
+// top-right, left player top-left.
+const AVATAR = 80
+const CARD_W = AVATAR + 32
+const CARD_H = AVATAR + 40
+const EDGE = 18
 const CARD_POS = [
-  { left: 18, top: 692 },
-  { left: 1166, top: 540 },
-  { left: 1166, top: 14 },
-  { left: 18, top: 282 },
+  { left: EDGE, top: STAGE_H - EDGE - CARD_H },
+  { left: STAGE_W - EDGE - CARD_W, top: STAGE_H - EDGE - CARD_H },
+  { left: STAGE_W - EDGE - CARD_W, top: EDGE },
+  { left: EDGE, top: EDGE },
 ]
 
-function PlayerCard({ seat, r, name, avatar, active, oya }: {
-  seat: number
+function PlayerCard({ r, name, avatar, active, oya }: {
   r: number
   name: string
   avatar: string | null
   active: boolean
   oya: boolean
 }) {
-  const size = r === 0 ? 88 : 66
   return (
     <div
-      className={`absolute flex flex-col items-center rounded-xl border-2 bg-black/45 p-1.5 shadow-lg transition ${seat === 0 ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
-      style={{ ...CARD_POS[r], width: size + 16 }}
+      className={`absolute flex flex-col items-center justify-center rounded-xl border-2 bg-black/45 p-1.5 shadow-lg transition ${r === 0 ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
+      style={{ ...CARD_POS[r], width: CARD_W, height: CARD_H }}
     >
       <div className="relative">
-        <Avatar url={avatar} name={name || '?'} size={size} />
+        <Avatar url={avatar} name={name || '?'} size={AVATAR} />
         {oya && (
           <span className="absolute -top-1.5 -left-1.5 rounded bg-rose-600 px-1 text-[11px] font-bold text-white shadow">庄</span>
         )}
@@ -180,7 +183,7 @@ function CenterPanel({ table, me }: { table: TableState; me: number }) {
 function DoraPanel({ table }: { table: TableState }) {
   const markers = [...table.doraMarkers, ...Array(5 - table.doraMarkers.length).fill('?')]
   return (
-    <div className="absolute rounded-xl bg-black/35 px-3 py-2.5" style={{ left: 18, top: 18 }}>
+    <div className="absolute rounded-xl bg-black/35 px-3 py-2.5" style={{ left: 18, top: 156 }}>
       <div className="mb-1.5 text-[12px] text-white/60">宝牌指示牌</div>
       <div className="flex gap-[3px]">
         {markers.slice(0, 5).map((t, i) => (
@@ -270,7 +273,6 @@ export function Table({
       {[0, 1, 2, 3].map((seat) => (
         <PlayerCard
           key={seat}
-          seat={seat}
           r={rel(seat, me)}
           name={table.names[seat]}
           avatar={avatars[seat]}

@@ -429,10 +429,11 @@ source of truth**.
   (`backend.mortal.sampling_engine`). T = 0.3 matches the hint panel's
   probabilities. The hint shadow is always greedy. The wall was already
   random: a random seed per game and a fresh shuffle every kyoku.
-- 2026-10-27 — Avatars and appearance: avatar cards are upright at each
-  player's left-hand side (you bottom-left, right player right-lower, top
-  player top-right, left player left-upper). The hint panel moved down to
-  make room. Table cloth and background are presets or uploaded images.
+- 2026-10-27 — Avatars and appearance: one equal-size avatar card per
+  corner, each player's left-hand corner from their seat (rotationally
+  symmetric): you bottom-left, right player bottom-right, top player
+  top-right, left player top-left. Dora indicators sit under the top-left
+  card, the auto panel above yours, the hint panel under the top-right card. Table cloth and background are presets or uploaded images.
 - 2026-10-27 — M3: app shell with a left sidebar (主页 / 对局 / 牌谱 / 数据分析 / 设置 / 用户);
   主页 has quick start, headline stats and recent games. Logs are
   files in a configurable folder, with no database; stats come from

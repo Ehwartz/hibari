@@ -330,7 +330,7 @@ const AUTO_ITEMS: { key: keyof AutoSettings; label: string; title: string }[] = 
 
 export function AutoPanel({ value, onChange }: { value: AutoSettings; onChange: (v: AutoSettings) => void }) {
   return (
-    <div className="absolute flex w-[132px] flex-col gap-1.5 rounded-xl bg-black/35 p-2.5" style={{ left: 18, top: 116 }}>
+    <div className="absolute flex w-[132px] flex-col gap-1.5 rounded-xl bg-black/35 p-2.5" style={{ left: 18, top: 572 }}>
       {AUTO_ITEMS.map(({ key, label, title }) => {
         const on = value[key]
         return (
