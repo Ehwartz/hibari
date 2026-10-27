@@ -65,7 +65,11 @@ export interface TableState {
   ryukyoku: RyukyokuInfo | null
   finalScores: number[] | null
   started: boolean
+  human: number // the human's seat
+  players: string[] // per seat: 'human' | 'ai1' | 'ai2' | 'ai3'
 }
+
+export const DEFAULT_PLAYERS = ['human', 'ai1', 'ai2', 'ai3']
 
 const emptySeat = (): SeatView => ({
   hand: [], drawn: null, melds: [], river: [], riichi: false, riichiAccepted: false,
@@ -89,6 +93,8 @@ export function initialTable(names: string[] = ['', '', '', '']): TableState {
     ryukyoku: null,
     finalScores: null,
     started: false,
+    human: 0,
+    players: DEFAULT_PLAYERS,
   }
 }
 
@@ -120,7 +126,12 @@ function updateSeat(s: TableState, i: number, f: (seat: SeatView) => SeatView): 
 export function applyEvent(s: TableState, ev: MjaiEvent): TableState {
   switch (ev.type) {
     case 'start_game':
-      return { ...initialTable(ev.names), started: true }
+      return {
+        ...initialTable(ev.names),
+        started: true,
+        human: ev.human ?? ev.id ?? 0,
+        players: ev.players ?? DEFAULT_PLAYERS,
+      }
     case 'start_kyoku':
       return {
         ...s,

@@ -18,7 +18,7 @@ export function User() {
   const n = games?.length ?? 0
   const avgRank = n ? games!.reduce((a, g) => a + g.rank, 0) / n : null
   const first = n ? games![n - 1].started_at : null
-  const best = n ? Math.max(...games!.map((g) => g.scores[0])) : null
+  const best = n ? Math.max(...games!.map((g) => g.scores[g.human])) : null
 
   return (
     <Shell title="用户">

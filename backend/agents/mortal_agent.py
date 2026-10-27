@@ -6,9 +6,10 @@ from backend import mortal
 
 
 class MortalAgent:
-    def __init__(self, seat: int):
+    def __init__(self, seat: int, temperature: float = 0.0):
         self.seat = seat
-        self._bot = mortal.load_bot(seat)
+        self.temperature = temperature
+        self._bot = mortal.load_bot(seat, temperature)
 
     def react(self, event: dict) -> dict | None:
         if event["type"] == "start_game" and event["id"] != self.seat:

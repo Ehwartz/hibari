@@ -2,7 +2,7 @@
 // shared settings cache so every page sees the same (and fresh) settings.
 
 import { useEffect, useReducer } from 'react'
-import { type Settings, api, assetUrl } from './api'
+import { type AssetName, type Settings, api, assetUrl } from './api'
 
 export const FELTS: Record<string, { label: string; colors: [string, string] }> = {
   green: { label: '经典绿', colors: ['#2a6b4f', '#143a2b'] },
@@ -68,7 +68,7 @@ export function useAppSettings(): Settings | null {
   return current
 }
 
-/** Avatar URL per seat (0 = you, 1..3 = Mortal-A/B/C). */
-export function seatAvatars(s: Settings | null): (string | null)[] {
-  return [assetUrl(s, 'avatar_player'), assetUrl(s, 'avatar_ai1'), assetUrl(s, 'avatar_ai2'), assetUrl(s, 'avatar_ai3')]
+/** Avatar URL per seat, from who sits there ('human' | 'ai1' | 'ai2' | 'ai3'). */
+export function seatAvatars(s: Settings | null, players: string[]): (string | null)[] {
+  return players.map((p) => assetUrl(s, (p === 'human' ? 'avatar_player' : `avatar_${p}`) as AssetName))
 }

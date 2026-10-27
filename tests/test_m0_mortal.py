@@ -36,3 +36,17 @@ def test_player_state_tracks_hand():
     assert cans.can_discard and not cans.can_pon
     assert sum(ps.tehai) == 14
     assert ps.shanten >= 0
+
+
+def test_temperature_sampling_stays_legal_and_varies():
+    picks = set()
+    for _ in range(30):
+        agent = MortalAgent(0, temperature=2.0)
+        agent.react({"type": "start_game", "names": ["me", "a", "b", "c"], "id": 0})
+        agent.react(START_KYOKU)
+        action = agent.react({"type": "tsumo", "actor": 0, "pai": "3s"})
+        assert action["type"] == "dahai"
+        hand = START_KYOKU["tehais"][0] + ["3s"]
+        assert action["pai"] in hand
+        picks.add(action["pai"])
+    assert len(picks) > 1  # a high temperature does not always pick the same tile

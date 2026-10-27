@@ -26,7 +26,10 @@ def _pick(actions):
 
 def test_full_game_over_websocket():
     with TestClient(app) as client:
-        r = client.post("/api/games", json={"length": "tonpuu", "seed": 7, "bots": "simple", "hints": False, "think": [0, 0]})
+        r = client.post(
+            "/api/games",
+            json={"length": "tonpuu", "seed": 7, "bots": "simple", "hints": False, "think": [0, 0], "seat": 2},
+        )
         game_id = r.json()["game_id"]
         types, decisions = [], 0
         with client.websocket_connect(f"/api/games/{game_id}/ws") as ws:
@@ -37,9 +40,12 @@ def test_full_game_over_websocket():
                     break
                 ev = msg["event"]
                 types.append(ev["type"])
-                if ev["type"] == "tsumo" and ev["actor"] != 0:
-                    assert ev["pai"] == "?"  # masked
+                if ev["type"] == "start_game":
+                    assert ev["id"] == 2 and ev["human"] == 2 and ev["players"][2] == "human"
+                if ev["type"] == "tsumo":
+                    assert (ev["pai"] == "?") == (ev["actor"] != 2)  # only our own draws are visible
                 if "actions" in msg:
+                    assert all(a.get("actor", 2) == 2 for a in msg["actions"])
                     decisions += 1
                     ws.send_json({"type": "action", "action": _pick(msg["actions"])})
         assert types[0] == "start_game" and types[-1] == "end_game"
@@ -150,3 +156,18 @@ def _saved(tmp):
     if not f.exists():
         return {"log_dir": str(tmp / "games")}
     return {k: v for k, v in json.loads(f.read_text(encoding="utf-8")).items() if k in storage.Settings.__dataclass_fields__}
+
+
+def test_random_seat_and_bot_assignment():
+    from backend.engine.rules import Rules
+    from backend.server.session import GameSession
+
+    seats = set()
+    for i in range(40):
+        sess = GameSession(f"t{i}", Rules(), bot_temps=(0.0, 0.3, 1.0))
+        seats.add(sess.human)
+        assert sorted(sess.players) == ["ai1", "ai2", "ai3", "human"]
+        assert sess.players[sess.human] == "human"
+        assert sess.game.names[sess.human] == "You"
+    assert seats == {0, 1, 2, 3}
+    assert sess.bot_temps == {"ai1": 0.0, "ai2": 0.3, "ai3": 1.0}

@@ -18,13 +18,18 @@ export interface Frame {
   hint?: Hint[]
 }
 
-const ME = 0
+/** The human's seat in a log (seat 0 in older logs). */
+function humanSeat(frames: Frame[]): number {
+  const start = frames[0]?.event
+  return start?.type === 'start_game' ? (start.human ?? 0) : 0
+}
 
 function buildStates(frames: Frame[], open: boolean): TableState[] {
+  const me = humanSeat(frames)
   const out: TableState[] = []
   let s = initialTable()
   for (const f of frames) {
-    s = applyEvent(s, open ? f.event : maskEvent(f.event, ME))
+    s = applyEvent(s, open ? f.event : maskEvent(f.event, me))
     out.push(s)
   }
   return out
@@ -203,13 +208,13 @@ export function ReplayViewer({ frames, title, backHref, initialIndex = 0, defaul
       <ScaledStage reserved={56}>
             <Table
               table={table}
-              me={ME}
+              me={table.human}
               openHands={openHands}
               discardable={discardable}
               hover={topHint}
               showTsumogiri={showTsumogiri}
               discardFx={discardFx}
-              avatars={seatAvatars(settings)}
+              avatars={seatAvatars(settings, table.players)}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >

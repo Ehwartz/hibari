@@ -34,6 +34,7 @@ export interface Settings {
   default_length: 'hanchan' | 'tonpuu'
   think_min: number
   think_max: number
+  bot_temps: number[] // Mortal-A/B/C sampling temperature
   felt: string
   background: string
   assets: Record<string, number> // uploaded asset -> version
@@ -54,6 +55,7 @@ export interface GameMeta {
   length: 'hanchan' | 'tonpuu'
   names: string[]
   scores: number[]
+  human: number // the human's seat
   rank: number
   point: number
   kyoku: number

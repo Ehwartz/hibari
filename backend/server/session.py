@@ -34,8 +34,8 @@ from backend.engine.rules import Rules
 
 log = logging.getLogger(__name__)
 
-HUMAN = 0
-BOT_NAMES = ["Mortal-A", "Mortal-B", "Mortal-C"]
+BOT_IDS = ["ai1", "ai2", "ai3"]
+BOT_NAMES = {"ai1": "Mortal-A", "ai2": "Mortal-B", "ai3": "Mortal-C"}
 FORCED_THINK = (0.3, 1.0)  # forced tsumogiri after riichi
 
 
@@ -54,15 +54,31 @@ class GameSession:
         hints: bool = True,
         player_name: str = "You",
         think: tuple[float, float] = (1.0, 3.0),
+        bot_temps: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        human_seat: int | None = None,
         log_dir: Path = Path("data/games"),
     ):
         self.id = game_id
-        meta = {"started_at": datetime.now().isoformat(timespec="seconds"), "length": rules.length}
-        self.game = Game(rules, seed=seed, names=[player_name, *BOT_NAMES], meta=meta)
+        self.rng = random.Random()
+        # Seat 0 is always the first dealer (mjai convention), so the human's
+        # seat is drawn at random, and the bots fill the others in random order.
+        self.human = self.rng.randrange(4) if human_seat is None else human_seat
+        bots = list(BOT_IDS)
+        self.rng.shuffle(bots)
+        self.players = ["human" if s == self.human else bots.pop() for s in range(4)]
+        self.bot_temps = dict(zip(BOT_IDS, bot_temps))
+        names = [player_name if p == "human" else BOT_NAMES[p] for p in self.players]
+        meta = {
+            "started_at": datetime.now().isoformat(timespec="seconds"),
+            "length": rules.length,
+            "human": self.human,
+            "players": self.players,
+            "temperatures": {BOT_NAMES[b]: t for b, t in self.bot_temps.items()},
+        }
+        self.game = Game(rules, seed=seed, names=names, meta=meta)
         self.bot_kind = bots
         self.hints = hints
         self.think = think  # bots' simulated thinking time range, seconds
-        self.rng = random.Random()
         self.log_dir = log_dir
         self.history: list[dict] = []
         self.pending: dict | None = None  # the message awaiting the human's action
@@ -106,12 +122,13 @@ class GameSession:
     # -- game loop ---------------------------------------------------------
 
     def _make_agents(self) -> tuple[dict[int, Any], MortalAgent | None]:
+        seats = {s: p for s, p in enumerate(self.players) if p != "human"}
         if self.bot_kind == "simple":
-            bots = {s: SimpleAgent(s, seed=self.game.seed + s) for s in (1, 2, 3)}
+            bots = {s: SimpleAgent(s, seed=self.game.seed + s) for s in seats}
         else:
-            bots = {s: MortalAgent(s) for s in (1, 2, 3)}
-        # A shadow Mortal in the human's seat provides hints.
-        shadow = MortalAgent(HUMAN) if self.hints else None
+            bots = {s: MortalAgent(s, self.bot_temps[p]) for s, p in seats.items()}
+        # A greedy shadow Mortal in the human's seat provides hints.
+        shadow = MortalAgent(self.human) if self.hints else None
         return bots, shadow
 
     async def _run(self) -> None:
@@ -124,20 +141,21 @@ class GameSession:
 
                 def react() -> tuple[dict[int, Any], dict | None]:
                     outs = {s: bot.react(mask_event(ev, s)) for s, bot in bots.items()}
-                    return outs, shadow.react(mask_event(ev, HUMAN)) if shadow else None
+                    return outs, shadow.react(mask_event(ev, me)) if shadow else None
 
+                me = self.human
                 outs, shadow_out = await asyncio.to_thread(react)
-                actions = {s: outs[s] for s in need if s != HUMAN}
+                actions = {s: outs[s] for s in need if s != me}
 
-                msg: dict = {"type": "event", "event": mask_event(ev, HUMAN)}
-                if HUMAN in need:
-                    legal = legal_actions(self.game._refs[HUMAN], need[HUMAN], self.game.state, HUMAN, ev)
+                msg: dict = {"type": "event", "event": mask_event(ev, me)}
+                if me in need:
+                    legal = legal_actions(self.game._refs[me], need[me], self.game.state, me, ev)
                     msg["actions"] = legal
                     if shadow_out and shadow_out.get("meta"):
-                        msg["hint"] = mortal.top_actions(shadow_out["meta"], self.game._refs[HUMAN])
+                        msg["hint"] = mortal.top_actions(shadow_out["meta"], self.game._refs[me])
                     self.pending = msg
                     await self._send(msg)
-                    actions[HUMAN] = await self._wait_human(legal)
+                    actions[me] = await self._wait_human(legal)
                     self.pending = None
                 else:
                     await self._send(msg)

@@ -171,6 +171,14 @@ export function SaveRow({ onSave, saved }: { onSave: () => void; saved: boolean 
   )
 }
 
+function tempLabel(t: number) {
+  if (t === 0) return '严格'
+  if (t <= 0.15) return '接近严格'
+  if (t <= 0.4) return '略带随机'
+  if (t <= 0.7) return '较随机'
+  return '很随机'
+}
+
 export function SettingsPage() {
   const { settings, setSettings, save, upload, error, saved } = useSettings()
   if (!settings)
@@ -237,6 +245,56 @@ export function SettingsPage() {
       </Card>
 
       <Card className="mt-5 max-w-[640px]">
+        <div className="text-[15px] font-semibold">AI 对手</div>
+        <div className="mt-1 text-[12px] text-white/45">
+          温度控制出牌的随机度：0 时总是选 Mortal 认为最好的动作；调高后按概率抽选，越高越随机。设为 0.3
+          时，正好按「Mortal 推荐」面板上显示的概率来选。座位每局随机分配。
+        </div>
+        <div className="mt-4 flex flex-col gap-4">
+          {(['avatar_ai1', 'avatar_ai2', 'avatar_ai3'] as const).map((a, i) => {
+            const t = settings.bot_temps?.[i] ?? 0
+            return (
+              <div key={a} className="flex items-center gap-6">
+                <div className="w-[230px]">
+                  <AvatarPicker
+                    settings={settings}
+                    asset={a}
+                    name={`Mortal-${'ABC'[i]}`}
+                    label={`Mortal-${'ABC'[i]}`}
+                    size={52}
+                    onUpload={upload}
+                  />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between text-[13px]">
+                    <span className="text-white/70">温度</span>
+                    <span>
+                      <span className="font-mono tabular-nums">{t.toFixed(2)}</span>
+                      <span className="ml-2 text-white/50">{tempLabel(t)}</span>
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={t}
+                    onChange={(e) => {
+                      const temps = [...(settings.bot_temps ?? [0, 0, 0])]
+                      temps[i] = Number(e.target.value)
+                      set('bot_temps', temps)
+                    }}
+                    className="mt-1 w-full accent-emerald-400"
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-3 text-[12px] text-white/45">头像会自动居中裁成正方形。「AI 提示」面板始终按严格（温度 0）的 Mortal 给出建议。</div>
+      </Card>
+
+      <Card className="mt-5 max-w-[640px]">
         <div className="text-[15px] font-semibold">外观</div>
 
         <div className="mt-4 text-[13px] text-white/70">桌布</div>
@@ -261,22 +319,8 @@ export function SettingsPage() {
           }}
         />
 
-        <div className="mt-6 text-[13px] text-white/70">AI 头像（图片会自动居中裁成正方形）</div>
-        <div className="mt-3 grid grid-cols-3 gap-4">
-          {(['avatar_ai1', 'avatar_ai2', 'avatar_ai3'] as const).map((a, i) => (
-            <AvatarPicker
-              key={a}
-              settings={settings}
-              asset={a}
-              name={`Mortal-${'ABC'[i]}`}
-              label={`Mortal-${'ABC'[i]}`}
-              size={56}
-              onUpload={upload}
-            />
-          ))}
-        </div>
         <div className="mt-4 text-[12px] text-white/45">
-          图片保存在 <span className="font-mono text-white/65">{settings.asset_dir}</span>。头像上传后立即生效；桌布和背景的选择点「保存」后生效。
+          图片保存在 <span className="font-mono text-white/65">{settings.asset_dir}</span>。头像上传后立即生效，其余设置点「保存」后生效。
         </div>
 
         {error && (

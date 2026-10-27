@@ -95,7 +95,7 @@ export function Home() {
                   </td>
                   <td className="px-3 py-2.5 font-mono text-[13px] text-white/75">{formatDate(g.started_at)}</td>
                   <td className="px-3 py-2.5">{g.length === 'tonpuu' ? '东风' : '半庄'}</td>
-                  <td className="px-3 py-2.5 text-right font-mono tabular-nums">{g.scores[0]}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums">{g.scores[g.human]}</td>
                   <td
                     className={`px-3 py-2.5 text-right font-mono tabular-nums ${g.point >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}
                   >

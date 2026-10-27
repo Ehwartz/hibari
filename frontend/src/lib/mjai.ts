@@ -2,7 +2,14 @@ import type { Tile } from './tiles'
 
 // mjai events as produced by backend/engine (incl. our extra fields).
 export type MjaiEvent =
-  | { type: 'start_game'; names: string[]; id?: number; seed?: number[] }
+  | {
+      type: 'start_game'
+      names: string[]
+      id?: number // the receiving seat (masked stream)
+      seed?: number[]
+      human?: number // the human's seat (seat 0 is the first dealer)
+      players?: string[] // per seat: 'human' | 'ai1' | 'ai2' | 'ai3'
+    }
   | {
       type: 'start_kyoku'
       bakaze: string

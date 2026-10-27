@@ -35,6 +35,10 @@ class NewGame(BaseModel):
     player_name: str | None = None
     # bots' simulated thinking time per decision, [min, max] seconds
     think: tuple[float, float] | None = None
+    # sampling temperature of Mortal-A/B/C
+    bot_temps: tuple[float, float, float] | None = None
+    # the human's seat (0 = first dealer); random when unset
+    seat: int | None = Field(default=None, ge=0, le=3)
     # "simple" swaps Mortal for the rule-based fuzzing agent (tests, quick UI checks)
     bots: Literal["mortal", "simple"] = "mortal"
 
@@ -56,6 +60,8 @@ async def create_game(req: NewGame) -> dict:
         hints=req.hints,
         player_name=req.player_name or settings.player_name,
         think=req.think or (settings.think_min, settings.think_max),
+        bot_temps=req.bot_temps or tuple(settings.bot_temps),
+        human_seat=req.seat,
         log_dir=settings.log_path,
     )
     sessions[game_id] = session
@@ -98,6 +104,7 @@ class SettingsIn(BaseModel):
     default_length: Literal["hanchan", "tonpuu"]
     think_min: float = Field(ge=0, le=30)
     think_max: float = Field(ge=0, le=30)
+    bot_temps: list[float] = Field(default=[0.0, 0.0, 0.0], min_length=3, max_length=3)
     felt: str = Field(default="green", max_length=32)
     background: str = Field(default="dark", max_length=32)
 
@@ -115,6 +122,8 @@ async def get_settings() -> dict:
 async def put_settings(body: SettingsIn) -> dict:
     if body.think_max < body.think_min:
         raise HTTPException(422, "think_max < think_min")
+    if not all(0 <= t <= 2 for t in body.bot_temps):
+        raise HTTPException(422, "bot temperature must be within 0..2")
     # uploaded assets are managed by /api/assets; keep them
     s = storage.Settings(**body.model_dump(), assets=storage.load_settings().assets)
     try:

@@ -418,6 +418,17 @@ source of truth**.
   2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
   deposits to the first winner only). Logs carry extra fields (han / fu /
   yaku, ryukyoku reason) — libriichi tolerates them.
+- 2026-10-27 — Seats and bot randomness. Seat 0 stays the first dealer (mjai
+  convention), so the human's seat is drawn at random and Mortal-A/B/C fill
+  the other seats in random order. `start_game` records `human`, `players`
+  (per seat: human / ai1..3) and the bots' `temperatures`; storage and the
+  UI use `human` instead of assuming seat 0. Each bot has a sampling
+  temperature (`settings.bot_temps`): 0 is greedy, otherwise
+  softmax(Q / T) over the legal actions, via a `MortalEngine` per
+  temperature that shares the loaded network
+  (`backend.mortal.sampling_engine`). T = 0.3 matches the hint panel's
+  probabilities. The hint shadow is always greedy. The wall was already
+  random: a random seed per game and a fresh shuffle every kyoku.
 - 2026-10-27 — Avatars and appearance: avatar cards are upright at each
   player's left-hand side (you bottom-left, right player right-lower, top
   player top-right, left player left-upper). The hint panel moved down to

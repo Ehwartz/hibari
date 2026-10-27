@@ -40,9 +40,46 @@ def libriichi() -> ModuleType:
     return lib
 
 
-def load_bot(seat: int):
-    """A fresh ``libriichi.mjai.Bot`` for ``seat``; all bots share one engine."""
-    return _model_module().load_model(seat)
+_engines: dict[float, object] = {}
+
+
+def sampling_engine(temperature: float):
+    """A ``MortalEngine`` sharing the loaded network but sampling actions.
+
+    Each decision samples from softmax(Q / temperature) over the legal
+    actions. 0 means greedy (always the top action). 0.3 matches the
+    probabilities shown in the hint panel (``meta_show`` uses T = 0.3).
+    """
+    if temperature <= 0:
+        return get_engine()
+    key = round(temperature, 3)
+    if key not in _engines:
+        m, base = _model_module(), get_engine()
+        _engines[key] = m.MortalEngine(
+            base.brain,
+            base.dqn,
+            is_oracle=False,
+            version=base.version,
+            device=base.device,
+            enable_amp=False,
+            enable_quick_eval=False,
+            enable_rule_based_agari_guard=True,
+            name=f"mortal-t{key}",
+            boltzmann_epsilon=1.0,  # always sample
+            boltzmann_temp=key,
+            top_p=1.0,
+        )
+    return _engines[key]
+
+
+def load_bot(seat: int, temperature: float = 0.0):
+    """A fresh ``libriichi.mjai.Bot`` for ``seat``.
+
+    Greedy bots share one engine; sampling bots share one per temperature.
+    """
+    if temperature <= 0:
+        return _model_module().load_model(seat)
+    return libriichi().mjai.Bot(sampling_engine(temperature), seat)
 
 
 def get_engine():

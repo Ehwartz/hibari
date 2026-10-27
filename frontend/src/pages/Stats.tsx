@@ -267,7 +267,7 @@ function RankTrend({ games }: { games: GameMeta[] }) {
       </svg>
       {g && (
         <div className="pointer-events-none absolute top-0 right-0 rounded-md bg-black/80 px-2.5 py-1.5 text-[12px]">
-          {formatDate(g.started_at)} · {g.length === 'tonpuu' ? '东风' : '半庄'} · {g.rank} 位 · {g.scores[0]} 点
+          {formatDate(g.started_at)} · {g.length === 'tonpuu' ? '东风' : '半庄'} · {g.rank} 位 · {g.scores[g.human]} 点
         </div>
       )}
     </div>

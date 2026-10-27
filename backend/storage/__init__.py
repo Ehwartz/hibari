@@ -21,7 +21,6 @@ from backend import mortal
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 SETTINGS_FILE = DATA / "settings.json"
-HUMAN_SEAT = 0
 _ID = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
 
 
@@ -35,6 +34,8 @@ class Settings:
     default_length: str = "hanchan"  # hanchan | tonpuu
     think_min: float = 1.0  # bots' thinking time per decision, seconds
     think_max: float = 3.0
+    # sampling temperature of Mortal-A/B/C (0 = always the top action)
+    bot_temps: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     felt: str = "green"  # table cloth preset, or "custom" (uploaded image)
     background: str = "dark"  # page background preset, or "custom"
     # uploaded asset name -> version (unix ms), for cache busting; managed by save_asset
@@ -127,7 +128,8 @@ class GameMeta:
     length: str
     names: list[str]
     scores: list[int]
-    rank: int  # the human's rank (seat 0)
+    human: int  # the human's seat
+    rank: int  # the human's rank
     point: float  # the human's final pt (uma + oka)
     kyoku: int
     finished: bool
@@ -166,8 +168,9 @@ def _meta(path: Path) -> GameMeta | None:
     if scores is None:  # older logs: last known scores
         last = next((e for e in reversed(events) if e["type"] == "start_kyoku"), None)
         scores = last["scores"] if last else [25000] * 4
+    human = int(start.get("human", 0))  # older logs: always seat 0
     order = sorted(range(4), key=lambda s: (-scores[s], s))
-    rank = order.index(HUMAN_SEAT) + 1
+    rank = order.index(human) + 1
     started = start.get("started_at") or datetime.fromtimestamp(mtime).isoformat(timespec="seconds")
     meta = GameMeta(
         id=path.name.removesuffix(".json.gz"),
@@ -175,8 +178,9 @@ def _meta(path: Path) -> GameMeta | None:
         length=start.get("length", "hanchan"),
         names=start.get("names", ["?"] * 4),
         scores=scores,
+        human=human,
         rank=rank,
-        point=round((scores[HUMAN_SEAT] - 30000) / 1000 + UMA[rank - 1] + (20 if rank == 1 else 0), 1),
+        point=round((scores[human] - 30000) / 1000 + UMA[rank - 1] + (20 if rank == 1 else 0), 1),
         kyoku=len({(e.get("bakaze"), e.get("kyoku"), e.get("honba")) for e in events if e["type"] == "start_kyoku"}),
         finished=end is not None,
         size=path.stat().st_size,
@@ -218,8 +222,9 @@ STAT_FIELDS = {
 def compute_stats(settings: Settings, game_ids: list[str] | None = None) -> dict:
     """libriichi ``Stat`` for the human seat over the selected (default: all) games.
 
-    Seat 0's name is replaced with a fixed token in temporary copies, because
-    ``Stat.from_dir`` matches players by name (renames would split the stats).
+    The human's name is replaced with a fixed token in temporary copies,
+    because ``Stat.from_dir`` matches players by name (renames would split
+    the stats).
     """
     games = [g for g in list_games(settings) if g.finished and (game_ids is None or g.id in game_ids)]
     out: dict = {"games": [asdict(g) for g in games]}
@@ -229,7 +234,9 @@ def compute_stats(settings: Settings, game_ids: list[str] | None = None) -> dict
     with tempfile.TemporaryDirectory() as tmp:
         for g in games:
             events = read_events(log_file(settings, g.id))
-            events[0] = {**events[0], "names": [_ME, *events[0]["names"][1:]]}
+            names = list(events[0]["names"])
+            names[g.human] = _ME
+            events[0] = {**events[0], "names": names}
             with gzip.open(Path(tmp) / f"{g.id}.json.gz", "wt", encoding="utf-8") as f:
                 for ev in events:
                     f.write(json.dumps(ev, separators=(",", ":"), ensure_ascii=False) + "\n")

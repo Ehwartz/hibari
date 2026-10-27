@@ -14,7 +14,6 @@ import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 
-const ME = 0
 const UMA = [20, 10, -10, -20]
 
 // Pause after each event (ms) so the game can be followed.
@@ -266,14 +265,14 @@ export function Play({ gameId }: { gameId: string }) {
       <ScaledStage reserved={48 + (error ? 36 : 0)}>
         <Table
           table={table}
-          me={ME}
+          me={table.human}
           discardable={discardable}
           hover={topHint}
           onDiscard={onDiscard}
           sortHand={auto.autoSort}
           discardFx={fx}
           callouts={callouts}
-          avatars={seatAvatars(settings)}
+          avatars={seatAvatars(settings, table.players)}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
           {showHints && <HintPanel hints={hint} />}

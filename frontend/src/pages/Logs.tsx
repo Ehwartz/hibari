@@ -83,7 +83,7 @@ export function Logs() {
                       <td className="px-2 py-2.5">
                         {g.finished ? <RankBadge rank={g.rank} /> : <span className="text-white/40">未完成</span>}
                       </td>
-                      <td className="px-2 py-2.5 text-right font-mono tabular-nums">{g.scores[0]}</td>
+                      <td className="px-2 py-2.5 text-right font-mono tabular-nums">{g.scores[g.human]}</td>
                       <td
                         className={`px-2 py-2.5 text-right font-mono tabular-nums ${g.point >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}
                       >
