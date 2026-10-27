@@ -11,9 +11,11 @@ Every event is yielded once (as a ``Prompt``), so drivers can forward the
 whole stream to agents. ``Prompt.need`` lists the seats that may act on that
 event, with libriichi's ``ActionCandidate``; other seats must not answer.
 
-Legality (furiten, kuikae, riichi waits, kan restrictions, …) is decided by
+Legality (furiten, kan restrictions, call availability, …) is decided by
 four libriichi ``PlayerState`` referees fed with each seat's masked view;
 every action is checked with ``validate_reaction`` before it is applied.
+Discard rules it does not enforce (riichi tsumogiri, tenpai-keeping riichi
+discard, kuikae) are checked by ``legality.discard_error``.
 """
 from __future__ import annotations
 
@@ -24,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from backend import mortal
+from backend.engine.legality import discard_error
 from backend.engine.rules import Rules
 from backend.engine.scoring import HoraResult, evaluate_hora, exhaustive_draw_deltas
 from backend.engine.state import KyokuState
@@ -123,6 +126,8 @@ class Game:
                 self._refs[seat].validate_reaction(_dumps(clean))
             except Exception as ex:
                 raise IllegalAction(seat, clean, str(ex)) from None
+            if clean["type"] == "dahai" and (err := discard_error(self.state, seat, clean, ev)):
+                raise IllegalAction(seat, clean, err)
             out[seat] = clean
         return out
 

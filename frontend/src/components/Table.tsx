@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import type { SeatView, TableState } from '../lib/table'
+import { type SeatView, type TableState, arrange } from '../lib/table'
 import { SEAT_WIND, type Tile as TileT, WIND_NAME } from '../lib/tiles'
 import { Tile } from './Tile'
 import { Hand, type Leaving, Melds, River } from './TableParts'
@@ -23,14 +23,15 @@ export interface DiscardFx {
   pai: TileT
   tsumogiri: boolean
   prev: SeatView // the actor's seat before the discard
+  /** Hidden hands: slot to animate from. Opponents' hands are not kept in any order, so this is random. */
+  slot?: number
 }
 
-function leavingSlot(fx: DiscardFx): Leaving {
-  const { hand, drawn } = fx.prev
-  if (fx.tsumogiri && drawn !== null) return { from: 'drawn', key: fx.key }
+function leavingSlot(fx: DiscardFx, hand: TileT[]): Leaving {
+  if (fx.tsumogiri && fx.prev.drawn !== null) return { from: 'drawn', key: fx.key }
   const i = hand.indexOf(fx.pai)
-  // Hidden hand: the real slot is unknown, pick a stable pseudo-random one.
-  return { from: i >= 0 ? i : (fx.key * 7) % Math.max(1, hand.length), key: fx.key }
+  const n = Math.max(1, hand.length)
+  return { from: i >= 0 ? i : (fx.slot ?? fx.key * 7) % n, key: fx.key }
 }
 
 interface Props {
@@ -43,6 +44,8 @@ interface Props {
   onDiscard?: (tile: TileT, fromDrawn: boolean) => void
   /** Review mode: show tsumogiri (dark) vs tedashi (light) in the rivers. */
   showTsumogiri?: boolean
+  /** Auto-sort the own hand (otherwise kept tiles stay at the right end). */
+  sortHand?: boolean
   discardFx?: DiscardFx | null
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
 }
@@ -124,7 +127,18 @@ function DoraPanel({ table }: { table: TableState }) {
   )
 }
 
-export function Table({ table, me, openHands, discardable, hover, onDiscard, showTsumogiri, discardFx, children }: Props) {
+export function Table({
+  table,
+  me,
+  openHands,
+  discardable,
+  hover,
+  onDiscard,
+  showTsumogiri,
+  sortHand = true,
+  discardFx,
+  children,
+}: Props) {
   const [fx, setFx] = useState<DiscardFx | null>(null)
   useEffect(() => {
     setFx(discardFx ?? null)
@@ -135,8 +149,12 @@ export function Table({ table, me, openHands, discardable, hover, onDiscard, sho
 
   // While a discard animates, the actor's hand is drawn as it was before it.
   const handOf = (seat: number) => {
-    if (fx && fx.actor === seat) return { hand: fx.prev.hand, drawn: fx.prev.drawn, leaving: leavingSlot(fx) }
-    return { hand: table.seats[seat].hand, drawn: table.seats[seat].drawn, leaving: null }
+    const sort = seat !== me || sortHand
+    if (fx && fx.actor === seat) {
+      const hand = arrange(fx.prev.hand, sort)
+      return { hand, drawn: fx.prev.drawn, leaving: leavingSlot(fx, hand) }
+    }
+    return { hand: arrange(table.seats[seat].hand, sort), drawn: table.seats[seat].drawn, leaving: null }
   }
 
   return (

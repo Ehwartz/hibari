@@ -296,3 +296,46 @@ export function EndModal({ table, uma, onClose }: { table: TableState; uma: numb
     </Modal>
   )
 }
+
+// -- auto-play settings (left side, like Mahjong Soul) ------------------------
+
+export interface AutoSettings {
+  autoSort: boolean // 自动理牌
+  autoWin: boolean // 自动和牌
+  noCalls: boolean // 不吃碰杠
+  autoTsumogiri: boolean // 自动摸切
+}
+
+export const DEFAULT_AUTO: AutoSettings = { autoSort: true, autoWin: false, noCalls: false, autoTsumogiri: false }
+
+const AUTO_ITEMS: { key: keyof AutoSettings; label: string; title: string }[] = [
+  { key: 'autoSort', label: '自动理牌', title: '关闭时，留下的摸牌放在手牌最右边，不重新排序' },
+  { key: 'autoWin', label: '自动和牌', title: '能荣和 / 自摸时自动和牌' },
+  { key: 'noCalls', label: '不吃碰杠', title: '别人打牌时自动跳过吃、碰、明杠（不会跳过荣和）' },
+  { key: 'autoTsumogiri', label: '自动摸切', title: '每次摸牌后自动打出（不立直、不暗杠；能自摸时不会自动打出）' },
+]
+
+export function AutoPanel({ value, onChange }: { value: AutoSettings; onChange: (v: AutoSettings) => void }) {
+  return (
+    <div className="absolute flex w-[132px] flex-col gap-1.5 rounded-xl bg-black/35 p-2.5" style={{ left: 18, top: 116 }}>
+      {AUTO_ITEMS.map(({ key, label, title }) => {
+        const on = value[key]
+        return (
+          <button
+            key={key}
+            title={title}
+            onClick={() => onChange({ ...value, [key]: !on })}
+            className="flex items-center justify-between rounded-lg px-2 py-1 text-[13px] text-white/85 hover:bg-white/10"
+          >
+            {label}
+            <span className={`relative h-[18px] w-8 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-white/20'}`}>
+              <span
+                className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-all ${on ? 'left-[16px]' : 'left-[2px]'}`}
+              />
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}

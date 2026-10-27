@@ -6,7 +6,7 @@
 // whole history (flagged `replay`), which rebuilds the table without delays.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActionBar, EndModal, HintPanel, ResultModal } from '../components/Overlays'
+import { ActionBar, AutoPanel, type AutoSettings, DEFAULT_AUTO, EndModal, HintPanel, ResultModal } from '../components/Overlays'
 import { ScaledStage } from '../components/Stage'
 import { type DiscardFx, Table } from '../components/Table'
 import { type ServerMsg, wsUrl } from '../lib/api'
@@ -78,7 +78,16 @@ function usePlaySession(gameId: string) {
     s.table = applyEvent(prev, ev)
     setTable(s.table)
     if (ev.type === 'dahai' && !m.replay) {
-      setFx({ key: ++s.fxKey, actor: ev.actor, pai: ev.pai, tsumogiri: ev.tsumogiri, prev: prev.seats[ev.actor] })
+      const before = prev.seats[ev.actor]
+      setFx({
+        key: ++s.fxKey,
+        actor: ev.actor,
+        pai: ev.pai,
+        tsumogiri: ev.tsumogiri,
+        prev: before,
+        // opponents' hands are in no particular order: a hand discard comes from a random slot
+        slot: Math.floor(Math.random() * Math.max(1, before.hand.length)),
+      })
     }
     if (m.actions) {
       setPending({ actions: m.actions, hint: m.hint })
@@ -160,6 +169,17 @@ function usePlaySession(gameId: string) {
 export function Play({ gameId }: { gameId: string }) {
   const { table, fx, pending, modal, status, error, notice, setNotice, act, closeModal } = usePlaySession(gameId)
   const [showHints, setShowHints] = useState(() => localStorageGet('hints') !== '0')
+  const [auto, setAuto] = useState<AutoSettings>(() => {
+    try {
+      return { ...DEFAULT_AUTO, ...JSON.parse(localStorageGet('auto') ?? '{}') }
+    } catch {
+      return DEFAULT_AUTO
+    }
+  })
+  const changeAuto = (v: AutoSettings) => {
+    setAuto(v)
+    localStorageSet('auto', JSON.stringify(v))
+  }
 
   useEffect(() => {
     if (!notice) return
@@ -167,14 +187,23 @@ export function Play({ gameId }: { gameId: string }) {
     return () => clearTimeout(t)
   }, [notice, setNotice])
 
-  // After riichi the only choice is often the forced tsumogiri: play it automatically.
+  // Automatic moves. A win on offer is never skipped automatically.
   useEffect(() => {
     if (!pending) return
-    const only = pending.actions.length === 1 ? pending.actions[0] : null
-    if (only?.type !== 'dahai' || !table.seats[ME].riichiAccepted) return
-    const t = setTimeout(() => act(only), 450)
+    const acts = pending.actions
+    const hora = acts.find((a) => a.type === 'hora')
+    const pass = acts.find((a) => a.type === 'none')
+    const tsumogiri = acts.find((a) => a.type === 'dahai' && a.tsumogiri)
+    let move: Action | undefined
+    if (hora) move = auto.autoWin ? hora : undefined
+    else if (acts.length === 1 && acts[0].type === 'dahai') move = acts[0] // forced, e.g. after riichi
+    else if (auto.noCalls && pass) move = pass
+    else if (auto.autoTsumogiri && tsumogiri) move = tsumogiri
+    if (!move) return
+    const chosen = move
+    const t = setTimeout(() => act(chosen), chosen.type === 'none' ? 0 : 450)
     return () => clearTimeout(t)
-  }, [pending])
+  }, [pending, auto])
 
   const actions = pending?.actions ?? []
   const discards = actions.filter((a): a is Extract<Action, { type: 'dahai' }> => a.type === 'dahai')
@@ -232,8 +261,10 @@ export function Play({ gameId }: { gameId: string }) {
           discardable={discardable}
           hover={topHint}
           onDiscard={onDiscard}
+          sortHand={auto.autoSort}
           discardFx={fx}
         >
+          <AutoPanel value={auto} onChange={changeAuto} />
           {showHints && <HintPanel hints={hint} />}
           {actions.some((a) => a.type !== 'dahai') && <ActionBar key={JSON.stringify(actions)} actions={actions} onAction={act} />}
           {notice && (

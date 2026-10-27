@@ -10,8 +10,13 @@ from __future__ import annotations
 import json
 from itertools import combinations
 
+from backend.engine.legality import discard_error
 from backend.engine.state import KyokuState
 from backend.engine.tiles import kind, sort_key
+
+
+def _kind(t: str | int) -> int:
+    return t if isinstance(t, int) else kind(t)
 
 
 def _valid(ref, action: dict) -> bool:
@@ -40,12 +45,14 @@ def legal_actions(ref, cans, st: KyokuState, seat: int, event: dict) -> list[dic
     if cans.can_ryukyoku:
         out.append({"type": "ryukyoku", "actor": seat})
     if cans.can_ankan:
-        for k in sorted({kind(t) for t in hand}):
+        # libriichi's candidates respect riichi (no wait-changing ankan)
+        for k in sorted({_kind(t) for t in ref.ankan_candidates()}):
             for c in _choices(hand, k, 4):
                 out.append({"type": "ankan", "actor": seat, "consumed": c})
     if cans.can_kakan:
+        allowed = {_kind(t) for t in ref.kakan_candidates()}
         for m in st.seats[seat].melds:
-            if m.type != "pon":
+            if m.type != "pon" or kind(m.pai) not in allowed:
                 continue
             for t in {t for t in hand if kind(t) == kind(m.pai)}:
                 out.append({"type": "kakan", "actor": seat, "pai": t, "consumed": m.consumed + [m.pai]})
@@ -77,4 +84,9 @@ def legal_actions(ref, cans, st: KyokuState, seat: int, event: dict) -> list[dic
 
     if cans.can_pass:
         out.append({"type": "none"})
-    return [a for a in out if a["type"] == "none" or _valid(ref, a)]
+    return [
+        a
+        for a in out
+        if a["type"] == "none"
+        or (_valid(ref, a) and not (a["type"] == "dahai" and discard_error(st, seat, a, event)))
+    ]

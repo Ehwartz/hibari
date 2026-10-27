@@ -20,7 +20,7 @@ export interface RiverTile {
 }
 
 export interface SeatView {
-  hand: Tile[] // sorted, excludes the drawn tile
+  hand: Tile[] // arrangement order (dealt sorted, kept tiles appended); excludes the drawn tile
   drawn: Tile | null
   melds: Meld[]
   river: RiverTile[]
@@ -103,11 +103,15 @@ function removeTiles(hand: Tile[], tiles: Tile[]): Tile[] {
   return out
 }
 
-/** Merge the drawn tile into the hand (after a discard from hand or a call). */
+/** Keep the drawn tile (after a discard from hand or a call): it goes to the right end.
+ * Sorting is a display choice (auto-sort), see `arrange`. */
 function settle(seat: SeatView): SeatView {
   if (seat.drawn === null) return seat
-  return { ...seat, hand: sortTiles([...seat.hand, seat.drawn]), drawn: null }
+  return { ...seat, hand: [...seat.hand, seat.drawn], drawn: null }
 }
+
+/** The hand as displayed: sorted when auto-sort is on. */
+export const arrange = (hand: Tile[], sort: boolean) => (sort ? sortTiles(hand) : hand)
 
 function updateSeat(s: TableState, i: number, f: (seat: SeatView) => SeatView): SeatView[] {
   return s.seats.map((seat, j) => (j === i ? f(seat) : seat))

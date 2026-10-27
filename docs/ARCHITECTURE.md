@@ -161,6 +161,14 @@ illegal replies raise `IllegalAction`. This gives Tenhou-exact legality
 (furiten, kuikae, riichi wait-preserving kans, kyuushu, …) for free, and the
 human player in M2 gets the same candidates for the action bar.
 
+**Gap found 2026-10-27:** `validate_reaction` only checks that a discarded
+tile is in the hand. It accepts any discard after riichi, a riichi
+declaration discard that breaks tenpai, and kuikae. Mortal never tries
+these, so the arena never needed the checks. `backend/engine/legality.py`
+(`discard_error`) enforces them in both the engine and `legal_actions`.
+Ankan / kakan options come from libriichi's `ankan_candidates()` /
+`kakan_candidates()`, which respect riichi.
+
 Hand-level rules are therefore fixed to Tenhou's (3 red fives, kuitan,
 atozuke, no double yakuman, kazoe yakuman). `Rules` only covers game-level
 options.
@@ -277,6 +285,16 @@ class Agent(Protocol):
   for `replay` messages. After an accepted riichi, a forced tsumogiri is
   played automatically. Right click passes on a call, or tsumogiris on your
   own turn (which also skips riichi). It does nothing when a win is offered.
+- Auto settings (left panel, persisted in localStorage, like Mahjong Soul):
+  自动理牌 (on by default; when off, kept tiles go to the right end), 自动和牌,
+  不吃碰杠 (never skips ron), 自动摸切 (skips riichi / ankan; not when a win
+  is offered). A single legal discard, e.g. after riichi, is always played
+  automatically. The client keeps hands in arrangement order; sorting is a
+  display choice (`arrange`).
+- Opponents' hands are treated as unordered: a hand discard animates from a
+  random slot, so the position carries no information. A sorted layout
+  would leak the tile, which is the classic 手出し位置 read. Review shows
+  hands sorted.
 
 ### Server → client contract (M2)
 
