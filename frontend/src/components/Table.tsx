@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
+import { DANGER_SIDES, DANGER_TRACK, type OpponentDanger } from '../lib/danger'
 import { type SeatView, type TableState, arrange } from '../lib/table'
-import { SEAT_WIND, type Tile as TileT, WIND_NAME } from '../lib/tiles'
+import { KINDS, SEAT_WIND, type Tile as TileT, WIND_NAME } from '../lib/tiles'
 import { Avatar } from './Avatar'
 import { Tile } from './Tile'
 import { Hand, type Leaving, Melds, River, type TileInfo } from './TableParts'
@@ -28,7 +29,54 @@ interface CardProps {
   self: boolean
 }
 
-function PlayerCard({ name, avatar, active, oya, self, size }: CardProps & { size: number }) {
+/** Deal-in risk against one opponent, shown under their avatar. */
+interface CardDanger {
+  d: OpponentDanger
+  side: (typeof DANGER_SIDES)[number]
+  open: boolean
+  onToggle: () => void
+}
+
+function DangerButton({ d, side, open, onToggle }: CardDanger) {
+  return (
+    <div className="relative mt-1 w-full" data-noadvance>
+      <button
+        onClick={onToggle}
+        title="点击查看所有牌对这一家的铳率"
+        className={`flex w-full items-center justify-center gap-1 rounded-md px-0.5 py-[1px] text-[10px] whitespace-nowrap ${open ? 'bg-white/20' : 'bg-white/5 hover:bg-white/15'}`}
+      >
+        <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: side.color }} />
+        <span className="text-white/80">{d.riichi ? '立直' : `听${Math.round(d.tenpai * 100)}%`}</span>
+      </button>
+      {open && (
+        <div className="absolute top-full left-1/2 z-30 mt-1.5 w-[226px] -translate-x-1/2 rounded-xl bg-black/90 p-2.5 shadow-2xl ring-1 ring-white/15">
+          <div className="mb-2 flex items-center gap-1.5 text-[12px]">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: side.color }} />
+            <span className="text-white/85">{side.label} 铳率</span>
+            <span className="ml-auto text-white/50">{d.riichi ? '已立直' : `估计听牌 ${Math.round(d.tenpai * 100)}%`}</span>
+          </div>
+          <div className="grid grid-cols-9 gap-x-[2px] gap-y-1.5">
+            {KINDS.map((t, k) => (
+              <div key={t} className="flex flex-col items-center" title={`${(d.risk[k] * 100).toFixed(1)}%`}>
+                <Tile tile={t} w={21} />
+                <div className="mt-0.5 h-[3px] w-full rounded-sm" style={{ background: DANGER_TRACK }}>
+                  <div
+                    className="h-full rounded-sm"
+                    style={{ width: `${Math.min(100, (d.risk[k] / 0.15) * 100)}%`, background: side.color }}
+                  />
+                </div>
+                <div className="font-mono text-[9px] text-white/70 tabular-nums">{(d.risk[k] * 100).toFixed(1)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-[10px] leading-snug text-white/45">按听牌概率 × 牌型放铳率估算（现物、筋、壁、字牌见张数），仅供参考。</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PlayerCard({ name, avatar, active, oya, self, size, danger }: CardProps & { size: number; danger?: CardDanger }) {
   return (
     <div
       className={`flex flex-col items-center rounded-xl border-2 bg-black/45 p-1 shadow-lg transition ${self ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
@@ -43,25 +91,32 @@ function PlayerCard({ name, avatar, active, oya, self, size }: CardProps & { siz
       <div className="mt-0.5 w-full truncate text-center text-[12px] leading-tight text-white/90" title={name}>
         {name}
       </div>
+      {danger && <DangerButton {...danger} />}
     </div>
   )
 }
 
-/** An avatar card in a seat's rotated frame, kept upright.
- * `side`: at the left end of the hand row (you, top player); otherwise behind the hand. */
-function HandAvatar({ r, size, side, ...card }: CardProps & { r: number; size: number; side: boolean }) {
-  const slot = size + 40 // square, so the counter-rotated card fits for every seat
-  const place = side
-    ? { right: '100%', marginRight: 10, top: '50%', transform: 'translateY(-50%)' }
-    : { left: '50%', top: '100%', marginTop: 4, transform: 'translateX(-50%)' }
+/** An avatar card in a seat's rotated frame, kept upright (counter-rotated in a square slot). */
+function HandAvatar({
+  r,
+  size,
+  place,
+  danger,
+  ...card
+}: CardProps & { r: number; size: number; place: React.CSSProperties; danger?: CardDanger }) {
+  const slot = size + 40
   return (
     <div className="absolute flex items-center justify-center" style={{ ...place, width: slot, height: slot }}>
       <div style={{ transform: `rotate(${90 * r}deg)` }}>
-        <PlayerCard {...card} size={size} />
+        <PlayerCard {...card} size={size} danger={danger} />
       </div>
     </div>
   )
 }
+
+// beside the hand row (you, top player) / behind the hand on the seat's axis (left, right)
+const BESIDE = { right: '100%', marginRight: 10, top: '50%', transform: 'translateY(-50%)' }
+const behind = (size: number) => ({ left: -(size + 40) / 2, top: 372 })
 
 /** A big announcement next to a player: 吃 碰 杠 立直 荣 自摸. */
 export interface Callout {
@@ -121,6 +176,8 @@ interface Props {
   callouts?: Callout[]
   /** Avatar image URL per seat (null = default avatar). */
   avatars?: (string | null)[]
+  /** Deal-in risk vs each opponent (DANGER_SIDES order); shows a button under their avatar. */
+  danger?: OpponentDanger[]
   /** Per-tile extras for the own hand (Mortal probabilities, deal-in risk). */
   tileInfo?: (tile: TileT, fromDrawn: boolean) => TileInfo | undefined
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
@@ -129,9 +186,9 @@ interface Props {
 const rel = (seat: number, me: number) => (seat - me + 4) % 4
 
 /** A group rotated so that local +y points towards the seat at relative position `r`. */
-function Rotated({ r, children }: { r: number; children: ReactNode }) {
+function Rotated({ r, children, raised }: { r: number; children: ReactNode; raised?: boolean }) {
   return (
-    <div className="absolute" style={{ left: CX, top: CY, transform: `rotate(${-90 * r}deg)` }}>
+    <div className="absolute" style={{ left: CX, top: CY, transform: `rotate(${-90 * r}deg)`, zIndex: raised ? 30 : undefined }}>
       {children}
     </div>
   )
@@ -216,8 +273,20 @@ export function Table({
   callouts = [],
   avatars = [null, null, null, null],
   tileInfo,
+  danger = [],
   children,
 }: Props) {
+  const [dangerOpen, setDangerOpen] = useState<number | null>(null)
+  const dangerFor = (seat: number): CardDanger | undefined => {
+    const i = danger.findIndex((d) => d.seat === seat)
+    if (i < 0) return undefined
+    return {
+      d: danger[i],
+      side: DANGER_SIDES[i],
+      open: dangerOpen === seat,
+      onToggle: () => setDangerOpen(dangerOpen === seat ? null : seat),
+    }
+  }
   const [fx, setFx] = useState<DiscardFx | null>(null)
   useEffect(() => {
     setFx(discardFx ?? null)
@@ -254,17 +323,21 @@ export function Table({
         const s = table.seats[seat]
         const last = table.lastDiscard?.actor === seat ? table.lastDiscard.index : null
         return (
-          <Rotated key={seat} r={r}>
+          <Rotated key={seat} r={r} raised={dangerOpen === seat}>
             <div className="absolute" style={{ left: -108, top: 116 }}>
               <River river={s.river} w={RIVER_W} lastIndex={last} showTsumogiri={showTsumogiri} />
             </div>
             {r !== 0 && (
               <div className="absolute flex items-end gap-4" style={{ left: 0, top: 326, transform: 'translateX(-50%)' }}>
-                {/* left / right players: behind the hand; top player: beside it, mirroring yours */}
-                <HandAvatar r={r} size={OPP_AVATAR} side={r === 2} {...card(seat)} />
+                {/* top player: beside the hand, mirroring yours */}
+                {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={BESIDE} danger={dangerFor(seat)} {...card(seat)} />}
                 <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
               </div>
+            )}
+            {/* left / right players: behind the hand, centred on the seat axis (same height on both sides) */}
+            {(r === 1 || r === 3) && (
+              <HandAvatar r={r} size={OPP_AVATAR} place={behind(OPP_AVATAR)} danger={dangerFor(seat)} {...card(seat)} />
             )}
           </Rotated>
         )
@@ -272,7 +345,7 @@ export function Table({
 
       {/* own hand: not rotated, larger tiles */}
       <div className="absolute flex items-end gap-6" style={{ left: CX, top: CY + 330, transform: 'translateX(-50%)' }}>
-        <HandAvatar r={0} size={OWN_AVATAR} side {...card(me)} />
+        <HandAvatar r={0} size={OWN_AVATAR} place={BESIDE} {...card(me)} />
         <Hand
           {...handOf(me)}
           w={OWN_W}

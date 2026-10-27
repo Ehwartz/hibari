@@ -37,6 +37,7 @@ class Settings:
     # sampling temperature of Mortal-A/B/C (0 = always the top action)
     bot_temps: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     bot_names: list[str] = field(default_factory=lambda: ["Mortal-A", "Mortal-B", "Mortal-C"])
+    auto_temp: float = 0.0  # AI 代打 sampling temperature (Mortal playing your seat)
     felt: str = "green"  # table cloth preset, or "custom" (uploaded image)
     background: str = "dark"  # page background preset, or "custom"
     # uploaded asset name -> version (unix ms), for cache busting; managed by save_asset
@@ -136,6 +137,7 @@ class GameMeta:
     finished: bool
     size: int = 0
     review: dict | None = None  # summary of the Mortal review, if one was run
+    autoplay: str = "none"  # none | partial (AI 代打 for some decisions) | full (batch)
 
 
 _meta_cache: dict[Path, tuple[tuple[float, float], GameMeta]] = {}
@@ -204,6 +206,7 @@ def _meta(path: Path) -> GameMeta | None:
         finished=end is not None,
         size=path.stat().st_size,
         review=(read_review(path) or {}).get("summary"),
+        autoplay=start.get("autoplay") or ("partial" if (end or {}).get("auto_decisions") else "none"),
     )
     _meta_cache[path] = (mtime, meta)
     return meta
@@ -247,7 +250,12 @@ def compute_stats(settings: Settings, game_ids: list[str] | None = None) -> dict
     because ``Stat.from_dir`` matches players by name (renames would split
     the stats).
     """
-    games = [g for g in list_games(settings) if g.finished and (game_ids is None or g.id in game_ids)]
+    # default selection: your own games (not fully AI-played ones)
+    games = [
+        g
+        for g in list_games(settings)
+        if g.finished and (g.id in game_ids if game_ids is not None else g.autoplay != "full")
+    ]
     out: dict = {"games": [asdict(g) for g in games]}
     if not games:
         out["stat"] = None

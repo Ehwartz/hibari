@@ -97,7 +97,17 @@ export function Logs() {
                   {data.games.map((g) => (
                     <tr key={g.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03]">
                       <td className="px-4 py-2.5 font-mono text-[13px] text-white/80">{formatDate(g.started_at)}</td>
-                      <td className="px-2 py-2.5">{g.length === 'tonpuu' ? '东风' : '半庄'}</td>
+                      <td className="px-2 py-2.5 whitespace-nowrap">
+                        {g.length === 'tonpuu' ? '东风' : '半庄'}
+                        {g.autoplay !== 'none' && (
+                          <span
+                            className={`ml-1.5 rounded px-1 text-[11px] ${g.autoplay === 'full' ? 'bg-amber-500/30 text-amber-200' : 'bg-white/10 text-white/60'}`}
+                            title={g.autoplay === 'full' ? '整局由 Mortal 代打' : '部分决策由 Mortal 代打'}
+                          >
+                            {g.autoplay === 'full' ? '代打' : '部分代打'}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-2 py-2.5">
                         {g.finished ? <RankBadge rank={g.rank} /> : <span className="text-white/40">未完成</span>}
                       </td>

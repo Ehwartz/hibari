@@ -10,7 +10,6 @@ import {
   ActionBar,
   AutoPanel,
   type AutoSettings,
-  DangerPanel,
   DEFAULT_AUTO,
   EndModal,
   HintPanel,
@@ -64,7 +63,9 @@ function usePlaySession(gameId: string) {
     resume: null as (() => void) | null,
     fxKey: 0,
     ws: null as WebSocket | null,
+    autoplay: false,
   })
+  const [autoplay, setAutoplay] = useState(false)
 
   const waitUser = () => new Promise<void>((res) => (r.current.resume = res))
   const resume = () => {
@@ -83,6 +84,11 @@ function usePlaySession(gameId: string) {
     }
     if (m.type === 'saved') {
       setNotice(`牌谱已保存：${m.path}`)
+      return
+    }
+    if (m.type === 'autoplay') {
+      s.autoplay = m.on
+      setAutoplay(m.on)
       return
     }
     const ev = m.event
@@ -118,7 +124,10 @@ function usePlaySession(gameId: string) {
     if (m.replay) return
     if (ev.type === 'end_kyoku' && (s.table.horas.length > 0 || s.table.ryukyoku)) {
       setModal('result')
+      // with AI 代打 on, results close by themselves
+      const auto = s.autoplay ? setTimeout(() => resume(), 3000) : undefined
       await waitUser()
+      clearTimeout(auto)
       if (gen === r.current.gen) setModal(null)
       return
     }
@@ -179,12 +188,21 @@ function usePlaySession(gameId: string) {
     resume()
   }
   const closeModal = () => resume()
+  const toggleAutoplay = (on: boolean) => {
+    r.current.ws?.send(JSON.stringify({ type: 'autoplay', on }))
+    if (on && r.current.resume && pending) {
+      // the server resolves the open decision itself
+      setPending(null)
+      resume()
+    }
+  }
 
-  return { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal }
+  return { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal, autoplay, toggleAutoplay }
 }
 
 export function Play({ gameId }: { gameId: string }) {
-  const { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal } = usePlaySession(gameId)
+  const { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal, autoplay, toggleAutoplay } =
+    usePlaySession(gameId)
   const settings = useAppSettings()
   const [showHints, setShowHints] = useState(() => localStorageGet('hints') !== '0')
   const [auto, setAuto] = useState<AutoSettings>(() => {
@@ -266,6 +284,13 @@ export function Play({ gameId }: { gameId: string }) {
           {status === 'live' ? '已连接' : status === 'connecting' ? '连接中…' : '重连中…'}
         </span>
         <span className="flex-1" />
+        <button
+          onClick={() => toggleAutoplay(!autoplay)}
+          title="让 Mortal 替你打（温度在「设置」中调整），可随时关闭"
+          className={`rounded-full px-3 py-1 text-[12px] font-bold ${autoplay ? 'bg-amber-500 text-black' : 'bg-white/10 hover:bg-white/20'}`}
+        >
+          {autoplay ? 'AI 代打中 · 点击接管' : 'AI 代打'}
+        </button>
         <span className="text-white/40">右键：摸切 / 跳过</span>
         <label className="ml-3 flex items-center gap-1.5" title="根据牌河、副露、立直估算每张牌对三家的放铳率">
           <input type="checkbox" checked={showDanger} onChange={(e) => toggleDanger(e.target.checked)} /> 铳率
@@ -292,11 +317,11 @@ export function Play({ gameId }: { gameId: string }) {
           discardFx={fx}
           callouts={callouts}
           avatars={seatAvatars(settings, table.players)}
+          danger={danger}
           tileInfo={danger.length ? (t) => ({ risks: tileRisks(danger, t) }) : undefined}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
           {showHints && <HintPanel hints={hint} />}
-          {showDanger && <DangerPanel danger={danger} names={table.names} />}
           {actions.some((a) => a.type !== 'dahai') && <ActionBar key={JSON.stringify(actions)} actions={actions} onAction={act} />}
           {notice && (
             <div className="absolute top-[612px] left-1/2 max-w-[700px] -translate-x-1/2 truncate rounded-full bg-black/70 px-4 py-1.5 text-[14px] text-white">

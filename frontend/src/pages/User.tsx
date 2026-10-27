@@ -11,7 +11,7 @@ export function User() {
   useEffect(() => {
     api
       .logs()
-      .then((r) => setGames(r.games.filter((g) => g.finished)))
+      .then((r) => setGames(r.games.filter((g) => g.finished && g.autoplay !== 'full')))
       .catch(() => setGames([]))
   }, [])
 

@@ -5,8 +5,6 @@ import type { TableState } from '../lib/table'
 import { SEAT_WIND, tileName } from '../lib/tiles'
 import { Tile } from './Tile'
 import { Melds } from './TableParts'
-import { DANGER_SIDES, DANGER_TRACK, type OpponentDanger } from '../lib/danger'
-import { KINDS } from '../lib/tiles'
 
 // -- action bar ---------------------------------------------------------------
 
@@ -84,7 +82,7 @@ export function ActionBar({ actions, onAction }: { actions: Action[]; onAction: 
 
 export function HintPanel({ hints, chosen }: { hints: Hint[] | null; chosen?: string }) {
   return (
-    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, top: 18 }}>
+    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, top: 486 }}>
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-white/85">Mortal 推荐</span>
         {chosen && <span className="text-[11px] text-white/45">{chosen}</span>}
@@ -351,69 +349,6 @@ export function AutoPanel({ value, onChange }: { value: AutoSettings; onChange: 
           </button>
         )
       })}
-    </div>
-  )
-}
-
-// -- deal-in risk panel ------------------------------------------------------------
-
-/** One button per opponent (上家 / 对家 / 下家) on the left side; opening one shows the risk
- * of every tile kind in a popover to its right. `top` = vertical position in the stage. */
-export function DangerPanel({ danger, names, top = 290 }: { danger: OpponentDanger[]; names: string[]; top?: number }) {
-  const [open, setOpen] = useState<number | null>(null)
-  if (!danger.length) return null
-  const cur = open === null ? null : danger[open]
-  return (
-    <div className="absolute z-20 w-[150px]" style={{ left: 18, top }} onClick={(e) => e.stopPropagation()}>
-      <div className="rounded-xl bg-black/40 p-2">
-        <div className="mb-1 px-1 text-[12px] font-semibold text-white/80">铳率（估算）</div>
-        {DANGER_SIDES.map((side, i) => {
-          const d = danger[i]
-          return (
-            <button
-              key={side.rel}
-              onClick={() => setOpen(open === i ? null : i)}
-              title={`${names[d.seat]}：${d.riichi ? '已立直' : `估计听牌率 ${Math.round(d.tenpai * 100)}%`}。点击查看所有牌的铳率`}
-              className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[12px] ${open === i ? 'bg-white/15' : 'hover:bg-white/10'}`}
-            >
-              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: side.color }} />
-              <span className="shrink-0 text-white/85">{side.label}</span>
-              <span className="ml-auto shrink-0 font-mono text-[11px] text-white/60 tabular-nums">
-                {d.riichi ? '立直' : `听${Math.round(d.tenpai * 100)}%`}
-              </span>
-              <span className="text-white/40">{open === i ? '‹' : '›'}</span>
-            </button>
-          )
-        })}
-      </div>
-      {cur && (
-        <div className="absolute top-0 left-full ml-2 w-[226px] rounded-xl bg-black/85 p-2.5 shadow-2xl ring-1 ring-white/10">
-          <div className="mb-2 flex items-center gap-1.5 text-[12px]">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: DANGER_SIDES[open!].color }} />
-            <span className="text-white/85">
-              {DANGER_SIDES[open!].label} {names[cur.seat]}
-            </span>
-            <span className="ml-auto text-white/50">{cur.riichi ? '已立直' : `听牌 ${Math.round(cur.tenpai * 100)}%`}</span>
-          </div>
-          <div className="grid grid-cols-9 gap-x-[2px] gap-y-1.5">
-            {KINDS.map((t, k) => (
-              <div key={t} className="flex flex-col items-center" title={`${(cur.risk[k] * 100).toFixed(1)}%`}>
-                <Tile tile={t} w={21} />
-                <div className="mt-0.5 h-[3px] w-full rounded-sm" style={{ background: DANGER_TRACK }}>
-                  <div
-                    className="h-full rounded-sm"
-                    style={{ width: `${Math.min(100, (cur.risk[k] / 0.15) * 100)}%`, background: DANGER_SIDES[open!].color }}
-                  />
-                </div>
-                <div className="font-mono text-[9px] text-white/70 tabular-nums">{(cur.risk[k] * 100).toFixed(1)}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-[10px] leading-snug text-white/45">
-            按听牌概率 × 牌型放铳率估算（现物、筋、壁、字牌见张数）。仅供参考。
-          </div>
-        </div>
-      )}
     </div>
   )
 }

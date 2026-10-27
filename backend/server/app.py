@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from backend import storage
 from backend.analysis.review import review_game
 from backend.engine.rules import Rules
+from backend.server import batch
 from backend.server.session import GameSession
 
 app = FastAPI(title="Mahjong AI Trainer")
@@ -65,6 +66,7 @@ async def create_game(req: NewGame) -> dict:
         bot_temps=req.bot_temps or tuple(settings.bot_temps),
         bot_names=req.bot_names or tuple(settings.bot_names),
         human_seat=req.seat,
+        auto_temp=settings.auto_temp,
         log_dir=settings.log_path,
     )
     sessions[game_id] = session
@@ -93,6 +95,8 @@ async def play(ws: WebSocket, game_id: str) -> None:
             msg = await ws.receive_json()
             if msg.get("type") == "action":
                 await session.submit(msg["action"])
+            elif msg.get("type") == "autoplay":
+                await session.set_autoplay(bool(msg.get("on")))
     except WebSocketDisconnect:
         session.detach(ws)
 
@@ -109,6 +113,7 @@ class SettingsIn(BaseModel):
     think_max: float = Field(ge=0, le=30)
     bot_temps: list[float] = Field(default=[0.0, 0.0, 0.0], min_length=3, max_length=3)
     bot_names: list[str] = Field(default=["Mortal-A", "Mortal-B", "Mortal-C"], min_length=3, max_length=3)
+    auto_temp: float = Field(default=0.0, ge=0, le=2)
     felt: str = Field(default="green", max_length=32)
     background: str = Field(default="dark", max_length=32)
 
@@ -230,6 +235,32 @@ async def run_review(game_id: str) -> dict:
     review = await asyncio.to_thread(review_game, events)
     storage.save_review(path, review)
     return review
+
+
+class BatchRequest(BaseModel):
+    length: Literal["hanchan", "tonpuu"] = "hanchan"
+    count: int = Field(ge=1, le=200)
+
+
+@app.post("/api/batch")
+async def start_batch(req: BatchRequest) -> dict:
+    """AI 代打 N games back to back (Mortal in every seat) to build up logs."""
+    try:
+        batch.start(req.length, req.count)
+    except RuntimeError as ex:
+        raise HTTPException(409, str(ex)) from None
+    return batch.snapshot()
+
+
+@app.get("/api/batch")
+async def batch_status() -> dict:
+    return batch.snapshot()
+
+
+@app.post("/api/batch/cancel")
+async def cancel_batch() -> dict:
+    batch.cancel()
+    return batch.snapshot()
 
 
 class StatsQuery(BaseModel):

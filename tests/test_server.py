@@ -38,6 +38,8 @@ def test_full_game_over_websocket():
                 assert msg["type"] != "error", msg
                 if msg["type"] == "saved":
                     break
+                if msg["type"] == "autoplay":
+                    continue
                 ev = msg["event"]
                 types.append(ev["type"])
                 if ev["type"] == "start_game":
@@ -58,6 +60,7 @@ def test_illegal_action_is_rejected_and_reconnect_replays():
         game_id = client.post("/api/games", json={"length": "tonpuu", "seed": 3, "bots": "simple", "hints": False, "think": [0, 0]}).json()["game_id"]
         with client.websocket_connect(f"/api/games/{game_id}/ws") as ws:
             msg = ws.receive_json()
+            assert msg == {"type": "autoplay", "on": False}  # status comes first
             while "actions" not in msg:
                 msg = ws.receive_json()
             ws.send_json({"type": "action", "action": {"type": "dahai", "actor": 0, "pai": "9z", "tsumogiri": False}})
@@ -68,6 +71,7 @@ def test_illegal_action_is_rejected_and_reconnect_replays():
             replayed = [ws.receive_json()]
             while "actions" not in replayed[-1]:
                 replayed.append(ws.receive_json())
+            replayed = [m for m in replayed if m["type"] == "event"]
             assert replayed[0]["event"]["type"] == "start_game" and replayed[0]["replay"]
             assert replayed[-1]["replay"] is False
 

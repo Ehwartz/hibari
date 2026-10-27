@@ -55,6 +55,7 @@ export function Stats() {
   const [error, setError] = useState<string | null>(null)
   const [range, setRange] = useState<Range>('all')
   const [length, setLength] = useState<Length>('all')
+  const [withAuto, setWithAuto] = useState(false)
 
   useEffect(() => {
     api
@@ -65,9 +66,9 @@ export function Stats() {
 
   const selected = useMemo(() => {
     if (!all) return null
-    const byLength = all.filter((g) => length === 'all' || g.length === length)
+    const byLength = all.filter((g) => (length === 'all' || g.length === length) && (withAuto || g.autoplay !== 'full'))
     return range === 'all' ? byLength : byLength.slice(0, range)
-  }, [all, range, length])
+  }, [all, range, length, withAuto])
 
   useEffect(() => {
     if (!selected) return
@@ -112,6 +113,9 @@ export function Stats() {
           {seg<Length>('hanchan', length, setLength, '半庄')}
           {seg<Length>('tonpuu', length, setLength, '东风')}
         </div>
+        <label className="flex items-center gap-1.5 text-[13px] text-white/70" title="整局由 Mortal 代打的对局默认不计入">
+          <input type="checkbox" checked={withAuto} onChange={(e) => setWithAuto(e.target.checked)} /> 计入代打对局
+        </label>
         <span className="text-[13px] text-white/45">统计口径与 libriichi（天凤）一致；只统计已完成的对局</span>
       </div>
 

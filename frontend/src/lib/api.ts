@@ -4,6 +4,7 @@ export type ServerMsg =
   | { type: 'event'; event: MjaiEvent; actions?: Action[]; hint?: Hint[]; replay?: boolean }
   | { type: 'error'; message: string; fatal: boolean }
   | { type: 'saved'; path: string }
+  | { type: 'autoplay'; on: boolean }
 
 export interface NewGameOptions {
   length?: 'hanchan' | 'tonpuu' // default: settings
@@ -36,6 +37,7 @@ export interface Settings {
   think_max: number
   bot_temps: number[] // the three bots' sampling temperature
   bot_names: string[] // the three bots' display names
+  auto_temp: number // AI 代打 temperature
   felt: string
   background: string
   assets: Record<string, number> // uploaded asset -> version
@@ -63,6 +65,18 @@ export interface GameMeta {
   finished: boolean
   size: number
   review: ReviewSummary | null
+  autoplay: 'none' | 'partial' | 'full' // AI 代打: none / some decisions / whole game (batch)
+}
+
+export interface BatchStatus {
+  running: boolean
+  length: 'hanchan' | 'tonpuu'
+  total: number
+  done: number
+  current: string | null
+  games: string[]
+  error: string | null
+  cancelled: boolean
 }
 
 export interface ReviewSummary {
@@ -126,6 +140,12 @@ export const api = {
     return r.status === 404 ? null : json<Review>(r)
   },
   runReview: (id: string) => fetch(`/api/logs/${id}/review`, { method: 'POST' }).then((r) => json<Review>(r)),
+  batch: () => fetch('/api/batch').then((r) => json<BatchStatus>(r)),
+  startBatch: (length: 'hanchan' | 'tonpuu', count: number) =>
+    fetch('/api/batch', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ length, count }) }).then((r) =>
+      json<BatchStatus>(r),
+    ),
+  cancelBatch: () => fetch('/api/batch/cancel', { method: 'POST' }).then((r) => json<BatchStatus>(r)),
   deleteLog: (id: string) => fetch(`/api/logs/${id}`, { method: 'DELETE' }).then((r) => json<{ deleted: string }>(r)),
   uploadAsset: (name: AssetName, blob: Blob) =>
     fetch(`/api/assets/${name}`, { method: 'PUT', headers: { 'Content-Type': blob.type }, body: blob }).then((r) =>

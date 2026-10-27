@@ -306,6 +306,24 @@ export function SettingsPage() {
             )
           })}
         </div>
+        <div className="mt-5 border-t border-white/10 pt-4">
+          <div className="flex items-baseline justify-between text-[13px]">
+            <span className="text-white/80">AI 代打（Mortal 替你打）的温度</span>
+            <span>
+              <span className="font-mono tabular-nums">{(settings.auto_temp ?? 0).toFixed(2)}</span>
+              <span className="ml-2 text-white/50">{tempLabel(settings.auto_temp ?? 0)}</span>
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={settings.auto_temp ?? 0}
+            onChange={(e) => set('auto_temp', Number(e.target.value))}
+            className="mt-1 w-full accent-amber-400"
+          />
+        </div>
         <div className="mt-3 text-[12px] text-white/45">头像会自动居中裁成正方形。「AI 提示」面板始终按严格（温度 0）的 Mortal 给出建议。</div>
       </Card>
 

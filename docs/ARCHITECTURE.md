@@ -422,12 +422,33 @@ hand, so it is the same during play and in review.
   musuji 4–6 ≈ 12.5 %, suji 1/9 ≈ 1.8 %.
 - UI: three bars under each own tile (上家 #3d93dc, 对家 #c98420, 下家
   #d9579a on a #10201a track; full bar = 15 %). This categorical set
-  passed the dataviz palette validator. A left-side panel per opponent
-  opens a 34-tile risk grid. On by default in replay; a 铳率 toggle in play
-  (off by default).
+  passed the dataviz palette validator. Each opponent's avatar card has a
+  small button (color + riichi / est. tenpai %) that opens a 34-tile risk
+  popover below it. On by default in replay; a 铳率 toggle in play (off by
+  default). The Mortal hint panel sits right-lower, above the action bar.
+- Replay input: left click = next step, wheel = step, right click =
+  previous step (the browser menu is suppressed).
 - Known limits: a heuristic. No dora / yaku weighting, no per-turn
   calibration, no read of the opponent's hand shape. A better model could
   be Monte-Carlo over unseen tiles, or a learned danger head.
+
+### AI 代打 (Mortal plays your seat)
+
+- Live: the 「AI 代打」 toggle (`{"type":"autoplay","on":…}` over the
+  WebSocket) makes the session play the human's seat. It reuses the hint
+  shadow's reaction: at temperature 0 the shadow's own action, otherwise a
+  label sampled from softmax(Q / `settings.auto_temp`) mapped to a concrete
+  legal action (`backend/agents/autopilot.py`). It uses the bots' think
+  time, takes over an open decision immediately, and round results close
+  by themselves. `end_game.auto_decisions` records how many decisions it
+  made → the log is tagged `partial`.
+- Batch: `POST /api/batch {length, count}` (`backend/server/batch.py`)
+  plays N games back to back with Mortal in all four seats (yours at
+  `auto_temp`) and no think time. `start_game.autoplay = "full"`.
+  `GET /api/batch` gives progress, `POST /api/batch/cancel` stops after the
+  current game. UI: a card on the 对局 page.
+- Fully AI-played games are excluded from stats by default (数据 has a
+  「计入代打对局」 toggle; the default `/api/stats` selection skips them).
 
 ## 9. Milestones & status
 

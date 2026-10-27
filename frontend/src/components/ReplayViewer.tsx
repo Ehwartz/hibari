@@ -9,7 +9,7 @@ import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { WIND_NAME, tileName } from '../lib/tiles'
 import { RYUKYOKU_NAME } from '../lib/labels'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
-import { ActionBar, DangerPanel, EndModal, HintPanel, ResultModal } from './Overlays'
+import { ActionBar, EndModal, HintPanel, ResultModal } from './Overlays'
 import { ScaledStage } from './Stage'
 import { type DiscardFx, Table, calloutFor } from './Table'
 
@@ -247,8 +247,12 @@ export function ReplayViewer({
 
   // click = next step, wheel = step forward / back (not on controls, not on preview decisions)
   const onStageClick = (e: React.MouseEvent) => {
-    if (actions.length || (e.target as HTMLElement).closest('button, a, input, label')) return
+    if (actions.length || (e.target as HTMLElement).closest('button, a, input, label, [data-noadvance]')) return
     go(index + 1)
+  }
+  const onStageContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault() // no browser menu (back / forward …) while reviewing
+    go(index - 1)
   }
   const onStageWheel = (e: React.WheelEvent) => {
     const now = performance.now()
@@ -259,7 +263,7 @@ export function ReplayViewer({
 
   const btn = 'rounded-md bg-white/10 px-2.5 py-1 text-[13px] hover:bg-white/20 disabled:opacity-30'
   return (
-    <div className="flex h-full flex-col items-center">
+    <div className="flex h-full flex-col items-center" onContextMenu={onStageContextMenu}>
       <div className="flex h-14 w-full shrink-0 items-center gap-2 border-b border-white/10 bg-black/40 px-4 text-white">
         <a href={backHref} className="mr-1 text-white/60 hover:text-white">←</a>
         <span className="mr-3 font-bold tracking-wide">{title}</span>
@@ -332,12 +336,12 @@ export function ReplayViewer({
               showTsumogiri={showTsumogiri}
               discardFx={discardFx}
               avatars={seatAvatars(settings, table.players)}
+              danger={danger}
               tileInfo={tileInfo}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
               {hasHints && showHints && <HintPanel hints={hints} chosen={chosenText} />}
-              {showDanger && <DangerPanel danger={danger} names={names} top={116} />}
               {actions.some((a) => a.type !== 'dahai') && <ActionBar key={index} actions={actions} onAction={onAction} />}
               {toast && (
                 <div className="absolute top-[612px] left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1.5 text-[14px] text-white">

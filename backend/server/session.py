@@ -9,8 +9,10 @@ Server -> client messages:
         ``actions`` / ``hint`` only when the human must decide now.
     {"type": "error", "message": str, "fatal": bool}
     {"type": "saved", "path": str}          after end_game
+    {"type": "autoplay", "on": bool}       current AI 代打 state
 Client -> server:
     {"type": "action", "action": <one of the offered actions>}
+    {"type": "autoplay", "on": bool}       Mortal plays the human's seat
 """
 from __future__ import annotations
 
@@ -25,6 +27,7 @@ from typing import Any
 from fastapi import WebSocket
 
 from backend import mortal
+from backend.agents.autopilot import autopilot_action
 from backend.agents.mortal_agent import MortalAgent
 from backend.agents.simple_agent import SimpleAgent
 from backend.engine.actions import legal_actions
@@ -36,6 +39,15 @@ log = logging.getLogger(__name__)
 
 BOT_IDS = ["ai1", "ai2", "ai3"]
 DEFAULT_BOT_NAMES = ("Mortal-A", "Mortal-B", "Mortal-C")
+_AUTO = {"__autoplay__": True}  # queued to wake a pending decision when autoplay turns on
+
+
+def assign_seats(rng: random.Random, human_seat: int | None = None) -> tuple[int, list[str]]:
+    """Random seat for the human (seat 0 is always the first dealer), bots shuffled into the rest."""
+    human = rng.randrange(4) if human_seat is None else human_seat
+    bots = list(BOT_IDS)
+    rng.shuffle(bots)
+    return human, ["human" if s == human else bots.pop() for s in range(4)]
 FORCED_THINK = (0.3, 1.0)  # forced tsumogiri after riichi
 
 
@@ -57,16 +69,15 @@ class GameSession:
         bot_temps: tuple[float, float, float] = (0.0, 0.0, 0.0),
         bot_names: tuple[str, str, str] = DEFAULT_BOT_NAMES,
         human_seat: int | None = None,
+        auto_temp: float = 0.0,
         log_dir: Path = Path("data/games"),
     ):
         self.id = game_id
         self.rng = random.Random()
-        # Seat 0 is always the first dealer (mjai convention), so the human's
-        # seat is drawn at random, and the bots fill the others in random order.
-        self.human = self.rng.randrange(4) if human_seat is None else human_seat
-        bots = list(BOT_IDS)
-        self.rng.shuffle(bots)
-        self.players = ["human" if s == self.human else bots.pop() for s in range(4)]
+        self.human, self.players = assign_seats(self.rng, human_seat)
+        self.autoplay = False  # AI 代打: Mortal plays the human's seat
+        self.auto_temp = auto_temp
+        self.auto_decisions = 0
         self.bot_temps = dict(zip(BOT_IDS, bot_temps))
         bot_name = dict(zip(BOT_IDS, bot_names))
         names = [player_name if p == "human" else bot_name[p] for p in self.players]
@@ -97,6 +108,7 @@ class GameSession:
     async def attach(self, ws: WebSocket) -> None:
         """Make ``ws`` the client and replay everything sent so far."""
         self._ws = None
+        await ws.send_json({"type": "autoplay", "on": self.autoplay})
         sent = 0
         while sent < len(self.history):  # the game may append while we replay
             msg = self.history[sent]
@@ -111,6 +123,12 @@ class GameSession:
 
     async def submit(self, action: dict) -> None:
         await self._actions.put(action)
+
+    async def set_autoplay(self, on: bool) -> None:
+        self.autoplay = on
+        if on and self.pending is not None:
+            await self._actions.put(_AUTO)  # resolve the open decision automatically
+        await self._send({"type": "autoplay", "on": on}, record=False)
 
     async def _send(self, msg: dict, record: bool = True) -> None:
         if record:
@@ -129,8 +147,8 @@ class GameSession:
             bots = {s: SimpleAgent(s, seed=self.game.seed + s) for s in seats}
         else:
             bots = {s: MortalAgent(s, self.bot_temps[p]) for s, p in seats.items()}
-        # A greedy shadow Mortal in the human's seat provides hints.
-        shadow = MortalAgent(self.human) if self.hints else None
+        # A greedy shadow Mortal in the human's seat provides hints and AI 代打.
+        shadow = MortalAgent(self.human) if (self.hints or self.bot_kind == "mortal") else None
         return bots, shadow
 
     async def _run(self) -> None:
@@ -152,13 +170,23 @@ class GameSession:
                 msg: dict = {"type": "event", "event": mask_event(ev, me)}
                 if me in need:
                     legal = legal_actions(self.game._refs[me], need[me], self.game.state, me, ev)
-                    msg["actions"] = legal
-                    if shadow_out and shadow_out.get("meta"):
-                        msg["hint"] = mortal.top_actions(shadow_out["meta"], self.game._refs[me])
-                    self.pending = msg
-                    await self._send(msg)
-                    actions[me] = await self._wait_human(legal)
-                    self.pending = None
+                    auto = autopilot_action(legal, shadow_out, self.auto_temp, self.rng)
+                    if self.autoplay:
+                        await self._send(msg)
+                        await asyncio.sleep(self._think_time({me: auto}))
+                        choice = _AUTO
+                    else:
+                        msg["actions"] = legal
+                        if shadow_out and shadow_out.get("meta") and self.hints:
+                            msg["hint"] = mortal.top_actions(shadow_out["meta"], self.game._refs[me])
+                        self.pending = msg
+                        await self._send(msg)
+                        choice = await self._wait_human(legal)
+                        self.pending = None
+                    if choice is _AUTO:
+                        self.auto_decisions += 1
+                        choice = auto
+                    actions[me] = choice
                 else:
                     await self._send(msg)
                     await asyncio.sleep(self._think_time(actions))
@@ -168,6 +196,7 @@ class GameSession:
                 except StopIteration:
                     break
             path = self.log_dir / f"{self.id}.json.gz"
+            self.game.log[-1]["auto_decisions"] = self.auto_decisions  # end_game: how much AI 代打
             await asyncio.to_thread(write_log, path, self.game.log)
             self.finished = True
             await self._send({"type": "saved", "path": str(path)})
@@ -196,6 +225,8 @@ class GameSession:
         allowed = {_key(a): a for a in legal}
         while True:
             action = await self._actions.get()
+            if action is _AUTO:
+                return _AUTO
             if _key(action) in allowed:
                 return allowed[_key(action)]
             await self._send({"type": "error", "message": f"illegal action: {action}", "fatal": False}, record=False)
