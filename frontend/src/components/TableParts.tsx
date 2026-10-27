@@ -108,6 +108,7 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         back={hidden}
         dim={discardable !== undefined && !can}
         highlight={hover === t}
+        hoverable={!hidden && onDiscard !== undefined}
         onClick={can && onDiscard ? () => onDiscard(t, fromDrawn) : undefined}
       />
     )

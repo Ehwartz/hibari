@@ -10,11 +10,13 @@ interface Props {
   dim?: boolean
   highlight?: boolean
   raised?: boolean
+  /** Lift on mouse-over even when not clickable (own hand). */
+  hoverable?: boolean
   onClick?: () => void
   title?: string
 }
 
-export function Tile({ tile, w, back, sideways, dim, highlight, raised, onClick, title }: Props) {
+export function Tile({ tile, w, back, sideways, dim, highlight, raised, hoverable, onClick, title }: Props) {
   const h = Math.round((w * 4) / 3)
   const hidden = back || tile === '?'
   const face = hidden ? null : faceUrl(tile)
@@ -52,7 +54,7 @@ export function Tile({ tile, w, back, sideways, dim, highlight, raised, onClick,
     <div
       title={title ?? (hidden ? undefined : tileName(tile))}
       onClick={onClick}
-      className={`relative shrink-0 transition-transform duration-100 ${onClick ? 'cursor-pointer hover:-translate-y-[10%]' : ''}`}
+      className={`relative shrink-0 transition-transform duration-100 ${onClick || hoverable ? 'hover:-translate-y-[10%]' : ''} ${onClick ? 'cursor-pointer' : ''}`}
       style={{
         width: sideways ? h : w,
         height: (sideways ? w : h) + depth,
