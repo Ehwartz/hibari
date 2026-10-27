@@ -72,7 +72,7 @@ export function Logs() {
                     <th className="px-2 py-2.5 text-right font-normal">终局点数</th>
                     <th className="px-2 py-2.5 text-right font-normal">pt</th>
                     <th className="px-2 py-2.5 text-right font-normal">局数</th>
-                    <th className="px-4 py-2.5" />
+                    <th className="w-[230px] px-4 py-2.5" />
                   </tr>
                 </thead>
                 <tbody>
@@ -91,29 +91,34 @@ export function Logs() {
                         {g.point.toFixed(1)}
                       </td>
                       <td className="px-2 py-2.5 text-right text-white/70 tabular-nums">{g.kyoku}</td>
-                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                        <a href={`#/replay/${g.id}`} className="rounded-md bg-emerald-600/80 px-3 py-1 text-[13px] hover:bg-emerald-500">
-                          回放
-                        </a>
+                      <td className="w-[230px] px-4 py-2.5 text-right whitespace-nowrap">
                         {confirm === g.id ? (
                           <>
-                            <button onClick={() => remove(g.id)} className="ml-2 rounded-md bg-rose-600 px-3 py-1 text-[13px] hover:bg-rose-500">
+                            <button onClick={() => remove(g.id)} className="rounded-md bg-rose-600 px-3 py-1 text-[13px] hover:bg-rose-500">
                               确认删除
                             </button>
                             <button
                               onClick={() => setConfirm(null)}
-                              className="ml-1 rounded-md px-2 py-1 text-[13px] text-white/60 hover:text-white"
+                              className="ml-2 rounded-md bg-white/10 px-3 py-1 text-[13px] hover:bg-white/20"
                             >
                               取消
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => setConfirm(g.id)}
-                            className="ml-2 rounded-md bg-white/10 px-3 py-1 text-[13px] hover:bg-rose-700/70"
-                          >
-                            删除
-                          </button>
+                          <>
+                            <a
+                              href={`#/replay/${g.id}`}
+                              className="rounded-md bg-emerald-600/80 px-3 py-1 text-[13px] hover:bg-emerald-500"
+                            >
+                              回放
+                            </a>
+                            <button
+                              onClick={() => setConfirm(g.id)}
+                              className="ml-2 rounded-md bg-white/10 px-3 py-1 text-[13px] hover:bg-rose-700/70"
+                            >
+                              删除
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>

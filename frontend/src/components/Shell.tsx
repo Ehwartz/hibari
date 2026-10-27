@@ -4,12 +4,12 @@ import { useAppSettings } from '../lib/appearance'
 import { Avatar } from './Avatar'
 
 export const NAV = [
-  { href: '#/', label: '主页', icon: '🏠' },
-  { href: '#/new', label: '对局', icon: '🀄' },
-  { href: '#/logs', label: '牌谱', icon: '📜' },
-  { href: '#/stats', label: '数据分析', icon: '📊' },
-  { href: '#/settings', label: '设置', icon: '⚙️' },
-  { href: '#/user', label: '用户', icon: '👤' },
+  { href: '#/', label: '主页' },
+  { href: '#/new', label: '对局' },
+  { href: '#/logs', label: '牌谱' },
+  { href: '#/stats', label: '数据' },
+  { href: '#/settings', label: '设置' },
+  { href: '#/user', label: '用户' },
 ]
 
 function isCurrent(href: string) {
@@ -34,9 +34,8 @@ function Sidebar() {
             <a
               key={n.href}
               href={n.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] transition ${on ? 'bg-emerald-600/25 text-white ring-1 ring-emerald-500/40' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}
+              className={`rounded-lg px-4 py-2.5 text-[15px] tracking-wide transition ${on ? 'bg-emerald-600/25 text-white ring-1 ring-emerald-500/40' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}
             >
-              <span className="w-6 text-center text-[18px]">{n.icon}</span>
               {n.label}
             </a>
           )

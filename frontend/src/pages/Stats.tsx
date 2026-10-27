@@ -93,7 +93,7 @@ export function Stats() {
   )
 
   return (
-    <Shell title="数据分析">
+    <Shell title="数据">
       {error && (
         <div className="mb-4">
           <ErrorBox message={error} />
