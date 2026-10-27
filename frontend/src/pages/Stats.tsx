@@ -128,13 +128,13 @@ export function Stats() {
           {/* headline numbers */}
           <div className="grid grid-cols-4 gap-4">
             <Tile label="对局数" value={String(s.game)} sub={`${s.round} 小局`} />
-            <Tile label="平均顺位" value={num(avgRank, 2)} sub="越小越好" />
+            <Tile label="平均顺位" value={num(avgRank, 2)} />
             <Tile
               label="平均 pt"
               value={s.avg_point === null ? '—' : `${s.avg_point! >= 0 ? '+' : ''}${s.avg_point!.toFixed(1)}`}
               sub={`累计 ${s.total_point! >= 0 ? '+' : ''}${s.total_point!.toFixed(1)}（马 20/10/-10/-20）`}
             />
-            <Tile label="被飞率" value={pct(s.tobi_rate)} sub="点数跌破 0" />
+            <Tile label="被飞率" value={pct(s.tobi_rate)} />
           </div>
 
           <div className="mt-4 grid grid-cols-[1fr_1.6fr] gap-4">

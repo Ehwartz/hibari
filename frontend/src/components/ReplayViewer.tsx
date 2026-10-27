@@ -196,6 +196,23 @@ export function ReplayViewer({
   }
   const kyokuStart = (step: number) => go(findFrom(index, step, (f) => f.event.type === 'start_kyoku'))
 
+  // every kyoku as "东1局 0本场 — outcome", for the jump menu
+  const kyokus = useMemo(() => {
+    const list: { index: number; label: string }[] = []
+    let names: string[] = []
+    frames.forEach((f, i) => {
+      const e = f.event
+      if (e.type === 'start_game') names = e.names
+      if (e.type === 'start_kyoku') list.push({ index: i, label: `${WIND_NAME[e.bakaze]}${e.kyoku}局 ${e.honba}本场` })
+      const cur = list[list.length - 1]
+      if (!cur || cur.label.includes('—')) return
+      if (e.type === 'hora') cur.label += ` — ${names[e.actor] ?? ''} ${e.actor === e.target ? '自摸' : '荣和'}`
+      else if (e.type === 'ryukyoku') cur.label += ` — ${RYUKYOKU_NAME[e.reason ?? 'exhaustive'] ?? '流局'}`
+    })
+    return list
+  }, [frames])
+  const currentKyoku = kyokus.reduce((cur, k) => (k.index <= index ? k.index : cur), kyokus[0]?.index ?? 0)
+
   useEffect(() => {
     if (!playing) return
     const t = setTimeout(() => (index < last ? go(index + 1) : setPlaying(false)), 600)
@@ -277,13 +294,27 @@ export function ReplayViewer({
             下一个我的决策
           </button>
         )}
+        {kyokus.length > 0 && (
+          <select
+            value={currentKyoku}
+            onChange={(e) => go(Number(e.target.value))}
+            title="跳到某一局"
+            className="max-w-[240px] rounded-md bg-white/10 px-2 py-1 text-[13px] text-white outline-none hover:bg-white/20"
+          >
+            {kyokus.map((k) => (
+              <option key={k.index} value={k.index} className="bg-[#13241c]">
+                {k.label}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           type="range"
           min={0}
           max={last}
           value={index}
           onChange={(e) => go(Number(e.target.value))}
-          className="mx-2 w-56 accent-emerald-400"
+          className="mx-2 w-40 accent-emerald-400"
         />
         <span className="w-20 font-mono text-[12px] text-white/60 tabular-nums">
           {index}/{last}
