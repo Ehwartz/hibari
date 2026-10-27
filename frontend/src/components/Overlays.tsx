@@ -82,7 +82,7 @@ export function ActionBar({ actions, onAction }: { actions: Action[]; onAction: 
 
 export function HintPanel({ hints, chosen }: { hints: Hint[] | null; chosen?: string }) {
   return (
-    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, top: 156 }}>
+    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, top: 18 }}>
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-white/85">Mortal 推荐</span>
         {chosen && <span className="text-[11px] text-white/45">{chosen}</span>}
@@ -330,7 +330,7 @@ const AUTO_ITEMS: { key: keyof AutoSettings; label: string; title: string }[] = 
 
 export function AutoPanel({ value, onChange }: { value: AutoSettings; onChange: (v: AutoSettings) => void }) {
   return (
-    <div className="absolute flex w-[132px] flex-col gap-1.5 rounded-xl bg-black/35 p-2.5" style={{ left: 18, top: 572 }}>
+    <div className="absolute flex w-[132px] flex-col gap-1.5 rounded-xl bg-black/35 p-2.5" style={{ left: 18, top: 116 }}>
       {AUTO_ITEMS.map(({ key, label, title }) => {
         const on = value[key]
         return (

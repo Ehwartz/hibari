@@ -17,40 +17,46 @@ const OWN_W = 58
 const OWN_MELD_W = 42
 const DISCARD_MS = 520
 
-// Avatar cards, upright, one per corner: each player's left-hand corner as seen from their
-// seat (rotationally symmetric): you bottom-left, right player bottom-right, top player
-// top-right, left player top-left.
-const AVATAR = 80
-const CARD_W = AVATAR + 32
-const CARD_H = AVATAR + 40
-const EDGE = 18
-const CARD_POS = [
-  { left: EDGE, top: STAGE_H - EDGE - CARD_H },
-  { left: STAGE_W - EDGE - CARD_W, top: STAGE_H - EDGE - CARD_H },
-  { left: STAGE_W - EDGE - CARD_W, top: EDGE },
-  { left: EDGE, top: EDGE },
-]
+const OWN_AVATAR = 72
+const OPP_AVATAR = 50
 
-function PlayerCard({ r, name, avatar, active, oya }: {
-  r: number
+interface CardProps {
   name: string
   avatar: string | null
   active: boolean
   oya: boolean
-}) {
+  self: boolean
+}
+
+function PlayerCard({ name, avatar, active, oya, self, size }: CardProps & { size: number }) {
   return (
     <div
-      className={`absolute flex flex-col items-center justify-center rounded-xl border-2 bg-black/45 p-1.5 shadow-lg transition ${r === 0 ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
-      style={{ ...CARD_POS[r], width: CARD_W, height: CARD_H }}
+      className={`flex flex-col items-center rounded-xl border-2 bg-black/45 p-1 shadow-lg transition ${self ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
+      style={{ width: size + 24 }}
     >
       <div className="relative">
-        <Avatar url={avatar} name={name || '?'} size={AVATAR} />
+        <Avatar url={avatar} name={name || '?'} size={size} />
         {oya && (
           <span className="absolute -top-1.5 -left-1.5 rounded bg-rose-600 px-1 text-[11px] font-bold text-white shadow">庄</span>
         )}
       </div>
-      <div className="mt-1 w-full truncate text-center text-[12px] text-white/90" title={name}>
+      <div className="mt-0.5 w-full truncate text-center text-[12px] leading-tight text-white/90" title={name}>
         {name}
+      </div>
+    </div>
+  )
+}
+
+/** The avatar card at the left end of a hand row (from that player's view), kept upright. */
+function HandAvatar({ r, size, ...card }: CardProps & { r: number; size: number }) {
+  const slot = size + 40 // square, so the counter-rotated card fits for every seat
+  return (
+    <div
+      className="absolute flex items-center justify-center"
+      style={{ right: '100%', marginRight: 10, top: '50%', width: slot, height: slot, transform: 'translateY(-50%)' }}
+    >
+      <div style={{ transform: `rotate(${90 * r}deg)` }}>
+        <PlayerCard {...card} size={size} />
       </div>
     </div>
   )
@@ -183,7 +189,7 @@ function CenterPanel({ table, me }: { table: TableState; me: number }) {
 function DoraPanel({ table }: { table: TableState }) {
   const markers = [...table.doraMarkers, ...Array(5 - table.doraMarkers.length).fill('?')]
   return (
-    <div className="absolute rounded-xl bg-black/35 px-3 py-2.5" style={{ left: 18, top: 156 }}>
+    <div className="absolute rounded-xl bg-black/35 px-3 py-2.5" style={{ left: 18, top: 18 }}>
       <div className="mb-1.5 text-[12px] text-white/60">宝牌指示牌</div>
       <div className="flex gap-[3px]">
         {markers.slice(0, 5).map((t, i) => (
@@ -226,6 +232,14 @@ export function Table({
     return { hand: arrange(table.seats[seat].hand, sort), drawn: table.seats[seat].drawn, leaving: null }
   }
 
+  const card = (seat: number): CardProps => ({
+    name: table.names[seat],
+    avatar: avatars[seat],
+    active: table.turn === seat,
+    oya: table.oya === seat && table.started,
+    self: seat === me,
+  })
+
   return (
     <div className="felt relative overflow-hidden rounded-[28px]" style={{ width: STAGE_W, height: STAGE_H }}>
       <DoraPanel table={table} />
@@ -242,17 +256,9 @@ export function Table({
             </div>
             {r !== 0 && (
               <div className="absolute flex items-end gap-4" style={{ left: 0, top: 326, transform: 'translateX(-50%)' }}>
+                <HandAvatar r={r} size={OPP_AVATAR} {...card(seat)} />
                 <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
-              </div>
-            )}
-            {r !== 0 && (
-              // behind the hand, facing the same way as that player's tiles
-              <div
-                className="absolute -translate-x-1/2 rounded-full bg-black/30 px-2.5 py-0.5 text-[13px] whitespace-nowrap text-white/80"
-                style={{ left: 0, top: 388 }}
-              >
-                {table.names[seat]}
               </div>
             )}
           </Rotated>
@@ -260,7 +266,8 @@ export function Table({
       })}
 
       {/* own hand: not rotated, larger tiles */}
-      <div className="absolute flex items-end gap-6" style={{ left: CX, top: CY + 330, transform: 'translateX(-50%)' }}>
+      <div className="absolute flex items-end gap-6" style={{ left: CX, top: CY + 348, transform: 'translateX(-50%)' }}>
+        <HandAvatar r={0} size={OWN_AVATAR} {...card(me)} />
         <Hand
           {...handOf(me)}
           w={OWN_W}
@@ -270,16 +277,6 @@ export function Table({
         />
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} />
       </div>
-      {[0, 1, 2, 3].map((seat) => (
-        <PlayerCard
-          key={seat}
-          r={rel(seat, me)}
-          name={table.names[seat]}
-          avatar={avatars[seat]}
-          active={table.turn === seat}
-          oya={table.oya === seat && table.started}
-        />
-      ))}
       {callouts.map((c) => (
         <div
           key={c.key}
