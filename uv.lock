@@ -114,10 +114,20 @@ wheels = [
 ]
 
 [[package]]
+name = "mahjong"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/a1/8cd6025d7c88a238e4bf3ff031af8e50ce965dadc04a60a579d3a7793984/mahjong-2.1.0.tar.gz", hash = "sha256:a61fa4f0b3680fb6838c67f13d083177d50e55a1326aa3c3ec248811837c78bf", size = 54357, upload-time = "2026-10-25T12:49:00.501Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5f/96/f4c41448135d469e77885307456c2e7fc99b5c5b4195fac0162eec7d6997/mahjong-2.1.0-py3-none-any.whl", hash = "sha256:6c9ad88fe0e8df74d43f466a05517209104a52494d9cf0fbc544442a10c0e91c", size = 87011, upload-time = "2026-10-25T12:48:58.995Z" },
+]
+
+[[package]]
 name = "mahjong-ai-trainer"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "mahjong" },
     { name = "numpy" },
     { name = "requests" },
     { name = "torch", version = "2.8.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
@@ -131,6 +141,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "mahjong", specifier = ">=2.1.0" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "requests", specifier = ">=2.28" },
     { name = "torch", specifier = "<2.9", index = "https://download.pytorch.org/whl/cpu" },

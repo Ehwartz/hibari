@@ -122,28 +122,99 @@ behind a subprocess boundary, as Akagi does).
 
 ## 5. Engine design
 
-The engine is the authoritative state machine and the only thing that
-produces events. Its output is a stream of **mjai events**, which is also the
-log format.
+The engine (`backend/engine/`) is the authoritative state machine and the
+only producer of events. Its output is a stream of **mjai events**, which is
+also the log format.
 
-- Rules config: length (tonpuu / hanchan), starting points (25000),
-  return (30000), uma, red fives (3), kuitan, atozuke, busting, agari-yame,
-  West-round extension, abortive draws (kyuushu kyuuhai, suufon renda,
-  suukaikan, suucha riichi), double / triple ron policy.
-- Per-seat views: other players' `tehais` and `tsumo` tiles become `"?"`.
-- Call priority: ron > pon / daiminkan > chi; collect all responses before
-  resolving.
-- Riichi is two mjai steps: `reach` (actor) → `dahai` (same actor) →
-  `reach_accepted` once no ron happened on that discard.
-- Edge cases to cover: furiten (permanent, temporary, riichi), chankan,
-  kan dora timing (ankan immediate, minkan after discard), rinshan, haitei /
-  houtei, pao (daisangen / daisuushii), nagashi mangan, tenpai payments.
-- Validation: during development every event is fed into four
-  `PlayerState`s; any exception is an engine bug. Mortal-vs-Mortal
-  self-play over thousands of hanchan is the main regression test.
-- Scoring cross-check: replay arena reference logs (`scripts/m0_smoke.py`)
-  through our scoring code and compare `hora` / `ryukyoku` deltas with the
-  Rust engine's.
+| File | Role |
+|---|---|
+| `tiles.py` | mjai tile strings, 34-kinds, dora lookup, 136-id conversion for `mahjong` |
+| `rules.py` | `Rules`: length, start / target points, uma, tobi, agari-yame, extension, sanchahou |
+| `wall.py` | Seeded shuffle; dead wall (5 dora, 5 ura, 4 rinshan) |
+| `state.py` | `KyokuState.apply(event)`: full-information state of one kyoku (hands, melds, rivers, riichi / ippatsu / double riichi, kan owners, pao, tiles left, claimable tile) |
+| `scoring.py` | `evaluate_hora` (yaku / han / fu / deltas incl. honba, deposits, pao), tenpai payments, nagashi mangan |
+| `game.py` | `Game.play()` generator: the turn loop, call resolution, abortive draws, game end |
+| `driver.py` | `run_game(game, agents)` synchronous driver (self-play, tests) |
+| `replay.py` | Read / write `.json.gz` logs; replay through `KyokuState` and re-score |
+
+### Generator protocol
+
+```python
+gen = Game(rules, seed).play()
+prompt = next(gen)                    # Prompt(event, need={seat: ActionCandidate})
+while True:
+    actions = {seat: ... for seat in prompt.need}
+    prompt = gen.send(actions)        # StopIteration at end_game
+```
+
+Every event is yielded exactly once, so a driver forwards the whole stream to
+all agents (masked per seat with `mask_event`). The same engine can be driven
+synchronously (self-play) or from an async WebSocket handler (M2) without
+changes.
+
+### Legality: libriichi as referee
+
+The engine keeps four `libriichi.state.PlayerState` referees, each fed that
+seat's masked view. Who may act after an event (`need`) comes from their
+`ActionCandidate`s, and every reply goes through `validate_reaction`;
+illegal replies raise `IllegalAction`. This gives Tenhou-exact legality
+(furiten, kuikae, riichi wait-preserving kans, kyuushu, …) for free, and the
+human player in M2 gets the same candidates for the action bar.
+
+Hand-level rules are therefore fixed to Tenhou's (3 red fives, kuitan,
+atozuke, no double yakuman, kazoe yakuman). `Rules` only covers game-level
+options.
+
+### Event ordering (mirrors libriichi's arena)
+
+- ankan → `dora` → rinshan `tsumo`
+- daiminkan / kakan → rinshan `tsumo` → [actor decides] → `dora` → action.
+  The decision is made on the tsumo event; the `dora` event gives no one a
+  decision.
+- `reach` → `dahai` (same actor) → [ron check] → `reach_accepted` → calls
+- Call priority: ron > pon / daiminkan > chi. Triple ron aborts the hand.
+- Multi-ron: `hora` events in seat order from the discarder; honba and
+  deposits go to the first only.
+- Abortive draws: kyuushu kyuuhai, suufon renda, suucha riichi, suukaikan,
+  sanchahou → `ryukyoku` with `reason` and zero deltas; dealer stays.
+
+### Log extensions
+
+Events are standard mjai plus a few extra fields (libriichi ignores unknown
+fields; `PlayerState` and `Stat` both verified):
+
+- `start_game.seed: [seed, 0]` — wall reproducible from the seed
+- `hora.pai / han / fu / yaku / scores`
+- `ryukyoku.reason / tenpai`
+- `end_game.scores` (after leftover deposits go to the top player)
+
+### Game end (Tenhou-style)
+
+At the end of each kyoku in all-last or later: tobi ends the game; the dealer
+continues on a win / tenpai unless they are top with ≥ target (agari-yame);
+otherwise the game ends once someone has ≥ target, or at the hard limit
+(West 4 for hanchan, South 4 for tonpuu, with extension). Abortive draws
+always continue. Rank ties break by seat order.
+
+### Verification
+
+- `tests/fixtures/arena/`: 13 libriichi arena logs. Replaying them through
+  `KyokuState` + `scoring` reproduces every `hora` / `ryukyoku` delta
+  (504 wins and 80 draws in the full reference set, incl. double ron).
+- Hand-made cases for paths the arena rarely hits: pao, nagashi mangan,
+  tenpai payments, double riichi + ippatsu + ura.
+- Fuzzing: `SimpleAgent` (shanten-greedy, random calls / kans) plays full
+  hanchan in ~0.6 s each; Mortal ×4 ≈ 27 s per hanchan on CPU.
+
+### Known gaps
+
+- Pao on ron is split 50/50 between the discarder and the liable player,
+  and the discarder pays the honba. Not cross-checked: the arena logs have
+  no pao wins.
+- After a daiminkan or kakan, the new dora is flipped before a rinshan
+  kaihou is announced, so it counts for that win. This follows the arena's
+  event order; it may differ from Tenhou in that edge case.
+- Nagashi mangan: own calls are allowed, and payments use no honba.
 
 ### mjai event cheat-sheet
 
@@ -164,8 +235,11 @@ class Agent(Protocol):
     def react(self, event: dict) -> dict | None: ...   # one event in, maybe an action out
 ```
 
-- `MortalAgent`: wraps a `libriichi.mjai.Bot`; inference runs in a thread
-  pool so the event loop is not blocked.
+- `MortalAgent` (`backend/agents/mortal_agent.py`): wraps a
+  `libriichi.mjai.Bot`. In the server, inference will run in a thread pool so
+  the event loop is not blocked.
+- `SimpleAgent` (`backend/agents/simple_agent.py`): fast rule-based agent
+  for engine fuzzing, no neural net.
 - `HumanAgent`: pushes the (masked) event + legal actions to the browser over
   WebSocket and awaits the reply.
 - Server: `POST /games` (create with rules), `WS /games/{id}` (play),
@@ -197,7 +271,7 @@ class Agent(Protocol):
 | # | Milestone | Status |
 |---|---|---|
 | M0 | Env: uv + Python 3.12 + CPU torch; load Mortal in-process; bot answers sample events; `PlayerState` works | ✅ done 2026-10-27 |
-| M1 | Engine: Mortal ×4 self-play finishes hanchan; `PlayerState` referee; 1000+ hanchan without errors | — |
+| M1 | Engine: Mortal ×4 self-play finishes hanchan; `PlayerState` referee; 1000+ hanchan without errors | ✅ done 2026-10-27 |
 | M2 | Human vs 3 bots in the browser (WebSocket + React table) | — |
 | M3 | Persist games, replay viewer | — |
 | M4 | Mortal review | — |
@@ -212,6 +286,12 @@ class Agent(Protocol):
 - 2026-10-27 — M0: uv-managed Python 3.12 venv with torch 2.8.0+cpu. Stats
   will use `libriichi.stat.Stat` instead of hand-written aggregation.
   Arena logs serve as engine test fixtures.
+- 2026-10-27 — M1: engine is a generator (`Game.play()`), so sync self-play
+  and the async server share it. Legality is delegated to libriichi
+  `PlayerState` referees (Tenhou hand rules, fixed); scoring uses `mahjong`
+  2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
+  deposits to the first winner only). Logs carry extra fields (han / fu /
+  yaku, ryukyoku reason) — libriichi tolerates them.
 
 ## 11. Dev quickstart
 
@@ -221,5 +301,7 @@ class Agent(Protocol):
 python -m pip install --user uv     # once (or install uv standalone)
 python -m uv sync                   # creates .venv with Python 3.12
 python -m uv run pytest             # M0 tests
-python -m uv run python -m scripts.m0_smoke --seeds 1   # 4 hanchan self-play → data/reference_logs/
+python -m uv run python -m scripts.m0_smoke --seeds 1   # arena self-play → data/reference_logs/
+python -m uv run python -m scripts.selfplay --agent mortal --games 1   # our engine, Mortal x4
+python -m uv run python -m scripts.selfplay --agent simple --games 500 # fast fuzzing
 ```
