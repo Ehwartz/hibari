@@ -14,6 +14,7 @@ export interface Meld {
 
 export interface RiverTile {
   pai: Tile
+  seq: number // global discard order within the kyoku
   tsumogiri: boolean
   riichi: boolean // declaration tile, shown sideways
   called: boolean // taken by another player
@@ -26,6 +27,7 @@ export interface SeatView {
   river: RiverTile[]
   riichi: boolean // declared (accepted or pending)
   riichiAccepted: boolean
+  riichiSeq: number | null // seq of the riichi declaration tile
 }
 
 export interface HoraInfo {
@@ -58,6 +60,7 @@ export interface TableState {
   scores: number[]
   doraMarkers: Tile[]
   tilesLeft: number
+  discardSeq: number
   seats: SeatView[]
   turn: number | null // seat whose action we are waiting for
   lastDiscard: { actor: number; index: number } | null
@@ -72,7 +75,7 @@ export interface TableState {
 export const DEFAULT_PLAYERS = ['human', 'ai1', 'ai2', 'ai3']
 
 const emptySeat = (): SeatView => ({
-  hand: [], drawn: null, melds: [], river: [], riichi: false, riichiAccepted: false,
+  hand: [], drawn: null, melds: [], river: [], riichi: false, riichiAccepted: false, riichiSeq: null,
 })
 
 export function initialTable(names: string[] = ['', '', '', '']): TableState {
@@ -86,6 +89,7 @@ export function initialTable(names: string[] = ['', '', '', '']): TableState {
     scores: [25000, 25000, 25000, 25000],
     doraMarkers: [],
     tilesLeft: 70,
+    discardSeq: 0,
     seats: [0, 1, 2, 3].map(emptySeat),
     turn: null,
     lastDiscard: null,
@@ -143,6 +147,7 @@ export function applyEvent(s: TableState, ev: MjaiEvent): TableState {
         scores: [...ev.scores],
         doraMarkers: [ev.dora_marker],
         tilesLeft: 70,
+        discardSeq: 0,
         seats: ev.tehais.map((h) => ({ ...emptySeat(), hand: sortTiles(h) })),
         turn: ev.oya,
         lastDiscard: null,
@@ -165,10 +170,12 @@ export function applyEvent(s: TableState, ev: MjaiEvent): TableState {
           next = settle({ ...seat, hand: removeTiles(seat.hand, [ev.pai]) })
         }
         const riichi = seat.riichi && !seat.riichiAccepted && !seat.river.some((r) => r.riichi)
-        return { ...next, river: [...seat.river, { pai: ev.pai, tsumogiri: ev.tsumogiri, riichi, called: false }] }
+        const tile = { pai: ev.pai, seq: s.discardSeq, tsumogiri: ev.tsumogiri, riichi, called: false }
+        return { ...next, river: [...seat.river, tile], riichiSeq: riichi ? s.discardSeq : next.riichiSeq }
       })
       return {
         ...s,
+        discardSeq: s.discardSeq + 1,
         seats,
         turn: null,
         lastDiscard: { actor: ev.actor, index: seats[ev.actor].river.length - 1 },

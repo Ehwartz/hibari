@@ -1,3 +1,4 @@
+import { DANGER_SIDES, DANGER_TRACK } from '../lib/danger'
 import type { Meld, RiverTile } from '../lib/table'
 import type { Tile as TileT } from '../lib/tiles'
 import { Tile } from './Tile'
@@ -75,6 +76,17 @@ export function Melds({ melds, actor, w }: { melds: Meld[]; actor: number; w: nu
   )
 }
 
+/** Extra per-tile info for the own hand (review / danger). */
+export interface TileInfo {
+  prob?: number // Mortal's probability of discarding this tile
+  best?: boolean // Mortal's top choice
+  actual?: boolean // the tile actually discarded
+  risks?: number[] // deal-in risk vs 上家 / 对家 / 下家 (0..1)
+}
+
+/** Risk at which a danger bar is full. */
+const RISK_FULL = 0.15
+
 /** The tile leaving the hand during a discard: a hand index, or the separate drawn tile. */
 export type Leaving = { from: number | 'drawn'; key: number }
 
@@ -88,9 +100,46 @@ interface HandProps {
   discardable?: Set<TileT>
   hover?: TileT | null
   onDiscard?: (tile: TileT, fromDrawn: boolean) => void
+  info?: (tile: TileT, fromDrawn: boolean) => TileInfo | undefined
 }
 
-export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard }: HandProps) {
+export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info }: HandProps) {
+  const decorate = (el: React.ReactElement, t: TileT, fromDrawn: boolean, key: string) => {
+    const i = info?.(t, fromDrawn)
+    if (!i) return el
+    const title = i.risks
+      ? DANGER_SIDES.map((s, j) => `${s.label} ${(i.risks![j] * 100).toFixed(1)}%`).join('  ')
+      : undefined
+    return (
+      <div key={key} className="relative" title={title}>
+        {el}
+        {i.prob !== undefined && (
+          <div
+            className={`pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1 font-mono text-[11px] whitespace-nowrap tabular-nums ${i.best ? 'bg-amber-400 font-bold text-black' : 'bg-black/65 text-white/85'}`}
+          >
+            {Math.round(i.prob * 100)}%
+          </div>
+        )}
+        {i.actual && (
+          <div
+            className="pointer-events-none absolute top-0 right-0 left-0 rounded-[7px] ring-[3px] ring-rose-500"
+            style={{ height: Math.round((w * 4) / 3) }}
+          />
+        )}
+        {i.risks && (
+          <div className="absolute top-full right-0 left-0 mt-1 flex flex-col gap-[2px] rounded-sm p-[2px]" style={{ background: DANGER_TRACK }}>
+            {i.risks.map((r, j) => (
+              <div
+                key={j}
+                className="h-[3px] rounded-full"
+                style={{ width: `${Math.min(100, (r / RISK_FULL) * 100)}%`, background: DANGER_SIDES[j].color }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
   const tile = (t: TileT, key: string, fromDrawn: boolean, slot: number | 'drawn') => {
     const can = discardable?.has(t)
     if (leaving && leaving.from === slot) {
@@ -100,7 +149,7 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         </div>
       )
     }
-    return (
+    return decorate(
       <Tile
         key={key}
         tile={t}
@@ -110,7 +159,10 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         highlight={hover === t}
         hoverable={!hidden && onDiscard !== undefined}
         onClick={can && onDiscard ? () => onDiscard(t, fromDrawn) : undefined}
-      />
+      />,
+      t,
+      fromDrawn,
+      key,
     )
   }
   return (

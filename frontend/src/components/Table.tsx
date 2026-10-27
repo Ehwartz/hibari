@@ -3,7 +3,7 @@ import { type SeatView, type TableState, arrange } from '../lib/table'
 import { SEAT_WIND, type Tile as TileT, WIND_NAME } from '../lib/tiles'
 import { Avatar } from './Avatar'
 import { Tile } from './Tile'
-import { Hand, type Leaving, Melds, River } from './TableParts'
+import { Hand, type Leaving, Melds, River, type TileInfo } from './TableParts'
 
 export const STAGE_W = 1280
 export const STAGE_H = 880
@@ -121,6 +121,8 @@ interface Props {
   callouts?: Callout[]
   /** Avatar image URL per seat (null = default avatar). */
   avatars?: (string | null)[]
+  /** Per-tile extras for the own hand (Mortal probabilities, deal-in risk). */
+  tileInfo?: (tile: TileT, fromDrawn: boolean) => TileInfo | undefined
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
 }
 
@@ -213,6 +215,7 @@ export function Table({
   discardFx,
   callouts = [],
   avatars = [null, null, null, null],
+  tileInfo,
   children,
 }: Props) {
   const [fx, setFx] = useState<DiscardFx | null>(null)
@@ -276,6 +279,7 @@ export function Table({
           discardable={discardable}
           hover={hover}
           onDiscard={onDiscard}
+          info={tileInfo}
         />
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} />
       </div>

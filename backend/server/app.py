@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend import storage
+from backend.analysis.review import review_game
 from backend.engine.rules import Rules
 from backend.server.session import GameSession
 
@@ -201,6 +202,34 @@ async def delete_log(game_id: str) -> dict:
     if not ok:
         raise HTTPException(404, "no such log")
     return {"deleted": game_id}
+
+
+def _log_path(game_id: str) -> Path:
+    try:
+        path = storage.log_file(storage.load_settings(), game_id)
+    except ValueError:
+        raise HTTPException(400, "bad id") from None
+    if not path.exists():
+        raise HTTPException(404, "no such log")
+    return path
+
+
+@app.get("/api/logs/{game_id}/review")
+async def get_review(game_id: str) -> dict:
+    review = storage.read_review(_log_path(game_id))
+    if review is None:
+        raise HTTPException(404, "not reviewed")
+    return review
+
+
+@app.post("/api/logs/{game_id}/review")
+async def run_review(game_id: str) -> dict:
+    """Run (or re-run) the Mortal review of a saved game; takes a few seconds."""
+    path = _log_path(game_id)
+    events = storage.read_events(path)
+    review = await asyncio.to_thread(review_game, events)
+    storage.save_review(path, review)
+    return review
 
 
 class StatsQuery(BaseModel):

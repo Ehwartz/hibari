@@ -135,9 +135,10 @@ class GameMeta:
     kyoku: int
     finished: bool
     size: int = 0
+    review: dict | None = None  # summary of the Mortal review, if one was run
 
 
-_meta_cache: dict[Path, tuple[float, GameMeta]] = {}
+_meta_cache: dict[Path, tuple[tuple[float, float], GameMeta]] = {}
 UMA = (20, 10, -10, -20)
 
 
@@ -152,8 +153,25 @@ def read_events(path: Path) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
+def review_file(log: Path) -> Path:
+    return log.with_name(log.name.removesuffix(".json.gz") + ".review.json")
+
+
+def read_review(log: Path) -> dict | None:
+    try:
+        return json.loads(review_file(log).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def save_review(log: Path, review: dict) -> None:
+    review_file(log).write_text(json.dumps(review, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    _meta_cache.pop(log, None)
+
+
 def _meta(path: Path) -> GameMeta | None:
-    mtime = path.stat().st_mtime
+    rf = review_file(path)
+    mtime = (path.stat().st_mtime, rf.stat().st_mtime if rf.exists() else 0.0)
     cached = _meta_cache.get(path)
     if cached and cached[0] == mtime:
         return cached[1]
@@ -172,7 +190,7 @@ def _meta(path: Path) -> GameMeta | None:
     human = int(start.get("human", 0))  # older logs: always seat 0
     order = sorted(range(4), key=lambda s: (-scores[s], s))
     rank = order.index(human) + 1
-    started = start.get("started_at") or datetime.fromtimestamp(mtime).isoformat(timespec="seconds")
+    started = start.get("started_at") or datetime.fromtimestamp(mtime[0]).isoformat(timespec="seconds")
     meta = GameMeta(
         id=path.name.removesuffix(".json.gz"),
         started_at=started,
@@ -185,6 +203,7 @@ def _meta(path: Path) -> GameMeta | None:
         kyoku=len({(e.get("bakaze"), e.get("kyoku"), e.get("honba")) for e in events if e["type"] == "start_kyoku"}),
         finished=end is not None,
         size=path.stat().st_size,
+        review=(read_review(path) or {}).get("summary"),
     )
     _meta_cache[path] = (mtime, meta)
     return meta
@@ -203,6 +222,7 @@ def delete_game(settings: Settings, game_id: str) -> bool:
     if not path.exists():
         return False
     path.unlink()
+    review_file(path).unlink(missing_ok=True)
     _meta_cache.pop(path, None)
     return True
 

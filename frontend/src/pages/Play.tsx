@@ -5,8 +5,18 @@
 // stops until the player picks one. On (re)connect the server replays the
 // whole history (flagged `replay`), which rebuilds the table without delays.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActionBar, AutoPanel, type AutoSettings, DEFAULT_AUTO, EndModal, HintPanel, ResultModal } from '../components/Overlays'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ActionBar,
+  AutoPanel,
+  type AutoSettings,
+  DangerPanel,
+  DEFAULT_AUTO,
+  EndModal,
+  HintPanel,
+  ResultModal,
+} from '../components/Overlays'
+import { computeDanger, tileRisks } from '../lib/danger'
 import { ScaledStage } from '../components/Stage'
 import { type Callout, type DiscardFx, Table, calloutFor } from '../components/Table'
 import { type ServerMsg, wsUrl } from '../lib/api'
@@ -184,6 +194,12 @@ export function Play({ gameId }: { gameId: string }) {
       return DEFAULT_AUTO
     }
   })
+  const [showDanger, setShowDanger] = useState(() => localStorageGet('danger') === '1')
+  const toggleDanger = (v: boolean) => {
+    setShowDanger(v)
+    localStorageSet('danger', v ? '1' : '0')
+  }
+  const danger = useMemo(() => (showDanger ? computeDanger(table, table.human) : []), [showDanger, table])
   const changeAuto = (v: AutoSettings) => {
     setAuto(v)
     localStorageSet('auto', JSON.stringify(v))
@@ -251,6 +267,9 @@ export function Play({ gameId }: { gameId: string }) {
         </span>
         <span className="flex-1" />
         <span className="text-white/40">右键：摸切 / 跳过</span>
+        <label className="ml-3 flex items-center gap-1.5" title="根据牌河、副露、立直估算每张牌对三家的放铳率">
+          <input type="checkbox" checked={showDanger} onChange={(e) => toggleDanger(e.target.checked)} /> 铳率
+        </label>
         <label className="ml-3 flex items-center gap-1.5">
           <input type="checkbox" checked={showHints} onChange={(e) => toggleHints(e.target.checked)} /> AI 提示
         </label>
@@ -273,9 +292,11 @@ export function Play({ gameId }: { gameId: string }) {
           discardFx={fx}
           callouts={callouts}
           avatars={seatAvatars(settings, table.players)}
+          tileInfo={danger.length ? (t) => ({ risks: tileRisks(danger, t) }) : undefined}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
           {showHints && <HintPanel hints={hint} />}
+          {showDanger && <DangerPanel danger={danger} names={table.names} />}
           {actions.some((a) => a.type !== 'dahai') && <ActionBar key={JSON.stringify(actions)} actions={actions} onAction={act} />}
           {notice && (
             <div className="absolute top-[612px] left-1/2 max-w-[700px] -translate-x-1/2 truncate rounded-full bg-black/70 px-4 py-1.5 text-[14px] text-white">

@@ -62,6 +62,34 @@ export interface GameMeta {
   kyoku: number
   finished: boolean
   size: number
+  review: ReviewSummary | null
+}
+
+export interface ReviewSummary {
+  decisions: number
+  matches: number
+  rate: number | null
+  bad: number // decisions where Mortal gave the actual action < 5%
+}
+
+/** One decision of the human, as judged by Mortal (labels: tiles, reach, chi_low/mid/high, pon, kan_select, hora, ryukyoku, none). */
+export interface ReviewDecision {
+  index: number // the event the decision replied to
+  probs: Record<string, number>
+  q: Record<string, number>
+  best: string
+  actual: string
+  actual_prob: number
+  match: boolean
+  discard: boolean // a discard decision (own turn) rather than a call / pass
+}
+
+export interface Review {
+  version: number
+  human: number
+  temperature: number
+  summary: ReviewSummary
+  decisions: ReviewDecision[]
 }
 
 export type StatValues = Record<string, number | null>
@@ -93,6 +121,11 @@ export const api = {
     fetch('/api/settings', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(s) }).then((r) => json<Settings>(r)),
   logs: () => fetch('/api/logs').then((r) => json<{ folder: string; games: GameMeta[] }>(r)),
   log: (id: string) => fetch(`/api/logs/${id}`).then((r) => json<{ id: string; events: MjaiEvent[] }>(r)),
+  review: async (id: string): Promise<Review | null> => {
+    const r = await fetch(`/api/logs/${id}/review`)
+    return r.status === 404 ? null : json<Review>(r)
+  },
+  runReview: (id: string) => fetch(`/api/logs/${id}/review`, { method: 'POST' }).then((r) => json<Review>(r)),
   deleteLog: (id: string) => fetch(`/api/logs/${id}`, { method: 'DELETE' }).then((r) => json<{ deleted: string }>(r)),
   uploadAsset: (name: AssetName, blob: Blob) =>
     fetch(`/api/assets/${name}`, { method: 'PUT', headers: { 'Content-Type': blob.type }, body: blob }).then((r) =>

@@ -20,6 +20,23 @@ export function Logs() {
   const [data, setData] = useState<{ folder: string; games: GameMeta[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<string | null>(null)
+  const [reviewing, setReviewing] = useState<Set<string>>(new Set())
+
+  const review = async (id: string) => {
+    setReviewing((s) => new Set(s).add(id))
+    try {
+      await api.runReview(id)
+      await load()
+    } catch (e) {
+      setError(`复盘失败：${e instanceof Error ? e.message : e}`)
+    } finally {
+      setReviewing((s) => {
+        const n = new Set(s)
+        n.delete(id)
+        return n
+      })
+    }
+  }
 
   const load = () =>
     api
@@ -72,6 +89,7 @@ export function Logs() {
                     <th className="px-2 py-2.5 text-right font-normal">终局点数</th>
                     <th className="px-2 py-2.5 text-right font-normal">pt</th>
                     <th className="px-2 py-2.5 text-right font-normal">局数</th>
+                    <th className="px-3 py-2.5 font-normal">Mortal 复盘</th>
                     <th className="w-[230px] px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -91,6 +109,26 @@ export function Logs() {
                         {g.point.toFixed(1)}
                       </td>
                       <td className="px-2 py-2.5 text-right text-white/70 tabular-nums">{g.kyoku}</td>
+                      <td className="w-[150px] px-3 py-2.5 whitespace-nowrap">
+                        {g.review ? (
+                          <span
+                            className="rounded-md bg-emerald-700/40 px-2 py-0.5 text-[13px]"
+                            title={`一致 ${g.review.matches}/${g.review.decisions}，恶手 ${g.review.bad} 处`}
+                          >
+                            ✓ 一致率 {g.review.rate === null ? '—' : `${(g.review.rate * 100).toFixed(1)}%`}
+                          </span>
+                        ) : g.finished ? (
+                          <button
+                            onClick={() => review(g.id)}
+                            disabled={reviewing.has(g.id)}
+                            className="rounded-md bg-white/10 px-3 py-1 text-[13px] hover:bg-white/20 disabled:opacity-60"
+                          >
+                            {reviewing.has(g.id) ? '复盘中…' : '复盘'}
+                          </button>
+                        ) : (
+                          <span className="text-white/35">—</span>
+                        )}
+                      </td>
                       <td className="w-[230px] px-4 py-2.5 text-right whitespace-nowrap">
                         {confirm === g.id ? (
                           <>

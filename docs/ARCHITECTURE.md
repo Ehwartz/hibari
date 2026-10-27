@@ -378,19 +378,56 @@ source of truth**.
 
 ## 8. Analysis
 
-- **Review**: replay the log into a seat-0 `Bot`; at each human decision
-  point read `q_values` / `mask_bits`, compare to the actual action → agreement
-  rate, per-decision top-3, ranked mistakes by Q gap.
-- **Stats** (`compute_stats`): `libriichi.stat.Stat.from_dir` over the
-  selected logs. Seat 0 is the human; its name is rewritten to a fixed
-  token in temp copies, because `Stat` matches players by name and a
-  rename would split the stats. `Stat` can't be summed and `avg_pt` needs a
-  pt table, so average / total pt (uma 20/10/-10/-20 + oka) come from our
-  own metadata. NaN (no samples) becomes `null`.
-- UI: `#/stats` shows headline tiles, rank distribution (bars), rank trend
-  (last 50 games) and metric groups (win / deal-in / style). Filters: last
-  10 / 30 / 100 games, hanchan / tonpuu.
-- Later: live hints (run a shadow seat-0 Bot during play), discard drills.
+### Mortal review (M4)
+
+`backend/analysis/review.py`, `POST /api/logs/{id}/review` (≈1–3 s per game)
+and `GET /api/logs/{id}/review`.
+
+- The log is replayed, masked for the human's seat, into a **greedy**
+  Mortal bot. Wherever the bot emits a reaction with `q_values` is exactly
+  a point where the human had a decision. Its probabilities are
+  softmax(Q / 0.3) over the legal actions, the same scale as the hint panel
+  and bot temperature.
+- The actual action is the human's next action event after the decision
+  (skipping `dora`, `reach_accepted` and other players' `hora`), or `none`
+  if they passed. Labels follow Mortal's action space: tiles incl.
+  `5mr/5pr/5sr`, `reach`, `chi_low/mid/high`, `pon`, `kan_select`, `hora`,
+  `ryukyoku`, `none`.
+- Saved as `{id}.review.json` next to the log, and deleted with it.
+  Summary: decisions, matches, agreement rate, bad moves (actual < 5 %).
+  It shows on the logs table, which offers 复盘 for unreviewed games.
+- Self-check test: when greedy Mortal itself plays the reviewed seat,
+  agreement must be 100 %. This catches any misalignment of decision points
+  or labels.
+- Replay UI: Mortal's probability above each tile (best in gold), a red
+  ring on the tile actually discarded, a top-3 panel with your choice, the
+  agreement rate, a 下一处不一致 button. Left click = next step, wheel =
+  step forward / back.
+
+### Deal-in risk (铳率)
+
+`frontend/src/lib/danger.ts`, client-side. It uses public information only
+(rivers incl. called tiles, melds, riichi, dora indicators) plus your own
+hand, so it is the same during play and in review.
+
+- risk = P(tenpai) × P(deal in | tenpai, tile category).
+- P(tenpai): 1 after riichi; otherwise a function of the turn and the number
+  of open melds.
+- Genbutsu = 0: the opponent's own discards, plus anything discarded after
+  their riichi (needs the global discard order: `RiverTile.seq`,
+  `SeatView.riichiSeq`).
+- Honors by unseen copies. Number tiles by how many ryanmen sides are still
+  possible; a side is closed by suji (genbutsu on the other end) or kabe
+  (all 4 of a needed neighbour visible). Roughly the usual stats vs riichi:
+  musuji 4–6 ≈ 12.5 %, suji 1/9 ≈ 1.8 %.
+- UI: three bars under each own tile (上家 #3d93dc, 对家 #c98420, 下家
+  #d9579a on a #10201a track; full bar = 15 %). This categorical set
+  passed the dataviz palette validator. A left-side panel per opponent
+  opens a 34-tile risk grid. On by default in replay; a 铳率 toggle in play
+  (off by default).
+- Known limits: a heuristic. No dora / yaku weighting, no per-turn
+  calibration, no read of the opponent's hand shape. A better model could
+  be Monte-Carlo over unseen tiles, or a learned danger head.
 
 ## 9. Milestones & status
 
@@ -400,7 +437,7 @@ source of truth**.
 | M1 | Engine: Mortal ×4 self-play finishes hanchan; `PlayerState` referee; 1000+ hanchan without errors | ✅ done 2026-10-27 |
 | M2 | Human vs 3 bots in the browser (WebSocket + React table) | ✅ done 2026-10-27 |
 | M3 | Persist games, replay viewer | ✅ done 2026-10-27 (log folder + list / replay / delete) |
-| M4 | Mortal review | — |
+| M4 | Mortal review | ✅ done 2026-10-28 (review + replay annotations + deal-in risk) |
 | M5 | Stats dashboard, training features | stats dashboard done; training features open |
 | M6 | Desktop packaging | — |
 

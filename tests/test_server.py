@@ -115,9 +115,16 @@ def test_logs_and_stats_api(tmp_settings):
         assert stats["stat"]["game"] == 1 and stats["stat"]["round"] >= 4
         assert stats["stat"]["avg_rank"] == meta["rank"]
 
+        assert client.get(f"/api/logs/{game_id}/review").status_code == 404
+        review = client.post(f"/api/logs/{game_id}/review").json()
+        assert review["summary"]["decisions"] > 10 and review["human"] == meta["human"]
+        assert client.get("/api/logs").json()["games"][0]["review"]["decisions"] == review["summary"]["decisions"]
+        assert client.get(f"/api/logs/{game_id}/review").status_code == 200
+
         assert client.get("/api/logs/..%2Fsecret").status_code in (400, 404)
         assert client.delete(f"/api/logs/{game_id}").status_code == 200
         assert client.get("/api/logs").json()["games"] == []
+        assert not list(tmp_settings.rglob("*.review.json"))  # deleted with the log
         assert client.post("/api/stats", json={}).json()["stat"] is None
 
 

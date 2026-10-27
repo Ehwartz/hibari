@@ -9,6 +9,9 @@ const HONOR_FACE: Record<string, string> = {
 const SUIT_FACE: Record<string, string> = { m: 'Man', p: 'Pin', s: 'Sou' }
 const HONORS = ['E', 'S', 'W', 'N', 'P', 'F', 'C']
 
+/** The 34 tile kinds in index order (1m..9m, 1p..9p, 1s..9s, E S W N P F C). */
+export const KINDS: Tile[] = [...['m', 'p', 's'].flatMap((s) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `${n}${s}`)), ...HONORS]
+
 export const isAka = (t: Tile) => t.length === 3 && t.endsWith('r')
 export const deaka = (t: Tile) => (isAka(t) ? t.slice(0, 2) : t)
 
