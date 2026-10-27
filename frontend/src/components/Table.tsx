@@ -47,14 +47,15 @@ function PlayerCard({ name, avatar, active, oya, self, size }: CardProps & { siz
   )
 }
 
-/** The avatar card at the left end of a hand row (from that player's view), kept upright. */
-function HandAvatar({ r, size, ...card }: CardProps & { r: number; size: number }) {
+/** An avatar card in a seat's rotated frame, kept upright.
+ * `side`: at the left end of the hand row (you, top player); otherwise behind the hand. */
+function HandAvatar({ r, size, side, ...card }: CardProps & { r: number; size: number; side: boolean }) {
   const slot = size + 40 // square, so the counter-rotated card fits for every seat
+  const place = side
+    ? { right: '100%', marginRight: 10, top: '50%', transform: 'translateY(-50%)' }
+    : { left: '50%', top: '100%', marginTop: 4, transform: 'translateX(-50%)' }
   return (
-    <div
-      className="absolute flex items-center justify-center"
-      style={{ right: '100%', marginRight: 10, top: '50%', width: slot, height: slot, transform: 'translateY(-50%)' }}
-    >
+    <div className="absolute flex items-center justify-center" style={{ ...place, width: slot, height: slot }}>
       <div style={{ transform: `rotate(${90 * r}deg)` }}>
         <PlayerCard {...card} size={size} />
       </div>
@@ -256,7 +257,8 @@ export function Table({
             </div>
             {r !== 0 && (
               <div className="absolute flex items-end gap-4" style={{ left: 0, top: 326, transform: 'translateX(-50%)' }}>
-                <HandAvatar r={r} size={OPP_AVATAR} {...card(seat)} />
+                {/* left / right players: behind the hand; top player: beside it, mirroring yours */}
+                <HandAvatar r={r} size={OPP_AVATAR} side={r === 2} {...card(seat)} />
                 <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
               </div>
@@ -266,8 +268,8 @@ export function Table({
       })}
 
       {/* own hand: not rotated, larger tiles */}
-      <div className="absolute flex items-end gap-6" style={{ left: CX, top: CY + 348, transform: 'translateX(-50%)' }}>
-        <HandAvatar r={0} size={OWN_AVATAR} {...card(me)} />
+      <div className="absolute flex items-end gap-6" style={{ left: CX, top: CY + 330, transform: 'translateX(-50%)' }}>
+        <HandAvatar r={0} size={OWN_AVATAR} side {...card(me)} />
         <Hand
           {...handOf(me)}
           w={OWN_W}
