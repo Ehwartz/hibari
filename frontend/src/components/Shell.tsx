@@ -1,37 +1,79 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
+import { api } from '../lib/api'
 
 export const NAV = [
-  { href: '#/new', label: '对局', desc: '和三个 Mortal 打一局', icon: '🀄' },
-  { href: '#/logs', label: '牌谱', desc: '回放、删除已保存的对局', icon: '📜' },
-  { href: '#/stats', label: '数据分析', desc: '顺位、和了率、放铳率…', icon: '📊' },
-  { href: '#/settings', label: '设置', desc: '牌谱位置、默认规则、AI', icon: '⚙️' },
-  { href: '#/user', label: '用户', desc: '昵称与战绩概要', icon: '👤' },
+  { href: '#/', label: '主页', icon: '🏠' },
+  { href: '#/new', label: '对局', icon: '🀄' },
+  { href: '#/logs', label: '牌谱', icon: '📜' },
+  { href: '#/stats', label: '数据分析', icon: '📊' },
+  { href: '#/settings', label: '设置', icon: '⚙️' },
+  { href: '#/user', label: '用户', icon: '👤' },
 ]
 
-/** Page frame for the non-table screens: top bar with navigation. */
-export function Shell({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
-  const current = location.hash.split('?')[0]
+function isCurrent(href: string) {
+  const hash = location.hash.split('?')[0] || '#/'
+  return href === '#/' ? hash === '#/' || hash === '#' || hash === '' : hash.startsWith(href)
+}
+
+function Sidebar() {
+  const [name, setName] = useState<string | null>(null)
+  useEffect(() => {
+    api
+      .settings()
+      .then((s) => setName(s.player_name))
+      .catch(() => setName(null))
+  }, [])
+
   return (
-    <div className="flex h-full flex-col bg-[#0d1813] text-white">
-      <header className="flex h-14 shrink-0 items-center gap-1 border-b border-white/10 bg-black/40 px-4">
-        <a href="#/" className="mr-4 text-[16px] font-bold tracking-wide hover:text-emerald-300">
-          Mahjong AI Trainer
-        </a>
-        {NAV.map((n) => (
-          <a
-            key={n.href}
-            href={n.href}
-            className={`rounded-md px-3 py-1.5 text-[14px] ${current.startsWith(n.href) ? 'bg-white/15 text-white' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}
-          >
-            {n.label}
+    <aside className="flex w-[210px] shrink-0 flex-col border-r border-white/10 bg-black/45">
+      <a href="#/" className="px-5 pt-6 pb-5">
+        <div className="text-[18px] leading-tight font-black tracking-wide">Mahjong</div>
+        <div className="text-[18px] leading-tight font-black tracking-wide text-emerald-300">AI Trainer</div>
+      </a>
+      <nav className="flex flex-col gap-1 px-3">
+        {NAV.map((n) => {
+          const on = isCurrent(n.href)
+          return (
+            <a
+              key={n.href}
+              href={n.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] transition ${on ? 'bg-emerald-600/25 text-white ring-1 ring-emerald-500/40' : 'text-white/65 hover:bg-white/10 hover:text-white'}`}
+            >
+              <span className="w-6 text-center text-[18px]">{n.icon}</span>
+              {n.label}
+            </a>
+          )
+        })}
+      </nav>
+      <div className="flex-1" />
+      <div className="border-t border-white/10 px-5 py-4 text-[12px] text-white/45">
+        {name ? (
+          <a href="#/user" className="block truncate text-[14px] text-white/80 hover:text-white">
+            👤 {name}
           </a>
-        ))}
-        <span className="flex-1" />
-        {actions}
-      </header>
+        ) : (
+          <span className="text-white/35">后端未连接</span>
+        )}
+        <a href="#/preview" className="mt-2 block hover:text-white/75">
+          界面预览（演示数据）
+        </a>
+      </div>
+    </aside>
+  )
+}
+
+/** Page frame for the non-table screens: left sidebar + content. */
+export function Shell({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="flex h-full bg-[#0d1813] text-white">
+      <Sidebar />
       <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-[1100px] px-6 py-6">
-          <h1 className="mb-5 text-[22px] font-bold">{title}</h1>
+        <div className="mx-auto max-w-[1100px] px-8 py-7">
+          <div className="mb-5 flex items-center gap-3">
+            <h1 className="text-[22px] font-bold">{title}</h1>
+            <span className="flex-1" />
+            {actions}
+          </div>
           {children}
         </div>
       </main>

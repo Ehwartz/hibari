@@ -410,7 +410,8 @@ source of truth**.
   2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
   deposits to the first winner only). Logs carry extra fields (han / fu /
   yaku, ryukyoku reason) — libriichi tolerates them.
-- 2026-10-27 — M3: main menu (对局 / 牌谱 / 数据分析 / 设置 / 用户). Logs are
+- 2026-10-27 — M3: app shell with a left sidebar (主页 / 对局 / 牌谱 / 数据分析 / 设置 / 用户);
+  主页 has quick start, headline stats and recent games. Logs are
   files in a configurable folder, with no database; stats come from
   libriichi `Stat`. The replay viewer is shared with the UI preview
   (`components/ReplayViewer.tsx`).

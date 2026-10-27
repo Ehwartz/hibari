@@ -1,71 +1,127 @@
 import { useEffect, useState } from 'react'
-import { NAV } from '../components/Shell'
-import { type GameMeta, api } from '../lib/api'
+import { Card, ErrorBox, Shell } from '../components/Shell'
+import { type GameMeta, type StatValues, api, createGame } from '../lib/api'
+import { RankBadge, formatDate } from './Logs'
 
-/** Main menu. */
+const pct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${(v * 100).toFixed(1)}%`)
+
+/** Start page: quick start, headline numbers, recent games. */
 export function Home() {
   const [name, setName] = useState<string | null>(null)
-  const [recent, setRecent] = useState<GameMeta[] | null>(null)
+  const [games, setGames] = useState<GameMeta[] | null>(null)
+  const [stat, setStat] = useState<StatValues | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.settings().then((s) => setName(s.player_name)).catch(() => setName(null))
-    api.logs().then((r) => setRecent(r.games.filter((g) => g.finished))).catch(() => setRecent(null))
+    api
+      .settings()
+      .then((s) => setName(s.player_name))
+      .catch((e) => setError(`无法连接后端：${e.message}`))
+    api
+      .logs()
+      .then((r) => setGames(r.games.filter((g) => g.finished)))
+      .catch(() => setGames([]))
+    api
+      .stats()
+      .then((r) => setStat(r.stat))
+      .catch(() => setStat(null))
   }, [])
 
-  const last10 = recent?.slice(0, 10) ?? []
-  const avgRank = last10.length ? last10.reduce((a, g) => a + g.rank, 0) / last10.length : null
+  const start = async (length: 'hanchan' | 'tonpuu') => {
+    setBusy(length)
+    setError(null)
+    try {
+      location.hash = `#/play/${await createGame({ length })}`
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setBusy(null)
+    }
+  }
+
+  const quick = (length: 'hanchan' | 'tonpuu', label: string, sub: string) => (
+    <button
+      onClick={() => start(length)}
+      disabled={busy !== null}
+      className="flex-1 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-700 px-6 py-4 text-left shadow-lg ring-1 ring-white/15 transition hover:brightness-110 disabled:opacity-50"
+    >
+      <div className="text-[22px] font-bold tracking-wider">{busy === length ? '准备中…' : label}</div>
+      <div className="text-[13px] text-white/75">{sub}</div>
+    </button>
+  )
 
   return (
-    <div className="felt flex h-full flex-col items-center justify-center rounded-none text-white">
-      <h1 className="text-[40px] font-black tracking-wider">Mahjong AI Trainer</h1>
-      <p className="mt-1 text-[14px] text-white/60">
-        四人立直麻将 · 你 vs 三个 Mortal{name ? ` · 欢迎，${name}` : ''}
-      </p>
-
-      <div className="mt-10 grid w-[760px] grid-cols-3 gap-4">
-        {NAV.map((n, i) => (
-          <a
-            key={n.href}
-            href={n.href}
-            className={`group rounded-2xl border border-white/10 bg-black/35 p-5 shadow-lg transition hover:-translate-y-0.5 hover:border-emerald-400/60 hover:bg-black/45 ${i === 0 ? 'col-span-3 flex items-center gap-5 bg-gradient-to-r from-emerald-700/50 to-black/40 py-7' : ''}`}
-          >
-            <div className={i === 0 ? 'text-[44px]' : 'text-[28px]'}>{n.icon}</div>
-            <div>
-              <div className={`font-bold ${i === 0 ? 'text-[28px]' : 'mt-2 text-[19px]'}`}>{n.label}</div>
-              <div className="mt-0.5 text-[13px] text-white/55">{n.desc}</div>
-            </div>
-          </a>
-        ))}
-        <div className="flex flex-col justify-center rounded-2xl border border-white/10 bg-black/25 p-5 text-[13px] text-white/70">
-          {recent === null ? (
-            <span className="text-white/40">无法连接后端</span>
-          ) : recent.length === 0 ? (
-            <span>还没有对局记录</span>
-          ) : (
-            <>
-              <div>已完成 {recent.length} 局</div>
-              <div className="mt-1">
-                最近 {last10.length} 局平均顺位{' '}
-                <span className="font-mono text-[18px] text-white">{avgRank!.toFixed(2)}</span>
-              </div>
-              <div className="mt-2 flex gap-1">
-                {last10.map((g) => (
-                  <span
-                    key={g.id}
-                    title={g.started_at}
-                    className={`flex h-6 w-6 items-center justify-center rounded text-[12px] font-bold ${g.rank === 1 ? 'bg-amber-400 text-black' : g.rank === 4 ? 'bg-white/10 text-white/60' : 'bg-white/20'}`}
-                  >
-                    {g.rank}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
+    <Shell title={name ? `欢迎，${name}` : '主页'}>
+      {error && (
+        <div className="mb-4">
+          <ErrorBox message={error} />
         </div>
+      )}
+
+      <Card className="felt">
+        <div className="text-[13px] text-white/70">快速开始 · 你 vs 三个 Mortal</div>
+        <div className="mt-3 flex gap-4">
+          {quick('hanchan', '半庄', '东风场 + 南风场')}
+          {quick('tonpuu', '东风', '只打东风场')}
+        </div>
+      </Card>
+
+      <div className="mt-5 grid grid-cols-4 gap-4">
+        <Headline label="已完成对局" value={stat?.game != null ? String(stat.game) : '0'} />
+        <Headline label="平均顺位" value={stat?.avg_rank != null ? stat.avg_rank.toFixed(2) : '—'} />
+        <Headline label="和了率" value={pct(stat?.agari_rate)} />
+        <Headline label="放铳率" value={pct(stat?.houjuu_rate)} />
       </div>
-      <a href="#/preview" className="mt-8 text-[12px] text-white/35 hover:text-white/70">
-        界面预览（演示数据）
-      </a>
-    </div>
+
+      <Card className="mt-5 p-0">
+        <div className="flex items-center px-5 pt-4 pb-2">
+          <span className="text-[14px] font-semibold">最近对局</span>
+          <span className="flex-1" />
+          <a href="#/logs" className="text-[13px] text-emerald-300 hover:underline">
+            全部牌谱 →
+          </a>
+        </div>
+        {games === null ? (
+          <div className="px-5 pb-5 text-[14px] text-white/45">读取中…</div>
+        ) : games.length === 0 ? (
+          <div className="px-5 pb-5 text-[14px] text-white/55">还没有对局记录，点上面的按钮开始第一局吧。</div>
+        ) : (
+          <table className="w-full text-[14px]">
+            <tbody>
+              {games.slice(0, 6).map((g) => (
+                <tr key={g.id} className="border-t border-white/5 hover:bg-white/[0.03]">
+                  <td className="py-2.5 pl-5">
+                    <RankBadge rank={g.rank} />
+                  </td>
+                  <td className="px-3 py-2.5 font-mono text-[13px] text-white/75">{formatDate(g.started_at)}</td>
+                  <td className="px-3 py-2.5">{g.length === 'tonpuu' ? '东风' : '半庄'}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums">{g.scores[0]}</td>
+                  <td
+                    className={`px-3 py-2.5 text-right font-mono tabular-nums ${g.point >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}
+                  >
+                    {g.point >= 0 ? '+' : ''}
+                    {g.point.toFixed(1)}
+                  </td>
+                  <td className="py-2.5 pr-5 text-right">
+                    <a href={`#/replay/${g.id}`} className="rounded-md bg-white/10 px-3 py-1 text-[13px] hover:bg-white/20">
+                      回放
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </Shell>
+  )
+}
+
+function Headline({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <div className="text-[13px] text-white/55">{label}</div>
+      <div className="mt-1 font-mono text-[30px] font-bold tabular-nums">{value}</div>
+    </Card>
   )
 }
