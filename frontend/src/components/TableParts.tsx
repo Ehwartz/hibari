@@ -94,18 +94,9 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
   const tile = (t: TileT, key: string, fromDrawn: boolean, slot: number | 'drawn') => {
     const can = discardable?.has(t)
     if (leaving && leaving.from === slot) {
-      const tsumogiri = slot === 'drawn'
       return (
-        <div key={`${key}-${leaving.key}`} className="relative">
-          <div className={`discard-leave ${tsumogiri ? 'tsumogiri' : 'tedashi'}`}>
-            <Tile tile={t} w={w} back={hidden} />
-          </div>
-          <div
-            className={`discard-tag absolute left-1/2 rounded-full px-1.5 font-bold whitespace-nowrap text-white shadow ${tsumogiri ? 'bg-slate-500' : 'bg-amber-500'}`}
-            style={{ bottom: '100%', fontSize: Math.max(11, w * 0.3) }}
-          >
-            {tsumogiri ? '摸切' : '手切'}
-          </div>
+        <div key={`${key}-${leaving.key}`} className="discard-leave">
+          <Tile tile={t} w={w} back={hidden} />
         </div>
       )
     }

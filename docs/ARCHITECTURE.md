@@ -286,7 +286,7 @@ React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
 - Tsumogiri vs tedashi: during play the difference is shown **on the
   discard action**, not on the river tile. For ~0.5 s the actor's hand is
   drawn as it was before the discard; the leaving tile lifts out from its
-  slot with a 摸切 / 手切 tag. Tsumogiri uses the separate drawn tile;
+  slot (no text label). Tsumogiri uses the separate drawn tile;
   tedashi uses the tile's position in the hand, or a stable pseudo-random
   slot for hidden hands, since the real slot is not in the event stream.
   In review the 摸切明暗 toggle darkens tsumogiri tiles in the rivers. Called
