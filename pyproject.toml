@@ -1,0 +1,28 @@
+[project]
+name = "mahjong-ai-trainer"
+version = "0.1.0"
+description = "Riichi mahjong trainer: play against Mortal, record and review games"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch<2.9",
+    "numpy>=1.24",
+    "requests>=2.28",  # imported by mjbot_mortal/model.py
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
