@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Card, ErrorBox, Shell } from '../components/Shell'
 import { type GameMeta, api } from '../lib/api'
 import { RankBadge, formatDate } from './Logs'
-import { SaveRow, inputCls, useSettings } from './SettingsPage'
+import { AvatarPicker, SaveRow, inputCls, useSettings } from './SettingsPage'
 
 export function User() {
-  const { settings, setSettings, save, error, saved } = useSettings()
+  const { settings, setSettings, save, upload, error, saved } = useSettings()
   const [games, setGames] = useState<GameMeta[] | null>(null)
 
   useEffect(() => {
@@ -27,6 +27,20 @@ export function User() {
           <div className="text-[14px] font-semibold">个人资料</div>
           {settings ? (
             <>
+              <div className="mt-4">
+                <AvatarPicker
+                  settings={settings}
+                  asset="avatar_player"
+                  name={settings.player_name}
+                  label={
+                    <span className="text-white/70">
+                      头像<span className="ml-1 text-[12px] text-white/45">（自动居中裁成 1:1）</span>
+                    </span>
+                  }
+                  size={88}
+                  onUpload={upload}
+                />
+              </div>
               <label className="mt-4 block text-[13px] text-white/70">
                 昵称（对局中显示，牌谱里记录）
                 <input

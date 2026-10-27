@@ -82,7 +82,7 @@ export function ActionBar({ actions, onAction }: { actions: Action[]; onAction: 
 
 export function HintPanel({ hints, chosen }: { hints: Hint[] | null; chosen?: string }) {
   return (
-    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, top: 18 }}>
+    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, top: 156 }}>
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-white/85">Mortal 推荐</span>
         {chosen && <span className="text-[11px] text-white/45">{chosen}</span>}

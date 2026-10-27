@@ -1,5 +1,7 @@
-import { type ReactNode, useEffect, useState } from 'react'
-import { api } from '../lib/api'
+import type { ReactNode } from 'react'
+import { assetUrl } from '../lib/api'
+import { useAppSettings } from '../lib/appearance'
+import { Avatar } from './Avatar'
 
 export const NAV = [
   { href: '#/', label: '主页', icon: '🏠' },
@@ -16,13 +18,8 @@ function isCurrent(href: string) {
 }
 
 function Sidebar() {
-  const [name, setName] = useState<string | null>(null)
-  useEffect(() => {
-    api
-      .settings()
-      .then((s) => setName(s.player_name))
-      .catch(() => setName(null))
-  }, [])
+  const settings = useAppSettings()
+  const name = settings?.player_name ?? null
 
   return (
     <aside className="flex w-[210px] shrink-0 flex-col border-r border-white/10 bg-black/45">
@@ -48,8 +45,9 @@ function Sidebar() {
       <div className="flex-1" />
       <div className="border-t border-white/10 px-5 py-4 text-[12px] text-white/45">
         {name ? (
-          <a href="#/user" className="block truncate text-[14px] text-white/80 hover:text-white">
-            👤 {name}
+          <a href="#/user" className="flex items-center gap-2.5 text-[14px] text-white/85 hover:text-white">
+            <Avatar url={assetUrl(settings, 'avatar_player')} name={name} size={36} />
+            <span className="truncate">{name}</span>
           </a>
         ) : (
           <span className="text-white/35">后端未连接</span>
@@ -65,7 +63,7 @@ function Sidebar() {
 /** Page frame for the non-table screens: left sidebar + content. */
 export function Shell({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="flex h-full bg-[#0d1813] text-white">
+    <div className="flex h-full bg-black/25 text-white">
       <Sidebar />
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-[1100px] px-8 py-7">

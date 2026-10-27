@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAppSettings } from './lib/appearance'
 import { Home } from './pages/Home'
 import { Logs } from './pages/Logs'
 import { NewGame } from './pages/NewGame'
@@ -22,6 +23,7 @@ function useHash() {
 const ID = '([0-9A-Za-z_-]+)'
 
 export default function App() {
+  useAppSettings() // loads settings once and applies table cloth / background
   const hash = useHash().split('?')[0]
   const play = hash.match(new RegExp(`^#/play/${ID}`))
   if (play) return <Play key={play[1]} gameId={play[1]} />

@@ -34,6 +34,18 @@ export interface Settings {
   default_length: 'hanchan' | 'tonpuu'
   think_min: number
   think_max: number
+  felt: string
+  background: string
+  assets: Record<string, number> // uploaded asset -> version
+  asset_dir?: string
+}
+
+export type AssetName = 'avatar_player' | 'avatar_ai1' | 'avatar_ai2' | 'avatar_ai3' | 'felt' | 'background'
+
+/** URL of an uploaded asset (cache-busted by version), or null if none uploaded. */
+export function assetUrl(s: Settings | null, name: AssetName): string | null {
+  const v = s?.assets?.[name]
+  return v ? `/api/assets/${name}?v=${v}` : null
 }
 
 export interface GameMeta {
@@ -79,6 +91,11 @@ export const api = {
   logs: () => fetch('/api/logs').then((r) => json<{ folder: string; games: GameMeta[] }>(r)),
   log: (id: string) => fetch(`/api/logs/${id}`).then((r) => json<{ id: string; events: MjaiEvent[] }>(r)),
   deleteLog: (id: string) => fetch(`/api/logs/${id}`, { method: 'DELETE' }).then((r) => json<{ deleted: string }>(r)),
+  uploadAsset: (name: AssetName, blob: Blob) =>
+    fetch(`/api/assets/${name}`, { method: 'PUT', headers: { 'Content-Type': blob.type }, body: blob }).then((r) =>
+      json<Settings>(r),
+    ),
+  deleteAsset: (name: AssetName) => fetch(`/api/assets/${name}`, { method: 'DELETE' }).then((r) => json<Settings>(r)),
   stats: (gameIds?: string[]) =>
     fetch('/api/stats', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ game_ids: gameIds ?? null }) }).then(
       (r) => json<StatsResponse>(r),

@@ -9,6 +9,9 @@
   --tile-back: #d9822b;
   --tile-back-edge: #9a5216;
   --tile-back-mark: #fff6e5;
+  /* table cloth / page background: set from settings (lib/appearance.ts) */
+  --felt-image: none;
+  --bg-image: none;
   color-scheme: dark;
 }
 
@@ -20,7 +23,7 @@ body,
 }
 
 body {
-  background: var(--bg);
+  background: var(--bg-image) center / cover no-repeat fixed, var(--bg);
   color: #fff;
   font-family: system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   user-select: none;
@@ -28,6 +31,7 @@ body {
 
 .felt {
   background:
+    var(--felt-image) center / cover no-repeat,
     radial-gradient(ellipse at center, var(--felt-1) 0%, var(--felt-2) 78%),
     var(--felt-2);
   box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.45), 0 20px 60px rgba(0, 0, 0, 0.5);

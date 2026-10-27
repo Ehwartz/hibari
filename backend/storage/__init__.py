@@ -11,7 +11,8 @@ import json
 import re
 import tempfile
 import threading
-from dataclasses import asdict, dataclass
+import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -34,6 +35,10 @@ class Settings:
     default_length: str = "hanchan"  # hanchan | tonpuu
     think_min: float = 1.0  # bots' thinking time per decision, seconds
     think_max: float = 3.0
+    felt: str = "green"  # table cloth preset, or "custom" (uploaded image)
+    background: str = "dark"  # page background preset, or "custom"
+    # uploaded asset name -> version (unix ms), for cache busting; managed by save_asset
+    assets: dict[str, int] = field(default_factory=dict)
 
     @property
     def log_path(self) -> Path:
@@ -58,6 +63,58 @@ def save_settings(s: Settings) -> Settings:
         DATA.mkdir(parents=True, exist_ok=True)
         SETTINGS_FILE.write_text(json.dumps(asdict(s), ensure_ascii=False, indent=2), encoding="utf-8")
     return s
+
+
+# -- assets (avatars, table cloth, background) -----------------------------------
+
+ASSET_DIR = DATA / "assets"
+# name -> path relative to ASSET_DIR (without extension)
+ASSETS = {
+    "avatar_player": "avatars/player",
+    "avatar_ai1": "avatars/ai1",
+    "avatar_ai2": "avatars/ai2",
+    "avatar_ai3": "avatars/ai3",
+    "felt": "felt",
+    "background": "background",
+}
+IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
+MAX_ASSET_BYTES = 8 * 1024 * 1024
+
+
+def asset_path(name: str) -> Path | None:
+    """The stored file for an asset, or None."""
+    base = ASSET_DIR / ASSETS[name]
+    for ext in IMAGE_TYPES.values():
+        if (p := base.with_suffix(ext)).exists():
+            return p
+    return None
+
+
+def save_asset(name: str, data: bytes, content_type: str) -> Settings:
+    if name not in ASSETS:
+        raise KeyError(name)
+    if content_type not in IMAGE_TYPES:
+        raise ValueError(f"unsupported image type {content_type}")
+    if not data or len(data) > MAX_ASSET_BYTES:
+        raise ValueError("image is empty or too large")
+    if old := asset_path(name):
+        old.unlink()
+    path = (ASSET_DIR / ASSETS[name]).with_suffix(IMAGE_TYPES[content_type])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    s = load_settings()
+    s.assets[name] = int(time.time() * 1000)
+    return save_settings(s)
+
+
+def delete_asset(name: str) -> Settings:
+    if name not in ASSETS:
+        raise KeyError(name)
+    if old := asset_path(name):
+        old.unlink()
+    s = load_settings()
+    s.assets.pop(name, None)
+    return save_settings(s)
 
 
 # -- logs ----------------------------------------------------------------------

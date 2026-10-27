@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { type SeatView, type TableState, arrange } from '../lib/table'
 import { SEAT_WIND, type Tile as TileT, WIND_NAME } from '../lib/tiles'
+import { Avatar } from './Avatar'
 import { Tile } from './Tile'
 import { Hand, type Leaving, Melds, River } from './TableParts'
 
@@ -15,6 +16,42 @@ const OPP_MELD_W = 27
 const OWN_W = 58
 const OWN_MELD_W = 42
 const DISCARD_MS = 520
+
+// Avatar cards, upright, at each player's left-hand side towards them (Mahjong Soul style):
+// you bottom-left, right player right-lower, top player top-right, left player left-upper.
+const CARD_POS = [
+  { left: 18, top: 692 },
+  { left: 1166, top: 540 },
+  { left: 1166, top: 14 },
+  { left: 18, top: 282 },
+]
+
+function PlayerCard({ seat, r, name, avatar, active, oya }: {
+  seat: number
+  r: number
+  name: string
+  avatar: string | null
+  active: boolean
+  oya: boolean
+}) {
+  const size = r === 0 ? 88 : 66
+  return (
+    <div
+      className={`absolute flex flex-col items-center rounded-xl border-2 bg-black/45 p-1.5 shadow-lg transition ${seat === 0 ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
+      style={{ ...CARD_POS[r], width: size + 16 }}
+    >
+      <div className="relative">
+        <Avatar url={avatar} name={name || '?'} size={size} />
+        {oya && (
+          <span className="absolute -top-1.5 -left-1.5 rounded bg-rose-600 px-1 text-[11px] font-bold text-white shadow">庄</span>
+        )}
+      </div>
+      <div className="mt-1 w-full truncate text-center text-[12px] text-white/90" title={name}>
+        {name}
+      </div>
+    </div>
+  )
+}
 
 /** A big announcement next to a player: 吃 碰 杠 立直 荣 自摸. */
 export interface Callout {
@@ -72,6 +109,8 @@ interface Props {
   sortHand?: boolean
   discardFx?: DiscardFx | null
   callouts?: Callout[]
+  /** Avatar image URL per seat (null = default avatar). */
+  avatars?: (string | null)[]
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
 }
 
@@ -163,6 +202,7 @@ export function Table({
   sortHand = true,
   discardFx,
   callouts = [],
+  avatars = [null, null, null, null],
   children,
 }: Props) {
   const [fx, setFx] = useState<DiscardFx | null>(null)
@@ -227,6 +267,17 @@ export function Table({
         />
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} />
       </div>
+      {[0, 1, 2, 3].map((seat) => (
+        <PlayerCard
+          key={seat}
+          seat={seat}
+          r={rel(seat, me)}
+          name={table.names[seat]}
+          avatar={avatars[seat]}
+          active={table.turn === seat}
+          oya={table.oya === seat && table.started}
+        />
+      ))}
       {callouts.map((c) => (
         <div
           key={c.key}

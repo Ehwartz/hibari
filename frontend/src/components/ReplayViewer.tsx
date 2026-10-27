@@ -6,6 +6,7 @@ import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { WIND_NAME, tileName } from '../lib/tiles'
 import { RYUKYOKU_NAME } from '../lib/labels'
+import { seatAvatars, useAppSettings } from '../lib/appearance'
 import { ActionBar, EndModal, HintPanel, ResultModal } from './Overlays'
 import { ScaledStage } from './Stage'
 import { type DiscardFx, Table, calloutFor } from './Table'
@@ -95,6 +96,7 @@ interface Props {
 export function ReplayViewer({ frames, title, backHref, initialIndex = 0, defaultOpen = false, extra }: Props) {
   const masked = useMemo(() => buildStates(frames, false), [frames])
   const open = useMemo(() => buildStates(frames, true), [frames])
+  const settings = useAppSettings()
   const [index, setIndex] = useState(initialIndex)
   const [openHands, setOpenHands] = useState(defaultOpen)
   const [showHints, setShowHints] = useState(true)
@@ -207,6 +209,7 @@ export function ReplayViewer({ frames, title, backHref, initialIndex = 0, defaul
               hover={topHint}
               showTsumogiri={showTsumogiri}
               discardFx={discardFx}
+              avatars={seatAvatars(settings)}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >

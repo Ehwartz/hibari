@@ -10,6 +10,7 @@ import { ActionBar, AutoPanel, type AutoSettings, DEFAULT_AUTO, EndModal, HintPa
 import { ScaledStage } from '../components/Stage'
 import { type Callout, type DiscardFx, Table, calloutFor } from '../components/Table'
 import { type ServerMsg, wsUrl } from '../lib/api'
+import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 
@@ -175,6 +176,7 @@ function usePlaySession(gameId: string) {
 
 export function Play({ gameId }: { gameId: string }) {
   const { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal } = usePlaySession(gameId)
+  const settings = useAppSettings()
   const [showHints, setShowHints] = useState(() => localStorageGet('hints') !== '0')
   const [auto, setAuto] = useState<AutoSettings>(() => {
     try {
@@ -271,6 +273,7 @@ export function Play({ gameId }: { gameId: string }) {
           sortHand={auto.autoSort}
           discardFx={fx}
           callouts={callouts}
+          avatars={seatAvatars(settings)}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
           {showHints && <HintPanel hints={hint} />}

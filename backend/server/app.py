@@ -14,7 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -97,25 +98,62 @@ class SettingsIn(BaseModel):
     default_length: Literal["hanchan", "tonpuu"]
     think_min: float = Field(ge=0, le=30)
     think_max: float = Field(ge=0, le=30)
+    felt: str = Field(default="green", max_length=32)
+    background: str = Field(default="dark", max_length=32)
+
+
+def _settings_out(s: storage.Settings) -> dict:
+    return {**asdict(s), "log_dir_resolved": str(s.log_path), "asset_dir": str(storage.ASSET_DIR)}
 
 
 @app.get("/api/settings")
 async def get_settings() -> dict:
-    s = storage.load_settings()
-    return {**asdict(s), "log_dir_resolved": str(s.log_path)}
+    return _settings_out(storage.load_settings())
 
 
 @app.put("/api/settings")
 async def put_settings(body: SettingsIn) -> dict:
     if body.think_max < body.think_min:
         raise HTTPException(422, "think_max < think_min")
-    s = storage.Settings(**body.model_dump())
+    # uploaded assets are managed by /api/assets; keep them
+    s = storage.Settings(**body.model_dump(), assets=storage.load_settings().assets)
     try:
         s.log_path.mkdir(parents=True, exist_ok=True)
     except OSError as ex:
         raise HTTPException(422, f"cannot use folder: {ex}") from None
     storage.save_settings(s)
-    return {**asdict(s), "log_dir_resolved": str(s.log_path)}
+    return _settings_out(s)
+
+
+# -- assets: avatars, table cloth, background ---------------------------------------
+
+
+@app.get("/api/assets/{name}")
+async def get_asset(name: str) -> FileResponse:
+    if name not in storage.ASSETS or (path := storage.asset_path(name)) is None:
+        raise HTTPException(404, "no such asset")
+    return FileResponse(path)
+
+
+@app.put("/api/assets/{name}")
+async def put_asset(name: str, request: Request) -> dict:
+    """Upload an image (raw body, Content-Type image/png|jpeg|webp)."""
+    data = await request.body()
+    try:
+        s = storage.save_asset(name, data, request.headers.get("content-type", "").split(";")[0].strip())
+    except KeyError:
+        raise HTTPException(404, "no such asset") from None
+    except ValueError as ex:
+        raise HTTPException(422, str(ex)) from None
+    return _settings_out(s)
+
+
+@app.delete("/api/assets/{name}")
+async def delete_asset(name: str) -> dict:
+    try:
+        return _settings_out(storage.delete_asset(name))
+    except KeyError:
+        raise HTTPException(404, "no such asset") from None
 
 
 # -- saved logs -------------------------------------------------------------------

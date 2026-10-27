@@ -122,3 +122,31 @@ def test_settings_roundtrip(tmp_settings):
         assert r.status_code == 200 and (tmp_settings / "logs2").is_dir()
         assert storage.SETTINGS_FILE.exists() and "雀士" in storage.SETTINGS_FILE.read_text(encoding="utf-8")
         assert client.put("/api/settings", json={**body, "think_min": 3, "think_max": 1}).status_code == 422
+
+
+def test_assets_upload_get_delete(tmp_settings, monkeypatch):
+    monkeypatch.setattr(storage, "ASSET_DIR", tmp_settings / "assets")
+    monkeypatch.setattr(storage, "load_settings", lambda: storage.Settings(**_saved(tmp_settings)))
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+    with TestClient(app) as client:
+        r = client.put("/api/assets/avatar_player", content=png, headers={"Content-Type": "image/png"})
+        assert r.status_code == 200 and "avatar_player" in r.json()["assets"]
+        assert (tmp_settings / "assets" / "avatars" / "player.png").read_bytes() == png
+        assert client.get("/api/assets/avatar_player").content == png
+        # settings PUT keeps the asset versions
+        body = {"player_name": "A", "log_dir": str(tmp_settings / "g"), "default_length": "hanchan",
+                "think_min": 1, "think_max": 2, "felt": "blue", "background": "dark"}
+        assert "avatar_player" in client.put("/api/settings", json=body).json()["assets"]
+        assert client.put("/api/assets/avatar_player", content=b"x", headers={"Content-Type": "text/plain"}).status_code == 422
+        assert client.put("/api/assets/nope", content=png, headers={"Content-Type": "image/png"}).status_code == 404
+        assert client.delete("/api/assets/avatar_player").status_code == 200
+        assert client.get("/api/assets/avatar_player").status_code == 404
+
+
+def _saved(tmp):
+    import json
+
+    f = tmp / "settings.json"
+    if not f.exists():
+        return {"log_dir": str(tmp / "games")}
+    return {k: v for k, v in json.loads(f.read_text(encoding="utf-8")).items() if k in storage.Settings.__dataclass_fields__}

@@ -363,6 +363,14 @@ source of truth**.
 - `list_games` scans the folder and reads metadata (date, length, names,
   scores, the human's rank / pt, kyoku count). It is cached by
   (path, mtime), so files copied in show up and deleted ones disappear.
+- Assets: avatars (you + Mortal-A/B/C), custom table cloth and background in
+  `data/assets/` (`avatars/{player,ai1,ai2,ai3}.png`, `felt.*`,
+  `background.*`). `PUT /api/assets/{name}` takes a raw image body (png /
+  jpeg / webp, ≤ 8 MB). The browser has already center-cropped avatars to
+  1:1 at 256 px and scaled other images to ≤ 1920 px. Versions are kept in
+  `settings.assets` for cache busting. `settings.felt` / `background` are a
+  preset key or `custom`. Presets and CSS variables are in
+  `frontend/src/lib/appearance.ts`.
 - API: `GET/PUT /api/settings`, `GET /api/logs`, `GET /api/logs/{id}`
   (events), `DELETE /api/logs/{id}`, `POST /api/stats {game_ids?}`.
 - Tests point `storage.load_settings` / `SETTINGS_FILE` at a temp dir and
@@ -410,6 +418,10 @@ source of truth**.
   2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
   deposits to the first winner only). Logs carry extra fields (han / fu /
   yaku, ryukyoku reason) — libriichi tolerates them.
+- 2026-10-27 — Avatars and appearance: avatar cards are upright at each
+  player's left-hand side (you bottom-left, right player right-lower, top
+  player top-right, left player left-upper). The hint panel moved down to
+  make room. Table cloth and background are presets or uploaded images.
 - 2026-10-27 — M3: app shell with a left sidebar (主页 / 对局 / 牌谱 / 数据分析 / 设置 / 用户);
   主页 has quick start, headline stats and recent games. Logs are
   files in a configurable folder, with no database; stats come from
