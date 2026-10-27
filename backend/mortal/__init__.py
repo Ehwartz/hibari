@@ -6,6 +6,7 @@ and load the matching prebuilt ``libriichi`` before importing ``model``.
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -51,3 +52,46 @@ def get_engine():
 
 def new_player_state(seat: int):
     return libriichi().state.PlayerState(seat)
+
+
+_HINT_TYPES = {
+    "Dahai": "dahai", "Reach": "reach", "Chi": "chi", "Pon": "pon",
+    "Daiminkan": "kan", "Ankan": "kan", "Kakan": "kan", "Kan": "kan",
+    "Tsumo": "hora", "Ron": "hora", "Hora": "hora", "Ryukyoku": "ryukyoku", "Skip": "none",
+}
+
+
+def _parse_mahgen(s: str) -> list[str]:
+    """``"68m|7m"`` -> ``["6m", "8m", "7m"]``; ``z`` = honors, ``0`` = red five."""
+    tiles = []
+    for digits, suit in re.findall(r"(\d+)([mpsz])", s):
+        for d in digits:
+            if suit == "z":
+                tiles.append("ESWNPFC"[int(d) - 1])
+            else:
+                tiles.append(f"5{suit}r" if d == "0" else f"{d}{suit}")
+    return tiles
+
+
+def top_actions(meta: dict, state, k: int = 3) -> list[dict]:
+    """Mortal's top-``k`` actions from a reaction's ``meta`` (q_values + mask_bits).
+
+    ``state`` is the acting seat's ``PlayerState`` at the decision point.
+    Rows look like ``{"type": "dahai", "label": "Dahai 5m", "tiles": ["5m"], "prob": 0.61}``;
+    for calls, ``tiles`` is the consumed tiles followed by the called tile.
+    """
+    _model_module()
+    import meta_show
+
+    rows = []
+    for item in meta_show.meta_to_top_show(meta, state, k=k).get("items", []):
+        label = item["label"]
+        rows.append(
+            {
+                "type": _HINT_TYPES.get(label.split()[0], "none"),
+                "label": label,
+                "tiles": item.get("pais") or _parse_mahgen(item.get("tiles", "")),
+                "prob": float(item["value"].rstrip("%")) / 100,
+            }
+        )
+    return rows

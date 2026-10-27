@@ -27,7 +27,7 @@ from backend import mortal
 from backend.engine.rules import Rules
 from backend.engine.scoring import HoraResult, evaluate_hora, exhaustive_draw_deltas
 from backend.engine.state import KyokuState
-from backend.engine.tiles import WINDS, kind
+from backend.engine.tiles import WINDS, kind, sort_key
 from backend.engine.wall import Wall
 
 NONE = {"type": "none"}
@@ -69,6 +69,13 @@ def mask_event(ev: dict, seat: int) -> dict:
     if t == "tsumo" and ev["actor"] != seat:
         return {**ev, "pai": "?"}
     return ev
+
+
+def _sorted_without(hand: list[str], tile: str | None) -> list[str]:
+    tiles = list(hand)
+    if tile is not None:
+        tiles.remove(tile)
+    return sorted(tiles, key=sort_key)
 
 
 def _dumps(obj: dict) -> str:
@@ -307,6 +314,8 @@ class Game:
                     "actor": w,
                     "target": target,
                     "pai": h.pai,
+                    # revealed hand: concealed tiles without the winning tile
+                    "tehai": _sorted_without(st.seats[w].hand, h.pai if h.is_tsumo else None),
                     "deltas": h.deltas,
                     "ura_markers": h.ura_markers,
                     "han": h.han,
@@ -322,7 +331,10 @@ class Game:
         st = self.state
         deltas, tenpai, nagashi = exhaustive_draw_deltas(st)
         reason = "nagashi_mangan" if nagashi else "exhaustive"
-        yield from self._emit({"type": "ryukyoku", "reason": reason, "deltas": deltas, "tenpai": tenpai})
+        tehais = [_sorted_without(s.hand, None) if t else None for s, t in zip(st.seats, tenpai)]
+        yield from self._emit(
+            {"type": "ryukyoku", "reason": reason, "deltas": deltas, "tenpai": tenpai, "tehais": tehais}
+        )
         yield from self._emit({"type": "end_kyoku"})
         return KyokuResult(st.bakaze, st.kyoku, st.honba, "exhaustive", reason, deltas=deltas, tenpai=tenpai)
 

@@ -186,8 +186,10 @@ Events are standard mjai plus a few extra fields (libriichi ignores unknown
 fields; `PlayerState` and `Stat` both verified):
 
 - `start_game.seed: [seed, 0]` — wall reproducible from the seed
-- `hora.pai / han / fu / yaku / scores`
-- `ryukyoku.reason / tenpai`
+- `hora.pai / tehai / han / fu / yaku / scores` (`tehai`: the winner's revealed
+  concealed tiles, without the winning tile)
+- `ryukyoku.reason / tenpai / tehais` (`tehais`: revealed hands of tenpai
+  players, `null` for the others)
 - `end_game.scores` (after leftover deposits go to the top player)
 
 ### Game end (Tenhou-style)
@@ -254,6 +256,46 @@ class Agent(Protocol):
 - Server: `POST /games` (create with rules), `WS /games/{id}` (play),
   `GET /games`, `GET /games/{id}/log`, `GET /games/{id}/review`, `GET /stats`.
 
+### Server → client contract (M2)
+
+The browser rebuilds the table itself from **masked mjai events**
+(`frontend/src/lib/table.ts`: `applyEvent`), so the server only streams
+events. When the human may act, the event comes with a list of **concrete
+legal actions** (`backend/engine/actions.py: legal_actions`): every discard
+tile, each chi / pon / kan variant (red five or not), reach, hora, kyuushu,
+pass. Each candidate is generated from the hand and then checked with the
+referee's `validate_reaction`. The client just sends one of them back.
+Optional `hint`: Mortal's top-3 for the same decision
+(`backend.mortal.top_actions`, normalised `{type, label, tiles, prob}`).
+
+## 6b. Frontend
+
+React 19 + TypeScript + Vite 8 + Tailwind 4 in `frontend/`.
+
+| Path | Role |
+|---|---|
+| `src/lib/tiles.ts` | Tile parsing, sorting, SVG paths, Chinese names |
+| `src/lib/mjai.ts` | Event / action / hint types, `maskEvent` |
+| `src/lib/table.ts` | `applyEvent` reducer → `TableState` (hands, drawn tile, melds, rivers, riichi, results) |
+| `src/lib/labels.ts` | Yaku / draw names (zh), hand limit names |
+| `src/components/Table.tsx` | 1280×880 stage, scaled to fit. Each seat's river / hand / melds is a group rotated around the table centre; centre panel, dora panel |
+| `src/components/TableParts.tsx` | River, melds (Tenhou layout: called tile sideways by source, kakan stacked, ankan ends face-down), hands |
+| `src/components/Overlays.tsx` | Action bar (with option picker), Mortal hint panel, round result, final standings |
+| `src/pages/Preview.tsx` | Backend-free preview: steps through `src/mock/game.json` |
+
+- Tiles: [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)
+  SVG faces (CC0) in `public/tiles/`, drawn over a CSS tile body. Haku gets a
+  drawn frame (blank in this set).
+- Mock data: `uv run python -m scripts.export_mock --seed 12 --length hanchan`
+  exports a Mortal ×4 game with seat-0 legal actions and hints. It also
+  asserts that every Mortal decision is in `legal_actions`, which makes it a
+  regression check for the action enumerator.
+- Browser support: Tailwind 4 needs a modern engine (cascade layers etc.).
+  Chrome 155 works; this machine's Edge 98 does **not**. That matters for
+  packaging (M6): pywebview uses WebView2, which isn't installed here, so
+  either bundle / require a current WebView2 or open the app in Chrome
+  `--app` mode.
+
 ## 7. Storage
 
 - `game`: id, started/ended at, rules JSON, seat names, final scores,
@@ -281,7 +323,7 @@ class Agent(Protocol):
 |---|---|---|
 | M0 | Env: uv + Python 3.12 + CPU torch; load Mortal in-process; bot answers sample events; `PlayerState` works | ✅ done 2026-10-27 |
 | M1 | Engine: Mortal ×4 self-play finishes hanchan; `PlayerState` referee; 1000+ hanchan without errors | ✅ done 2026-10-27 |
-| M2 | Human vs 3 bots in the browser (WebSocket + React table) | — |
+| M2 | Human vs 3 bots in the browser (WebSocket + React table) | UI preview done (mock data); server wiring next |
 | M3 | Persist games, replay viewer | — |
 | M4 | Mortal review | — |
 | M5 | Stats dashboard, training features | — |
@@ -316,4 +358,13 @@ python -m uv run pytest             # M0 tests
 python -m uv run python -m scripts.m0_smoke --seeds 1   # arena self-play → data/reference_logs/
 python -m uv run python -m scripts.selfplay --agent mortal --games 1   # our engine, Mortal x4
 python -m uv run python -m scripts.selfplay --agent simple --games 500 # fast fuzzing
+```
+
+Frontend (Node 24 LTS, installed at `%LOCALAPPDATA%\Programs
+odejs`):
+
+```
+cd frontend
+npm install
+npm run dev          # http://localhost:5173  (UI preview; ?frame=N jumps to a frame)
 ```
