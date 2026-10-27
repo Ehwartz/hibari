@@ -168,9 +168,11 @@ options.
 ### Event ordering (mirrors libriichi's arena)
 
 - ankan → `dora` → rinshan `tsumo`
-- daiminkan / kakan → rinshan `tsumo` → [actor decides] → `dora` → action.
-  The decision is made on the tsumo event; the `dora` event gives no one a
-  decision.
+- daiminkan / kakan → rinshan `tsumo` → [actor decides] → `dora` → `dahai`.
+  The new dora is flipped only right before the kan player's next discard
+  (or ankan), so it does **not** count for a rinshan kaihou or a chankan.
+  A kakan made while that dora is still pending flips it before the next
+  rinshan draw. The `dora` event gives no one a decision.
 - `reach` → `dahai` (same actor) → [ron check] → `reach_accepted` → calls
 - Call priority: ron > pon / daiminkan > chi. Triple ron aborts the hand.
 - Multi-ron: `hora` events in seat order from the discarder; honba and
@@ -206,15 +208,22 @@ always continue. Rank ties break by seat order.
 - Fuzzing: `SimpleAgent` (shanten-greedy, random calls / kans) plays full
   hanchan in ~0.6 s each; Mortal ×4 ≈ 27 s per hanchan on CPU.
 
-### Known gaps
+### Edge rules (verified 2026-10-27)
 
-- Pao on ron is split 50/50 between the discarder and the liable player,
-  and the discarder pays the honba. Not cross-checked: the arena logs have
-  no pao wins.
-- After a daiminkan or kakan, the new dora is flipped before a rinshan
-  kaihou is announced, so it counts for that win. This follows the arena's
-  event order; it may differ from Tenhou in that edge case.
-- Nagashi mangan: own calls are allowed, and payments use no honba.
+Checked against libriichi's arena source (`libriichi/src/arena/board.rs`)
+and Tenhou's rules; covered by tests:
+
+- **Kan dora timing**: as above (`test_kan_dora_timing`).
+- **Pao** (daisangen / daisuushii): the whole hand value counts, composite
+  yakuman included. On tsumo the liable player pays all of it plus the
+  honba. On ron the liable player and the discarder split it half and half,
+  and the liable player pays the honba.
+- **Nagashi mangan**: broken by your own non-yaochu discard or by another
+  player calling one of your discards; your own calls and ankan don't
+  matter. Paid like a mangan tsumo with no honba, replaces the tenpai
+  payments; deposits stay; the dealer stays only if tenpai.
+- **Tenpai at an exhaustive draw**: waiting only on a tile you already hold
+  all 4 of is noten (same as libriichi's `shanten()`).
 
 ### mjai event cheat-sheet
 
@@ -292,6 +301,9 @@ class Agent(Protocol):
   2.x and matches libriichi's arena deltas exactly (multi-ron: honba and
   deposits to the first winner only). Logs carry extra fields (han / fu /
   yaku, ryukyoku reason) — libriichi tolerates them.
+- 2026-10-27 — Edge rules aligned with the arena / Tenhou: minkan dora no
+  longer counts for rinshan kaihou; pao uses the whole hand value, and on a
+  ron the liable player pays the honba.
 
 ## 11. Dev quickstart
 

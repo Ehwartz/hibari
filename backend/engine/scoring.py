@@ -125,7 +125,7 @@ def evaluate_hora(st: KyokuState, actor: int, target: int, ura_markers: list[str
             deltas[s] -= pay + 100 * honba
     else:
         deltas[target] -= main + 300 * honba
-    _apply_pao(deltas, seat, res.yaku, actor, target, oya_win, honba)
+    _apply_pao(deltas, seat, res.yaku, res.han, actor, target, oya_win, honba)
     deltas[actor] = -sum(deltas) + 1000 * st.kyotaku
 
     return HoraResult(
@@ -142,29 +142,25 @@ def evaluate_hora(st: KyokuState, actor: int, target: int, ura_markers: list[str
     )
 
 
-def _apply_pao(deltas, seat: SeatState, yaku, actor, target, oya_win, honba) -> None:
-    """Sekinin barai for daisangen / daisuushii (only the liable yakuman's share)."""
+def _apply_pao(deltas, seat: SeatState, yaku, han, actor, target, oya_win, honba) -> None:
+    """Sekinin barai for daisangen / daisuushii (Tenhou / libriichi arena).
+
+    The whole hand value counts, composite yakuman included. Tsumo: the
+    liable player pays everything as if they dealt in. Ron: the liable player
+    and the discarder split it, the liable player also pays the honba.
+    """
     if seat.pao is None:
         return
     liable, pao_yaku = seat.pao
-    pao = [y for y in yaku if y.name == pao_yaku]
-    if not pao:
+    if not any(y.name == pao_yaku for y in yaku):
         return
-    value = 8000 * (pao[0].han_open // 13) * (6 if oya_win else 4)
+    ron_value = 8000 * (han // 13) * (6 if oya_win else 4)
+    deltas[:] = [0] * 4
     if actor == target:
-        # Liable pays the pao yakuman as if dealt in; others pay the rest.
-        others = [s for s in range(4) if s != actor]
-        refund = sum(-deltas[s] for s in others) - value - 300 * honba
-        for s in others:
-            deltas[s] = 0
-        deltas[liable] = -(value + 300 * honba)
-        if refund > 0:  # extra (non-pao) yakuman still paid by tsumo split
-            share = refund // len(others)
-            for s in others:
-                deltas[s] -= share
-    elif liable != target:
-        deltas[target] += value // 2
-        deltas[liable] -= value // 2
+        deltas[liable] = -(ron_value + 300 * honba)
+    else:
+        deltas[liable] -= ron_value // 2 + 300 * honba
+        deltas[target] -= ron_value // 2
 
 
 # -- draws -----------------------------------------------------------------

@@ -29,6 +29,42 @@ def test_simple_agents_hanchan(seed):
     _assert_finished(_simple_game(seed))
 
 
+def _kyokus(log):
+    cur = []
+    for ev in log:
+        if ev["type"] == "start_kyoku":
+            cur = []
+        cur.append(ev)
+        if ev["type"] == "end_kyoku":
+            yield cur
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_kan_dora_timing(seed):
+    """Minkan dora flips right before the next discard / ankan, never before rinshan kaihou."""
+    agents = [SimpleAgent(i, seed=seed * 4 + i, call_rate=0.8, kan_rate=1.0) for i in range(4)]
+    game = run_game(Game(seed=seed), agents)
+    _assert_finished(game)
+    for evs in _kyokus(game.log):
+        kans = doras = 0
+        for i, ev in enumerate(evs):
+            t = ev["type"]
+            kans += t in ("ankan", "kakan", "daiminkan")
+            doras += t == "dora"
+            if t == "hora" and ev["actor"] == ev["target"]:
+                assert evs[i - 1]["type"] == "tsumo"
+            if t == "ankan":
+                assert evs[i + 1]["type"] == "dora"
+            if t == "tsumo" and evs[i - 1]["type"] in ("daiminkan", "kakan"):
+                nxt = evs[i + 1]
+                if nxt["type"] == "dahai" or nxt["type"] == "reach" and evs[i + 2]["type"] == "dahai":
+                    pytest.fail(f"no dora before discard after minkan: {evs[i - 1:i + 3]}")
+            if t == "dora" and evs[i + 1]["type"] in ("dahai", "ankan"):
+                assert any(e["type"] in ("daiminkan", "kakan") for e in evs[:i])
+        # every kan flips exactly one dora, except a minkan / kakan still pending at the end
+        assert kans - 1 <= doras <= kans
+
+
 def test_tonpuu():
     game = _simple_game(1, Rules(length="tonpuu"))
     _assert_finished(game)

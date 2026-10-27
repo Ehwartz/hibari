@@ -53,17 +53,38 @@ def _discard(st, actor, pai):
     st.apply({"type": "dahai", "actor": actor, "pai": pai, "tsumogiri": True})
 
 
-def test_pao_daisangen_tsumo_liable_pays_all():
-    st = KyokuState(_start([JUNK, ["P", "P", "F", "F", "C", "C", "1m", "2m", "3m", "9p", "E", "S", "W"], JUNK, JUNK]))
+def _daisangen_pao_state(honba=0):
+    """Seat 1 pons P (from 0), F (from 2), C (from 3): seat 3 is liable."""
+    hand = ["P", "P", "F", "F", "C", "C", "1m", "2m", "3m", "9p", "E", "S", "W"]
+    st = KyokuState(_start([JUNK, hand, JUNK, JUNK], honba=honba))
     for target, dragon, junk in [(0, "P", "E"), (2, "F", "S"), (3, "C", "W")]:
         _discard(st, target, dragon)
         st.apply({"type": "pon", "actor": 1, "target": target, "pai": dragon, "consumed": [dragon, dragon]})
         st.apply({"type": "dahai", "actor": 1, "pai": junk, "tsumogiri": False})
     assert st.seats[1].pao == (3, "Daisangen")
+    return st
+
+
+def test_pao_tsumo_liable_pays_all_incl_honba():
+    st = _daisangen_pao_state(honba=1)
     st.apply({"type": "tsumo", "actor": 1, "pai": "9p"})
     h = evaluate_hora(st, 1, 1, [])
     assert h.yakuman == 1
-    assert h.deltas == [0, 32000, 0, -32000]
+    assert h.deltas == [0, 32300, 0, -32300]
+
+
+def test_pao_ron_split_liable_pays_honba():
+    st = _daisangen_pao_state(honba=2)
+    _discard(st, 0, "9p")
+    h = evaluate_hora(st, 1, 0, [])
+    assert h.deltas == [-16000, 32600, 0, -16600]
+
+
+def test_pao_ron_by_liable_player_pays_all():
+    st = _daisangen_pao_state(honba=1)
+    _discard(st, 3, "9p")
+    h = evaluate_hora(st, 1, 3, [])
+    assert h.deltas == [0, 32300, 0, -32300]
 
 
 def test_double_riichi_ippatsu_tsumo_with_ura():

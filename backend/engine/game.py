@@ -188,19 +188,26 @@ class Game:
             }
         )
         st = self.state
-        actor, rinshan, minkan_dora = oya, False, 0
+        actor, rinshan = oya, False
+        # Daiminkan / kakan dora: flipped right before the kan player's next
+        # discard (or ankan) -- not before a rinshan kaihou. A kakan made while
+        # one is still pending flips the old one before the rinshan draw.
+        dora_at_discard = dora_at_tsumo = False
         suukaikan_pending = False
+
+        def flip_dora() -> Gen:
+            yield from self._emit({"type": "dora", "dora_marker": wall.reveal_dora()})
 
         while True:
             # -- draw and self action --
             if not rinshan and st.tiles_left == 0:
                 return (yield from self._exhaustive_draw())
             pai = wall.draw_rinshan() if rinshan else wall.draw()
+            if dora_at_tsumo:
+                dora_at_tsumo = False
+                yield from flip_dora()
             acts = yield from self._emit({"type": "tsumo", "actor": actor, "pai": pai})
             action = acts[actor]
-            for _ in range(minkan_dora):  # minkan dora is flipped once the rinshan draw is played
-                yield from self._emit({"type": "dora", "dora_marker": wall.reveal_dora()})
-            minkan_dora = 0
             t = action["type"]
 
             if t == "hora":
@@ -209,16 +216,20 @@ class Game:
                 return (yield from self._abort("kyuushu_kyuuhai"))
             if t in ("ankan", "kakan"):
                 ev = {"type": t, "actor": actor, "consumed": action["consumed"]}
-                if t == "kakan":
-                    ev["pai"] = action["pai"]
-                acts = yield from self._emit(ev)
-                rons = [s for s, a in acts.items() if a["type"] == "hora"]
-                if rons:
-                    return (yield from self._hora(rons, actor, wall))
                 if t == "ankan":
-                    yield from self._emit({"type": "dora", "dora_marker": wall.reveal_dora()})
+                    if dora_at_discard:
+                        dora_at_discard = False
+                        yield from flip_dora()
+                    acts = yield from self._emit(ev)
+                    yield from flip_dora()  # ankan dora is flipped immediately
                 else:
-                    minkan_dora += 1
+                    ev["pai"] = action["pai"]
+                    dora_at_tsumo = dora_at_discard
+                    acts = yield from self._emit(ev)
+                    dora_at_discard = True
+                rons = [s for s, a in acts.items() if a["type"] == "hora"]
+                if rons:  # chankan
+                    return (yield from self._hora(rons, actor, wall))
                 suukaikan_pending = self._suukaikan(st)
                 rinshan = True
                 continue
@@ -231,6 +242,9 @@ class Game:
             # -- discard, then calls (which lead to another discard) --
             while True:
                 assert action["type"] == "dahai", action
+                if dora_at_discard:
+                    dora_at_discard = False
+                    yield from flip_dora()
                 acts = yield from self._emit(
                     {"type": "dahai", "actor": actor, "pai": action["pai"], "tsumogiri": action["tsumogiri"]}
                 )
@@ -259,7 +273,7 @@ class Game:
                 acts = yield from self._emit(ev)
                 actor = call["actor"]
                 if call["type"] == "daiminkan":
-                    minkan_dora += 1
+                    dora_at_discard = True
                     suukaikan_pending = self._suukaikan(st)
                     rinshan = True
                     break
