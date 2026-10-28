@@ -1,4 +1,4 @@
-# Mahjong AI Trainer — Architecture & Plan
+# Hibari 雲雀 — Architecture & Plan
 
 A Riichi Mahjong (4-player) training app: one human plays against three
 Mortal AIs, every game is recorded, and the human's decisions are reviewed

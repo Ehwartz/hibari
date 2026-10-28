@@ -1,7 +1,7 @@
 [project]
-name = "mahjong-ai-trainer"
+name = "hibari"
 version = "0.1.0"
-description = "Riichi mahjong trainer: play against Mortal, record and review games"
+description = "Hibari (雲雀): riichi mahjong trainer - play against AI, record and review games"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "torch<2.9",

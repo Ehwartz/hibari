@@ -24,8 +24,11 @@ function Sidebar() {
   return (
     <aside className="flex w-[210px] shrink-0 flex-col border-r border-white/10 bg-black/45">
       <a href="#/" className="px-5 pt-6 pb-5">
-        <div className="text-[18px] leading-tight font-black tracking-wide">Mahjong</div>
-        <div className="text-[18px] leading-tight font-black tracking-wide text-emerald-300">AI Trainer</div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[24px] leading-tight font-black tracking-[0.15em]">雲雀</span>
+          <span className="text-[13px] font-bold tracking-wider text-emerald-300">Hibari</span>
+        </div>
+        <div className="mt-0.5 text-[12px] tracking-wide text-white/50">AI 麻雀训练场</div>
       </a>
       <nav className="flex flex-col gap-1 px-3">
         {NAV.map((n) => {

@@ -10,8 +10,8 @@ if not exist frontend\node_modules (
   popd
 )
 
-start "mj-trainer backend" cmd /k python -m uv run uvicorn backend.server.app:app --port 8000
-start "mj-trainer frontend" /d frontend cmd /k npm run dev
+start "hibari backend" cmd /k python -m uv run uvicorn backend.server.app:app --port 8000
+start "hibari frontend" /d frontend cmd /k npm run dev
 
 rem give both servers a moment to come up
 timeout /t 5 /nobreak >nul

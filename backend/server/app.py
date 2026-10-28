@@ -25,7 +25,7 @@ from backend.engine.rules import Rules
 from backend.server import batch
 from backend.server.session import GameSession
 
-app = FastAPI(title="Mahjong AI Trainer")
+app = FastAPI(title="Hibari 雲雀")
 sessions: dict[str, GameSession] = {}
 
 
