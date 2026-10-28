@@ -303,6 +303,14 @@ class Agent(Protocol):
   would leak the tile, which is the classic 手出し位置 read. Review shows
   hands sorted.
 
+### Caching of the built UI
+
+`FrontendFiles` (in `app.py`) serves `index.html` with
+`Cache-Control: no-cache` and the hashed `assets/*` with `immutable`.
+Without this, Chrome's heuristic cache kept the old `index.html`, and with
+it the old bundle, for up to about an hour after an update. Starlette hands
+`get_response` an OS path, so on Windows the separator is normalized.
+
 ### Kyoku intro and leaving a game
 
 - A live (not replayed) `start_kyoku` shows a "东1局 / 0 本场 · 供托 · 亲家"

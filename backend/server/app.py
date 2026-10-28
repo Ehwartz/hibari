@@ -335,5 +335,20 @@ async def stats(q: StatsQuery) -> dict:
 
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+
+class FrontendFiles(StaticFiles):
+    """The built UI. index.html must be revalidated on every load (otherwise Chrome's heuristic
+    cache keeps showing the previous build after an update); hashed assets never change."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if path.replace("\\", "/").startswith("assets/"):  # an OS path (backslashes on Windows)
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 if FRONTEND_DIST.is_dir():  # mounted last so /api routes take precedence
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+    app.mount("/", FrontendFiles(directory=FRONTEND_DIST, html=True), name="frontend")

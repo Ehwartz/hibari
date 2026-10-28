@@ -265,3 +265,14 @@ def test_quit_saves_unfinished_log(tmp_settings):
                 pass
             assert msg["saved"] is None
         assert [g["id"] for g in client.get("/api/logs").json()["games"]] == [game_id]
+
+
+def test_index_html_is_not_cached():
+    from backend.server.app import FRONTEND_DIST
+
+    if not (FRONTEND_DIST / "index.html").exists():
+        pytest.skip("frontend not built")
+    with TestClient(app) as client:
+        assert client.get("/").headers["cache-control"] == "no-cache"
+        asset = next((FRONTEND_DIST / "assets").glob("*.js")).name
+        assert "immutable" in client.get(f"/assets/{asset}").headers["cache-control"]
