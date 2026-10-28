@@ -309,7 +309,9 @@ Everything except launching and packaging is portable: the backend, the
 engine, the UI, and libriichi, which ships prebuilt for py3.10–3.12 on
 win-x64, linux-x86_64 and macOS x86_64 / arm64. torch 2.8 has no Intel-Mac
 wheels, so the supported targets are Windows x64, Linux x86_64 and Apple
-Silicon macOS. `uv.lock` already resolves torch for all three (the CPU
+Silicon macOS. Mortal's prebuilt Linux libriichi needs glibc 2.39+
+(Ubuntu 24.04, Debian 13, Fedora 40); older distros would need libriichi
+rebuilt from Mortal's Rust sources. CI found this on ubuntu-22.04. `uv.lock` already resolves torch for all three (the CPU
 index on Windows / Linux, PyPI on macOS).
 
 - `scripts/launch.py` picks a Chromium browser per OS:
@@ -712,7 +714,7 @@ out of the bundle.
     folder, and a quiz works;
   - with weights, an AI 代打 game and a review run too.
 - CI (`.github/workflows/ci.yml`) runs a matrix of windows-latest,
-  ubuntu-22.04 and macos-14 (arm64). Each job runs `uv sync`, `npm ci`, the
+  ubuntu-24.04 (glibc 2.39, for libriichi) and macos-14 (arm64). Each job runs `uv sync`, `npm ci`, the
   tests (the ones that need weights are skipped; see `tests/weights.py`),
   the package build, and the smoke test, then uploads the package as an
   artifact. A `v*` tag publishes the three packages as a GitHub release.

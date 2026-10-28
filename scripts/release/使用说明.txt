@@ -30,7 +30,8 @@ AI 需要 Mortal 模型权重 mortal.pth，位于：
 
 系统要求
 --------
-- Windows 10 / 11（64 位）、macOS 11 以上（Apple Silicon）或 Linux（x86_64）
+- Windows 10 / 11（64 位）、macOS 11 以上（Apple Silicon）或 Linux（x86_64，glibc 2.39 以上，
+  如 Ubuntu 24.04、Debian 13、Fedora 40 及更新版本）
 - Google Chrome（推荐）、Microsoft Edge 或 Chromium
 - 不需要显卡，不需要安装 Python。约 1.5 GB 磁盘空间
 

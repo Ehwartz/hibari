@@ -21,10 +21,10 @@ mjbot_mortal/mortal.pth
 
 | 系统 | 支持情况 |
 |---|---|
-| Windows 10 / 11（x64） | 支持，另有免安装版 |
-| macOS（Apple Silicon） | 支持，从源码运行 |
-| Linux（x86_64） | 支持，从源码运行 |
-| macOS（Intel）、ARM 版 Linux / Windows | 不支持（缺少对应的 PyTorch 或 libriichi 预编译包） |
+| Windows 10 / 11（x64） | 支持 |
+| macOS（Apple Silicon） | 支持 |
+| Linux（x86_64，glibc 2.39 以上，如 Ubuntu 24.04、Debian 13、Fedora 40） | 支持 |
+| macOS（Intel）、ARM 版 Linux / Windows、较旧的 Linux 发行版 | 不支持（缺少对应的 PyTorch 或 libriichi 预编译包） |
 
 另需：
 
