@@ -175,3 +175,38 @@ Results: _to be filled in after the run._
    trained checkpoint, and point Settings → AI 程序 at the new folder. The loader reads `mortal`,
    `current_dqn` and `config` from the file, all present in our checkpoints. Per-AI model
    selection in Hibari is a possible follow-up.
+
+## 11. TODO
+
+Training plan:
+
+- [ ] **Train all three styles with the same budget**, including a new `avoid4`. Akagi's model is
+  already avoid-4th leaning, but it was trained offline on human logs while ours get online
+  self-play on top. With equal training, differences between our three models come from `pts`
+  alone. The new `avoid4` is the control group, and it may also end up stronger than the original.
+- [ ] **Order: `balance` (running) → `top` → `avoid4`.** `top` differs most from the original, so
+  it shows most clearly whether `pts` works. Each gets the same time, e.g. 1–2 days.
+- [ ] **Evaluate after each style.** Play `one_vs_three.py` against the original `baseline.pth`
+  for a few thousand games and compare average rank and the 1st / 4th place rates. Fill the
+  results in here.
+
+Pipeline improvements (from the speed test and the first night):
+
+- [ ] **Generate GRP logs in parallel.** One `one_vs_three.py` process only uses about 11 of 25
+  cores. Run two at once, each with its own `log_dir` (subfolders under `grp_logs/`, matched by
+  the `**` glob). Same-named files from the same seed range would overwrite each other in a
+  shared folder. This should make the step nearly twice as fast.
+- [ ] **Share GRP across styles.** GRP only predicts final ranks from the game state; `pts` is
+  applied afterwards in the reward. All styles start from the same baseline, so the GRP logs and
+  `grp.pth` from the `balance` run can be reused for `top` and `avoid4` (copy them into the new
+  run folder, or point `[grp]` / `[grp.dataset]` at the shared ones). That saves about 1.5 h per
+  style.
+- [ ] **Try 3 self-play clients.** 2 clients use about 19.5 of 25 cores, so a third may add
+  10–20 % throughput. Measure it at the start of the next run (`speedtest.py --max-clients 3`).
+- [ ] **Prefer CPU over GPU when renting.** Self-play is CPU-bound (GPU about 23 % busy with 2
+  clients), so a machine with more cores and a cheaper GPU may be more cost-effective.
+
+Hibari side:
+
+- [ ] **Per-AI model selection** in Settings: AI-A / B / C each pick a bot folder (e.g. top /
+  balance / avoid4), so the three opponents play different styles.
