@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { DANGER_SIDES, DANGER_TRACK, type OpponentDanger } from '../lib/danger'
 import { type SeatView, type TableState, arrange } from '../lib/table'
-import { KINDS, SEAT_WIND, type Tile as TileT, WIND_NAME } from '../lib/tiles'
+import { KINDS, SEAT_WIND, type Tile as TileT, WIND_NAME, deaka } from '../lib/tiles'
 import { Avatar } from './Avatar'
 import { Tile } from './Tile'
 import { Hand, type Leaving, Melds, River, type TileInfo } from './TableParts'
@@ -202,6 +202,8 @@ interface Props {
   onReorder?: (from: number, to: number) => void
   /** Start-of-kyoku deal animation: tiles start appearing `start` ms after `key` changes. */
   deal?: { key: number; start: number } | null
+  /** Mark the tiles in all rivers and melds of the same kind as the hand tile under the mouse. */
+  sameTileHighlight?: boolean
 }
 
 const rel = (seat: number, me: number) => (seat - me + 4) % 4
@@ -302,8 +304,12 @@ export function Table({
   width = STAGE_W,
   onReorder,
   deal,
+  sameTileHighlight = false,
 }: Props) {
   const cx = width / 2
+  // same-kind marks: the hand tile under the mouse (red fives count as fives)
+  const [hoverTile, setHoverTile] = useState<TileT | null>(null)
+  const mark = sameTileHighlight && hoverTile ? (t: TileT) => deaka(t) === deaka(hoverTile) : undefined
   const [dangerOpen, setDangerOpen] = useState<number | null>(null)
   const dangerFor = (seat: number): CardDanger | undefined => {
     const i = danger.findIndex((d) => d.seat === seat)
@@ -369,6 +375,7 @@ export function Table({
                 lastIndex={last}
                 showTsumogiri={showTsumogiri}
                 hideLast={fx?.actor === seat}
+                mark={mark}
               />
             </div>
             {r !== 0 && (
@@ -379,7 +386,7 @@ export function Table({
                 {/* top player: beside the hand, mirroring yours */}
                 {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={beside(OPP_W)} danger={dangerFor(seat)} {...card(seat)} />}
                 <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} deal={dealOf(seat)} />
-                <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
+                <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} mark={mark} />
               </div>
             )}
             {/* left / right players: behind the hand, centred on the seat axis (same height on both sides) */}
@@ -405,8 +412,9 @@ export function Table({
           info={tileInfo}
           onReorder={!sortHand ? onReorder : undefined}
           deal={dealOf(me)}
+          onHoverTile={sameTileHighlight ? setHoverTile : undefined}
         />
-        <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} />
+        <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} mark={mark} />
       </div>
       {callouts.map((c) => (
         <div

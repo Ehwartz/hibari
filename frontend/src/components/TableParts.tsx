@@ -12,9 +12,11 @@ interface RiverProps {
   showTsumogiri?: boolean
   /** The newest discard is still leaving the hand: keep its place but don't show it yet. */
   hideLast?: boolean
+  /** Tiles to mark (same kind as the tile under the mouse in your hand). */
+  mark?: (t: TileT) => boolean
 }
 
-export function River({ river, w, lastIndex, showTsumogiri, hideLast }: RiverProps) {
+export function River({ river, w, lastIndex, showTsumogiri, hideLast, mark }: RiverProps) {
   const rows: RiverTile[][] = []
   for (let i = 0; i < river.length; i += 6) rows.push(river.slice(i, i + 6))
   return (
@@ -31,7 +33,7 @@ export function River({ river, w, lastIndex, showTsumogiri, hideLast }: RiverPro
                 className={`relative ${hidden ? 'opacity-0' : `${i === lastIndex ? 'last-discard' : ''} ${newest ? 'river-drop' : ''}`} ${t.called ? 'opacity-45' : ''}`}
                 title={showTsumogiri ? (t.tsumogiri ? '摸切' : '手切') : undefined}
               >
-                <Tile tile={t.pai} w={w} sideways={t.riichi} dim={showTsumogiri && t.tsumogiri} />
+                <Tile tile={t.pai} w={w} sideways={t.riichi} dim={showTsumogiri && t.tsumogiri} mark={mark?.(t.pai)} />
               </div>
             )
           })}
@@ -57,7 +59,7 @@ function meldTiles(m: Meld, actor: number): { tile: TileT; sideways?: boolean; b
   return tiles
 }
 
-export function Melds({ melds, actor, w }: { melds: Meld[]; actor: number; w: number }) {
+export function Melds({ melds, actor, w, mark }: { melds: Meld[]; actor: number; w: number; mark?: (t: TileT) => boolean }) {
   const h = Math.round((w * 4) / 3)
   return (
     <div className="flex items-end gap-2">
@@ -66,13 +68,13 @@ export function Melds({ melds, actor, w }: { melds: Meld[]; actor: number; w: nu
           {meldTiles(m, actor).map((t, j) =>
             t.stacked ? (
               <div key={j} className="flex flex-col" style={{ marginTop: -h * 0.1 }}>
-                <Tile tile={t.stacked} w={w} sideways />
+                <Tile tile={t.stacked} w={w} sideways mark={mark?.(t.stacked)} />
                 <div style={{ marginTop: -Math.round(w / 14) }}>
-                  <Tile tile={t.tile} w={w} sideways />
+                  <Tile tile={t.tile} w={w} sideways mark={mark?.(t.tile)} />
                 </div>
               </div>
             ) : (
-              <Tile key={j} tile={t.tile} w={w} sideways={t.sideways} back={t.back} />
+              <Tile key={j} tile={t.tile} w={w} sideways={t.sideways} back={t.back} mark={!t.back && mark?.(t.tile)} />
             ),
           )}
         </div>
@@ -111,9 +113,11 @@ interface HandProps {
   onReorder?: (from: number, to: number) => void
   /** Deal animation: tile i appears after this many ms (keyed so a new deal restarts it). */
   deal?: { key: number; delay: (i: number) => number }
+  /** The tile under the mouse (null when it leaves the hand). */
+  onHoverTile?: (t: TileT | null) => void
 }
 
-export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info, onReorder, deal }: HandProps) {
+export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info, onReorder, deal, onHoverTile }: HandProps) {
   // drag & drop arrangement: `drag` = index being dragged, `drop` = insertion point (0..n)
   const [drag, setDrag] = useState<number | null>(null)
   const [drop, setDrop] = useState<number | null>(null)
@@ -212,8 +216,17 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
       key,
     )
   }
+  // which tile is under the mouse (tiles carry data-tile), for the same-kind marks on the table
+  const hoverProps =
+    onHoverTile && !hidden
+      ? {
+          onMouseOver: (e: React.MouseEvent) =>
+            onHoverTile((e.target as HTMLElement).closest<HTMLElement>('[data-tile]')?.dataset.tile ?? null),
+          onMouseLeave: () => onHoverTile(null),
+        }
+      : {}
   return (
-    <div className="flex items-end">
+    <div className="flex items-end" {...hoverProps}>
       <div className="flex items-end gap-[2px]">
         {hand.map((t, i) =>
           deal ? (

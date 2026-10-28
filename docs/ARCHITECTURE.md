@@ -368,6 +368,25 @@ size is drawn from the vector source, with the simplified design up to
 
 These outputs are committed, so CI needs no rendering step.
 
+### Same-tile highlight and 进张分析
+
+- **同牌高亮**: `Hand` reports the tile under the mouse. Every `Tile`
+  carries `data-tile`, and the hand listens with one delegated `mouseover`.
+  `Table` then marks the same kind (red fives included) in all rivers and
+  melds with a blue tint (`Tile mark`), distinct from the gold hint
+  highlight. A checkbox on the game page (`localStorage` `samehl`, on by
+  default) turns it off; the replay viewer follows the same setting.
+- **进张分析**: `POST /api/ukeire {hand, visible}` (`backend/analysis/ukeire.py`)
+  works with the `mahjong` library's shanten (chiitoitsu and kokushi from
+  13 tiles). With 3n+2 tiles it returns one option per discard kind; with
+  3n+1 tiles, the hand itself. Each option lists the draws that lower the
+  shanten, with 4 minus the visible copies left. `visible` is counted on the
+  client (`visibleCounts`): rivers without the called tiles, every meld (a
+  kan counts all four) and the dora indicators. `UkeirePanel` is a
+  centered, scrollable window sorted by shanten and then total acceptance.
+  It recomputes whenever your hand or the visible tiles change, and closes
+  with Esc or a click outside.
+
 ### Sound
 
 `frontend/src/lib/sound.ts` handles two kinds of sound:

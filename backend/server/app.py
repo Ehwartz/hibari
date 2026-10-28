@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend import mortal, storage
-from backend.analysis import quiz
+from backend.analysis import quiz, ukeire
 from backend.analysis.review import review_game
 from backend.engine.rules import Rules
 from backend.server import batch
@@ -298,6 +298,22 @@ async def answer_drill(a: DrillAnswer) -> dict:
 async def reset_drills() -> dict:
     storage.reset_drills()
     return {"ok": True}
+
+
+# -- ukeire (进张分析) -------------------------------------------------------------------
+
+
+class UkeireQuery(BaseModel):
+    hand: list[str] = Field(min_length=1, max_length=14)  # your concealed tiles, with the drawn one
+    visible: list[int] = Field(min_length=34, max_length=34)  # tiles seen elsewhere, per kind
+
+
+@app.post("/api/ukeire")
+async def ukeire_api(q: UkeireQuery) -> dict:
+    try:
+        return ukeire.analyze(q.hand, q.visible)
+    except (ValueError, KeyError) as ex:
+        raise HTTPException(422, str(ex)) from None
 
 
 # -- generated quizzes (听牌 / 点数) ---------------------------------------------------

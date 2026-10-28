@@ -23,6 +23,7 @@ import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { WIND_NAME } from '../lib/tiles'
+import { UkeirePanel } from '../components/UkeirePanel'
 import { type SoundSettings, playClack, playVoice, preloadVoices, voiceFor } from '../lib/sound'
 
 
@@ -312,6 +313,8 @@ export function Play({ gameId }: { gameId: string }) {
     }
   })
   const [showDanger, setShowDanger] = useState(() => localStorageGet('danger') === '1')
+  const [sameTile, setSameTile] = useState(() => localStorageGet('samehl') !== '0')
+  const [showUkeire, setShowUkeire] = useState(false)
   const toggleDanger = (v: boolean) => {
     setShowDanger(v)
     localStorageSet('danger', v ? '1' : '0')
@@ -402,7 +405,26 @@ export function Play({ gameId }: { gameId: string }) {
         <label className="ml-3 flex items-center gap-1.5">
           <input type="checkbox" checked={showHints} onChange={(e) => toggleHints(e.target.checked)} /> AI 提示
         </label>
+        <label className="ml-3 flex items-center gap-1.5" title="鼠标停在手牌上时，牌河和副露中相同的牌会高亮">
+          <input
+            type="checkbox"
+            checked={sameTile}
+            onChange={(e) => {
+              setSameTile(e.target.checked)
+              localStorageSet('samehl', e.target.checked ? '1' : '0')
+            }}
+          />{' '}
+          同牌高亮
+        </label>
+        <button
+          onClick={() => setShowUkeire((v) => !v)}
+          title="每种打法的向听数和进张（扣除可见的牌）"
+          className={`ml-2 rounded-full px-3 py-1 text-[12px] font-bold ${showUkeire ? 'bg-emerald-600' : 'bg-white/10 hover:bg-white/20'}`}
+        >
+          进张分析
+        </button>
       </div>
+      {showUkeire && <UkeirePanel table={table} onClose={() => setShowUkeire(false)} />}
 
       {confirmQuit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setConfirmQuit(false)}>
@@ -443,6 +465,7 @@ export function Play({ gameId }: { gameId: string }) {
           onDiscard={onDiscard}
           sortHand={auto.autoSort}
           onReorder={reorder}
+          sameTileHighlight={sameTile}
           deal={intro ? { key: intro.key, start: DEAL_START_MS } : null}
           discardFx={fx}
           callouts={callouts}

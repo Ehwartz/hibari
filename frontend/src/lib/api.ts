@@ -151,6 +151,12 @@ export interface DrillList {
   mastered: number
 }
 
+/** 进张分析: per discard (or the hand itself), its shanten and the draws that improve it. */
+export interface UkeireResult {
+  discard: boolean // options are discards (your turn) rather than the hand itself
+  options: { discard: string | null; shanten: number; tiles: { tile: string; left: number }[]; total: number }[]
+}
+
 export type StatValues = Record<string, number | null>
 
 export interface StatsResponse {
@@ -233,6 +239,10 @@ export const api = {
   deleteLog: (id: string) => fetch(`/api/logs/${id}`, { method: 'DELETE' }).then((r) => json<{ deleted: string }>(r)),
   waitQuiz: (mode: WaitQuiz['mode']) => fetch(`/api/quiz/wait?mode=${mode}`).then((r) => json<WaitQuiz>(r)),
   scoreQuiz: () => fetch('/api/quiz/score').then((r) => json<ScoreQuiz>(r)),
+  ukeire: (hand: string[], visible: number[]) =>
+    fetch('/api/ukeire', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ hand, visible }) }).then((r) =>
+      json<UkeireResult>(r),
+    ),
   drills: () => fetch('/api/drills').then((r) => json<DrillList>(r)),
   answerDrill: (id: string, choice: string) =>
     fetch('/api/drills/answer', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ id, choice }) }).then((r) =>

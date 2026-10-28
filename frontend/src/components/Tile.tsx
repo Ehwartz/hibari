@@ -9,6 +9,8 @@ interface Props {
   sideways?: boolean
   dim?: boolean
   highlight?: boolean
+  /** Same-kind mark (the tile under the mouse in your hand): a blue tint. */
+  mark?: boolean
   raised?: boolean
   /** Lift on mouse-over even when not clickable (own hand). */
   hoverable?: boolean
@@ -16,7 +18,7 @@ interface Props {
   title?: string
 }
 
-export function Tile({ tile, w, back, sideways, dim, highlight, raised, hoverable, onClick, title }: Props) {
+export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, hoverable, onClick, title }: Props) {
   const h = Math.round((w * 4) / 3)
   const hidden = back || tile === '?'
   const face = hidden ? null : faceUrl(tile)
@@ -47,12 +49,14 @@ export function Tile({ tile, w, back, sideways, dim, highlight, raised, hoverabl
         />
       )}
       {highlight && <div className="absolute inset-0 rounded-[inherit] bg-amber-200/20 ring-2 ring-amber-400 ring-inset" />}
+      {mark && <div className="absolute inset-0 rounded-[inherit] bg-sky-400/30 ring-2 ring-sky-400 ring-inset" />}
       {dim && <div className="absolute inset-0 bg-black/45" />}
     </div>
   )
   return (
     <div
       title={title ?? (hidden ? undefined : tileName(tile))}
+      data-tile={hidden ? undefined : tile}
       onClick={onClick}
       className={`relative shrink-0 transition-transform duration-100 ${onClick || hoverable ? 'hover:-translate-y-[10%]' : ''} ${onClick ? 'cursor-pointer' : ''}`}
       style={{

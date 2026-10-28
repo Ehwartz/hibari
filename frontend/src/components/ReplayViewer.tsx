@@ -32,6 +32,15 @@ export function qGap(d: ReviewDecision, label: string): string {
   return gap < 0.005 ? '0' : `−${gap.toFixed(2)}`
 }
 
+/** The 同牌高亮 preference set on the game page (on unless turned off there). */
+function sameTileHighlight(): boolean {
+  try {
+    return localStorage.getItem('samehl') !== '0'
+  } catch {
+    return true
+  }
+}
+
 /** Human-readable name of an AI (Mortal-style) action label. */
 export function labelName(label: string): string {
   return CALL_HINT[label]?.name ?? `打 ${tileName(label)}`
@@ -402,6 +411,7 @@ export function ReplayViewer({
               avatars={seatAvatars(settings, table.players)}
               danger={danger}
               tileInfo={tileInfo}
+              sameTileHighlight={sameTileHighlight()}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
