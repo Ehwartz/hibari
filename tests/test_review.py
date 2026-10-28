@@ -1,6 +1,7 @@
 """Mortal review of a saved game."""
 from backend.agents.mortal_agent import MortalAgent
 from backend.agents.simple_agent import SimpleAgent
+from tests.weights import requires_weights
 from backend.analysis.review import action_label, actual_action, review_game
 from backend.engine.driver import run_game
 from backend.engine.game import Game
@@ -27,6 +28,7 @@ def test_actual_action_skips_dora_and_others_hora():
     assert actual_action(evs, 0, 2)["pai"] == "C"
 
 
+@requires_weights
 def test_review_of_a_mortal_seat_agrees_with_itself():
     """Seat 2 played by greedy Mortal: the review must agree 100% (same model, same state)."""
     agents = [SimpleAgent(0, seed=1), SimpleAgent(1, seed=2), MortalAgent(2), SimpleAgent(3, seed=3)]

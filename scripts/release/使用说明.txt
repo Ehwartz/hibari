@@ -1,38 +1,56 @@
 雲雀 Hibari — AI 麻雀训练场  {version}
 ================================================
 
-日本麻将（四人立直麻将）训练软件：和 3 个 Mortal AI 对局，自动保存牌谱，
-可以回放、用 AI 复盘，做何切 / 听牌 / 点数练习，查看统计数据。
+日本麻将（四人立直麻将）训练软件：与三名 Mortal AI 对局，自动保存牌谱，
+支持牌谱回放、AI 复盘、何切 / 听牌 / 点数练习与数据统计。
 
 运行
 ----
-1. 把压缩包【完整解压】到任意文件夹（路径里有中文也可以；不要直接在压缩包里双击运行）。
-2. 双击 Hibari.exe。第一次启动需要十几秒加载 AI。
-3. 关闭程序窗口即退出。
+先将压缩包完整解压，不要在压缩包内直接运行。首次启动需要十几秒加载 AI。
+
+Windows
+  双击 Hibari.exe。关闭程序窗口即退出。
+
+macOS（Apple Silicon）
+  1. 将 Hibari.app 拖入“应用程序”文件夹（也可留在原处）。
+  2. 本程序未经 Apple 签名，首次运行前请在“终端”中执行一次：
+       xattr -dr com.apple.quarantine /Applications/Hibari.app
+     （若未移动到“应用程序”，请替换为 Hibari.app 的实际路径。）
+  3. 双击 Hibari.app。关闭窗口后按 Cmd+Q 退出。
+
+Linux（x86_64）
+  在终端中运行 ./start.sh。关闭程序窗口即退出。
+
+模型权重
+--------
+AI 需要 Mortal 模型权重 mortal.pth，位于：
+  Windows / Linux：mjbot_mortal/mortal.pth
+  macOS：Hibari.app/Contents/Resources/app/mjbot_mortal/mortal.pth
+如果该文件不存在，请自行放入后重新启动。缺少权重时仍可使用听牌练习与点数计算。
 
 系统要求
 --------
-- 64 位 Windows 10 / 11
-- Google Chrome（推荐）或较新版本的 Microsoft Edge —— 程序界面在它们的"应用窗口"里显示
+- Windows 10 / 11（64 位）、macOS 11 以上（Apple Silicon）或 Linux（x86_64）
+- Google Chrome（推荐）、Microsoft Edge 或 Chromium
 - 不需要显卡，不需要安装 Python。约 1.5 GB 磁盘空间
 
 数据
 ----
-牌谱、设置、头像、练习记录都保存在本文件夹的 data\ 里。
-- 备份 / 换电脑：复制 data\ 文件夹即可
-- 升级新版本：把旧版的 data\ 复制到新版文件夹
-- 彻底删除：直接删除整个文件夹（不写注册表）
+牌谱、设置、头像、练习记录保存在：
+  Windows / Linux：本文件夹的 data 目录
+  macOS：~/Library/Application Support/Hibari/data
+备份或迁移时复制该目录即可；升级新版本时，Windows / Linux 请将旧版的 data 目录复制到新版文件夹。
 
 遇到问题
 --------
-启动失败时会弹出提示；详细日志在 data\launcher.log 和 data\server.log。
+启动失败时会显示提示；详细日志位于数据目录中的 launcher.log 和 server.log。
 
 许可与致谢
 ----------
-本程序以 GNU AGPL-3.0 发布（见 LICENSE），源代码就在本文件夹里（backend\、scripts\、
-mjbot_mortal\ 的 .py 文件）。
+本程序以 GNU AGPL-3.0 发布（见 LICENSE），源代码随附于程序目录（backend、scripts、
+mjbot_mortal 中的 .py 文件），也可在 https://github.com/Ehwartz/hibari 获取。
 - Mortal（AI 模型与 libriichi）：https://github.com/Equim-chan/Mortal ，AGPL-3.0
 - 牌面图：FluffyStuff/riichi-mahjong-tiles，CC0
 - 点数计算：mahjong（MahjongRepository），MIT
-- Python 运行时：python-build-standalone（PSF License）；PyTorch（BSD）等依赖见 runtime\python\Lib\site-packages
-- 模型权重 mjbot_mortal\mortal.pth 仅供个人学习使用，请勿公开再分发。
+- Python 运行时：python-build-standalone（PSF License）；PyTorch（BSD）等依赖见 runtime/python
+- 模型权重 mortal.pth 不属于本程序，不受本程序许可证约束，请勿公开再分发。

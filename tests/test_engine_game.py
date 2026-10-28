@@ -2,6 +2,7 @@
 import pytest
 
 from backend.agents.mortal_agent import MortalAgent
+from tests.weights import requires_weights
 from backend.agents.simple_agent import SimpleAgent
 from backend.engine.driver import run_game
 from backend.engine.game import Game, IllegalAction, mask_event
@@ -114,6 +115,7 @@ def test_game_end_conditions(scores, round_idx, renchan, expected):
     assert game._is_over(round_idx, renchan, "hora", round_idx % 4) is expected
 
 
+@requires_weights
 def test_mortal_tonpuu():
     game = run_game(Game(Rules(length="tonpuu"), seed=0), [MortalAgent(i) for i in range(4)])
     _assert_finished(game)

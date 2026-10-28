@@ -17,14 +17,15 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-ROOT = Path(__file__).resolve().parents[2]
+from backend.paths import DATA, ROOT
+
 DEFAULT_BOT_DIR = ROOT / "mjbot_mortal"
 
 
 def bot_dir() -> Path:
     """The configured bot folder (``bot_dir`` in data/settings.json), default ``mjbot_mortal``."""
     try:
-        raw = json.loads((ROOT / "data" / "settings.json").read_text(encoding="utf-8")).get("bot_dir")
+        raw = json.loads((DATA / "settings.json").read_text(encoding="utf-8")).get("bot_dir")
     except (OSError, ValueError):
         raw = None
     if not raw:

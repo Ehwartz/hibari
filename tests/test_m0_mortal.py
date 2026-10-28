@@ -1,6 +1,7 @@
 """M0: Mortal loads in-process and answers mjai events."""
 from backend import mortal
 from backend.agents.mortal_agent import MortalAgent
+from tests.weights import requires_weights
 
 START_KYOKU = {
     "type": "start_kyoku", "bakaze": "E", "dora_marker": "1p",
@@ -13,11 +14,13 @@ START_KYOKU = {
 }
 
 
+@requires_weights
 def test_online_disabled():
     mortal.load_bot(0)
     assert mortal._model_module().ot_settings["online"] is False
 
 
+@requires_weights
 def test_bot_discards_after_tsumo():
     agent = MortalAgent(0)
     assert agent.react({"type": "start_game", "names": ["me", "a", "b", "c"], "id": 0}) is None
@@ -38,6 +41,7 @@ def test_player_state_tracks_hand():
     assert ps.shanten >= 0
 
 
+@requires_weights
 def test_temperature_sampling_stays_legal_and_varies():
     picks = set()
     for _ in range(30):

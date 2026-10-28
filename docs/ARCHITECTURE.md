@@ -326,9 +326,8 @@ index on Windows / Linux, PyPI on macOS).
   delegates to `start.sh`). `.gitattributes` keeps the shell scripts LF and
   the batch files CRLF. The shell scripts are committed executable.
 - `tests/test_launch.py` simulates the macOS and Linux browser lookup.
-  They have not run on a real Mac or Linux box yet; a CI matrix is the
-  next step, which would also build per-OS packages. `build_release.py`
-  refuses to run off Windows.
+  CI runs the whole suite and a packaged smoke test on real Linux and
+  macOS runners.
 
 ### Caching of the built UI
 
@@ -671,40 +670,58 @@ hand, so it is the same during play and in review.
 
 ## 10b. Portable release (M6)
 
-`python -m uv run python -m scripts.build_release` builds
-`release/Hibari-<version>-win64.zip`, about 261 MB zipped and 623 MB
-unpacked. It downloads nothing: everything comes from the tested dev setup.
+`uv run python -m scripts.build_release` builds the package for the current
+OS. Nothing is downloaded: it uses the tested `.venv`.
 
-- `runtime/python/`: the standalone CPython that `.venv` is based on (from
-  `pyvenv.cfg` `home`), plus `.venv`'s site-packages. Build-only files are
-  left out: `*.lib` (torch alone has about 2.6 GB of them) and
-  `torch/include` and `torch/share`.
-- App files keep the repo layout (`backend/`, `scripts/launch.py`,
-  `frontend/dist/`), so `ROOT`-relative paths work unchanged. `data/` is
-  created on first run. The only thing shipped in it is the AI-A/B/C avatars
-  from the build machine's `data/assets`: just the images plus their
-  `assets` entries in `data/settings.json`. `--no-avatars` skips them. They
-  never enter git, because `data/` is ignored. The default `log_dir` is now the
-  relative `data/games`, so the folder can be moved.
-- `mjbot_mortal/` has only the runtime files, the py3.12 win64 libriichi,
-  and `mortal.pth`. The build fails if the weights are missing.
-- `Hibari.exe` is `scripts/release/Hibari.cs`, compiled with the .NET
-  Framework `csc.exe` that ships with Windows. It runs
-  `runtime\python\pythonw.exe -m scripts.launch` from its own folder and
-  clears `PYTHON*` / `VIRTUAL_ENV`.
-- Launcher: Chrome if installed, otherwise Edge, in `--app` mode with the
-  same flags. It warns when the browser is older than Chromium 111
-  (Tailwind 4). On failure it shows a message box and logs to
-  `data/launcher.log`. The dev-only frontend rebuild is skipped when
-  `frontend/src` is absent.
-- Licensing: the zip ships AGPL-3.0 `LICENSE` (Mortal's) and
-  `使用说明.txt`. The app's sources are in the zip, so it is
-  source-available. The weights are bundled for personal use, and the
-  readme asks recipients not to redistribute them publicly.
-- Verified by unzipping into a fresh folder whose path has spaces and CJK
-  characters. The checks: `sys.path` stays inside the folder, a batch game
-  plays, a review runs, the quizzes and settings work, `Hibari.exe` opens
-  Chrome, and closing the window stops the backend.
+| OS | Archive | Entry point |
+|---|---|---|
+| Windows | `Hibari-<v>-win64.zip` | `Hibari.exe` (`scripts/release/Hibari.cs`, compiled with the .NET Framework `csc.exe` that ships with Windows) |
+| Linux | `Hibari-<v>-linux-x86_64.tar.gz` (tarfile keeps modes and symlinks) | `start.sh` |
+| macOS | `Hibari-<v>-macos-arm64.zip` (`ditto`) | `Hibari/Hibari.app`; `Contents/MacOS/Hibari` is a shell script |
+
+On macOS the app folder is `Contents/Resources/app`, and
+`HIBARI_DATA=~/Library/Application Support/Hibari/data` keeps user data
+out of the bundle.
+
+- `runtime/python/` is the standalone CPython that `.venv` is based on (from
+  `pyvenv.cfg` `home`; on posix that is `…/bin`, so its parent), plus
+  `.venv`'s site-packages. Build-only files are left out: `*.lib` / `*.a`
+  (about 2.6 GB of `.lib` in torch on Windows) and `torch/include` and
+  `torch/share`. CI sets `UV_PYTHON_PREFERENCE=only-managed`, so `.venv`
+  never sits on a system Python.
+- The app folder keeps the repo layout, so `ROOT`-relative paths work.
+  `backend/paths.py` defines `ROOT` and `DATA`: `ROOT/data`, or
+  `$HIBARI_DATA`. A relative `log_dir` resolves against `DATA.parent`.
+- `data/` in the package is only a seed: the AI-A/B/C avatars from the
+  build machine. On macOS the launcher copies it to `HIBARI_DATA` on the
+  first run.
+- `mjbot_mortal/` has only the runtime files and this OS's py3.12
+  libriichi. `mortal.pth` is included if present; `--no-weights` leaves it
+  out, and `--allow-no-weights` builds even when it is missing (CI).
+  `scripts/add_weights.py PACKAGE` adds the weights and the local AI
+  avatars to any of the three archive kinds, from any OS, writing
+  `release/full/`. Without weights the launcher shows a warning, and the
+  quizzes still work.
+- `scripts/smoke_release.py PACKAGE` unpacks into a fresh folder whose path
+  has spaces and CJK characters, and checks the following with only the
+  bundled interpreter:
+  - `sys.path` stays inside the package, and the launcher imports and
+    finds a browser;
+  - the server starts and plays a tonpuu over the WebSocket (rule-based
+    bots, so no weights are needed), the log is written under the data
+    folder, and a quiz works;
+  - with weights, an AI 代打 game and a review run too.
+- CI (`.github/workflows/ci.yml`) runs a matrix of windows-latest,
+  ubuntu-22.04 and macos-14 (arm64). Each job runs `uv sync`, `npm ci`, the
+  tests (the ones that need weights are skipped; see `tests/weights.py`),
+  the package build, and the smoke test, then uploads the package as an
+  artifact. A `v*` tag publishes the three packages as a GitHub release.
+- macOS packages are not signed or notarized. Users clear the quarantine
+  once (`xattr -dr com.apple.quarantine Hibari.app`), as `使用说明.txt`
+  explains.
+- Licensing: `LICENSE` (AGPL-3.0) and `使用说明.txt` ship in the package,
+  together with the app's sources. The weights are not covered by the
+  license and should not be redistributed publicly.
 
 ## 11. Dev quickstart
 

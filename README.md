@@ -65,13 +65,28 @@ macOS 也可以在访达中双击 `start.command`。
 
 ## 打包发布
 
-```powershell
-python -m uv run python -m scripts.build_release
+```sh
+uv run python -m scripts.build_release
 ```
 
-生成 Windows 免安装版本 `release/Hibari-<版本>-win64.zip`，内置 Python 运行环境，
-解压后运行 `Hibari.exe` 即可使用。该脚本须在 Windows 上运行。详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-中的 “Portable release” 一节。
+在当前系统上生成免安装版本，内置 Python 运行环境：
+
+| 系统 | 产物 | 启动方式 |
+|---|---|---|
+| Windows | `release/Hibari-<版本>-win64.zip` | `Hibari.exe` |
+| macOS | `release/Hibari-<版本>-macos-arm64.zip` | `Hibari.app` |
+| Linux | `release/Hibari-<版本>-linux-x86_64.tar.gz` | `start.sh` |
+
+GitHub Actions 会在三个系统上分别运行测试、打包并验证安装包，产物可在 Actions
+页面下载；推送 `v*` 标签时自动发布到 Releases。CI 构建的安装包不含模型权重，可用
+以下命令补入权重（及本机设置的 AI 头像），结果写入 `release/full/`：
+
+```sh
+uv run python -m scripts.add_weights <安装包路径>
+```
+
+`uv run python -m scripts.smoke_release <安装包路径>` 可在全新目录中解压并验证安装包。
+详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 中的 “Portable release” 一节。
 
 ## 许可证
 

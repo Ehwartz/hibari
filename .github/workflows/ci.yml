@@ -1,0 +1,71 @@
+# Tests, portable packages and a smoke test of each package on Windows, Linux and macOS.
+# The Mortal weights are not in the repository: packages are built without them (add them with
+# scripts/add_weights.py) and the tests that run the network are skipped.
+# A tag v* also publishes the packages as a GitHub release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: win64 }
+          - { os: ubuntu-22.04, target: linux-x86_64 }
+          - { os: macos-14, target: macos-arm64 }
+    env:
+      UV_PYTHON_PREFERENCE: only-managed # the package copies uv's standalone CPython, never a system one
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: |
+          uv sync --frozen
+          cd frontend && npm ci
+      - name: Tests
+        run: uv run pytest -q -rs
+      - name: Build package
+        run: uv run python -m scripts.build_release --allow-no-weights
+      - name: Smoke test the package
+        shell: bash
+        run: uv run python -m scripts.smoke_release release/Hibari-*-${{ matrix.target }}.*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Hibari-${{ matrix.target }}
+          path: release/Hibari-*-${{ matrix.target }}.*
+          compression-level: 0
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body: |
+            免安装版本（Windows x64 / macOS Apple Silicon / Linux x86_64）。
+            本发布不包含 Mortal 模型权重：请将 mortal.pth 放入 mjbot_mortal 目录
+            （macOS：Hibari.app/Contents/Resources/app/mjbot_mortal），详见包内“使用说明.txt”。

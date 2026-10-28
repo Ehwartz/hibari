@@ -26,9 +26,9 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from backend.paths import DATA, ROOT
+
 FRONTEND = ROOT / "frontend"
-DATA = ROOT / "data"
 NODE_DIR = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "nodejs"  # Windows: portable Node
 IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
@@ -181,14 +181,36 @@ def wait_ready(url: str, proc: subprocess.Popen, timeout: float = 60) -> None:
     raise TimeoutError(f"backend not ready: {url}")
 
 
+def seed_data() -> None:
+    """First run with data outside the app folder (macOS app): start from the bundled data/ (AI avatars)."""
+    seed = ROOT / "data"
+    if DATA != seed and not DATA.exists() and seed.is_dir():
+        shutil.copytree(seed, DATA)
+
+
+def check_weights() -> None:
+    from backend import mortal
+
+    weights = mortal.MORTAL_DIR / "mortal.pth"
+    if not weights.exists():
+        log.warning("weights missing: %s", weights)
+        message_box(
+            f"没有找到 Mortal 模型权重：\n{weights}\n\n请把 mortal.pth 放到这个位置后重新启动。"
+            "在此之前只能使用听牌练习、点数计算等不需要 AI 的功能。",
+            error=False,
+        )
+
+
 def main() -> None:
-    DATA.mkdir(exist_ok=True)
+    seed_data()
+    DATA.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         filename=DATA / "launcher.log",
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
     )
     try:
+        check_weights()
         ensure_frontend_built()
         port = free_port()
         python = Path(sys.executable)

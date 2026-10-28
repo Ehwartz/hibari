@@ -1,5 +1,6 @@
 """Server: a full game over WebSocket with a scripted human (simple bots for speed)."""
 import pytest
+from tests.weights import requires_weights
 from fastapi.testclient import TestClient
 
 from backend import storage
@@ -124,6 +125,20 @@ def test_logs_and_stats_api(tmp_settings):
 
         assert client.get(f"/api/logs/{game_id}/review").status_code == 404
         assert client.get("/api/drills").json()["unreviewed"] == [game_id]
+        assert client.get("/api/logs/..%2Fsecret").status_code in (400, 404)
+        assert client.delete(f"/api/logs/{game_id}").status_code == 200
+        assert client.get("/api/logs").json()["games"] == []
+        assert client.post("/api/stats", json={}).json()["stat"] is None
+
+
+@requires_weights
+def test_review_breakdown_and_drills_api(tmp_settings):
+    with TestClient(app) as client:
+        game_id = client.post(
+            "/api/games", json={"length": "tonpuu", "seed": 11, "bots": "simple", "hints": False, "think": [0, 0]}
+        ).json()["game_id"]
+        _play_to_end(client, game_id)
+        meta = client.get("/api/logs").json()["games"][0]
         review = client.post(f"/api/logs/{game_id}/review").json()
         assert review["summary"]["decisions"] > 10 and review["human"] == meta["human"]
         assert client.get("/api/logs").json()["games"][0]["review"]["decisions"] == review["summary"]["decisions"]

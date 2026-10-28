@@ -17,9 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from backend import mortal
-
-ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
+from backend.paths import DATA, ROOT
 SETTINGS_FILE = DATA / "settings.json"
 _ID = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
 
@@ -30,7 +28,7 @@ _ID = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
 @dataclass
 class Settings:
     player_name: str = "You"
-    log_dir: str = "data/games"  # relative to the app folder (portable release can be moved)
+    log_dir: str = "data/games"  # relative: to the folder holding data/ (the app folder by default)
     default_length: str = "hanchan"  # hanchan | tonpuu
     think_min: float = 1.0  # bots' thinking time per decision, seconds
     think_max: float = 3.0
@@ -51,7 +49,7 @@ class Settings:
     @property
     def log_path(self) -> Path:
         p = Path(self.log_dir)
-        return p if p.is_absolute() else ROOT / p
+        return p if p.is_absolute() else DATA.parent / p
 
 
 _settings_lock = threading.Lock()

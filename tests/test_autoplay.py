@@ -3,6 +3,7 @@ import random
 import time
 
 import pytest
+from tests.weights import requires_weights
 from fastapi.testclient import TestClient
 
 from backend import storage
@@ -50,6 +51,7 @@ def _play(client, game_id, *, autoplay_from=None):
                     ws.send_json({"type": "action", "action": a})
 
 
+@requires_weights
 def test_live_autoplay_takes_over(tmp_settings):
     with TestClient(app) as client:
         gid = client.post("/api/games", json={"length": "tonpuu", "seed": 4, "bots": "simple", "think": [0, 0]}).json()["game_id"]
@@ -59,6 +61,7 @@ def test_live_autoplay_takes_over(tmp_settings):
         assert meta["autoplay"] == "partial"
 
 
+@requires_weights
 def test_batch_autoplay(tmp_settings):
     with TestClient(app) as client:
         r = client.post("/api/batch", json={"length": "tonpuu", "count": 1})
