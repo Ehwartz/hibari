@@ -189,3 +189,11 @@ def test_random_seat_and_bot_assignment():
         assert (named["ai1"], named["ai2"], named["ai3"]) == ("东", "南", "西")
     assert seats == {0, 1, 2, 3}
     assert sess.bot_temps == {"ai1": 0.0, "ai2": 0.3, "ai3": 1.0}
+
+
+def test_saved_bot_names_are_kept(tmp_path, monkeypatch):
+    """Whatever names are saved come back unchanged, including the old Mortal-A/B/C defaults."""
+    monkeypatch.setattr(storage, "SETTINGS_FILE", tmp_path / "settings.json")
+    for names in (["Mortal-A", "Mortal-B", "Mortal-C"], ["小A", "小B", "小C"]):
+        storage.save_settings(storage.Settings(bot_names=names))
+        assert storage.load_settings().bot_names == names

@@ -55,7 +55,6 @@ _settings_lock = threading.Lock()
 
 
 DEFAULT_BOT_NAMES = ("AI-A", "AI-B", "AI-C")
-_OLD_DEFAULT_BOT_NAMES = ["Mortal-A", "Mortal-B", "Mortal-C"]
 
 
 def load_settings() -> Settings:
@@ -64,8 +63,6 @@ def load_settings() -> Settings:
     except (OSError, ValueError):
         return Settings()
     known = {k: v for k, v in raw.items() if k in Settings.__dataclass_fields__}
-    if known.get("bot_names") == _OLD_DEFAULT_BOT_NAMES:  # never customised: follow the new default
-        known["bot_names"] = list(DEFAULT_BOT_NAMES)
     return Settings(**known)
 
 

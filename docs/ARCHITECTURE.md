@@ -493,8 +493,9 @@ hand, so it is the same during play and in review.
   read by `backend.mortal` at startup, so a restart is needed; it must follow
   the Akagi Mortal layout) and `settings.ai_name` (default "Mortal", shown as
   "<name> 推荐" / "<name> 复盘"). The default opponent names are now
-  AI-A/B/C; settings still holding the old defaults Mortal-A/B/C migrate
-  automatically.
+  AI-A/B/C (only for fresh settings; saved names are never rewritten — an
+  automatic Mortal-A/B/C → AI-A/B/C migration was removed because it undid
+  users deliberately choosing those names).
 - 2026-10-28 — Wide stage: `ScaledStage` gives the table the window's spare
   width (1280–1800 virtual px). The table stays centred (`cx = width / 2`)
   and side panels hug the edges. Deal-in popovers moved off the avatars into
