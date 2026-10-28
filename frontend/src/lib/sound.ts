@@ -38,35 +38,50 @@ if (typeof window !== 'undefined') {
   window.addEventListener('keydown', unlock, { capture: true })
 }
 
-/** A tile hitting the table: a short filtered noise burst with a woody resonance. */
+const jitter = (x: number, r: number) => x * (1 + (Math.random() * 2 - 1) * r)
+
+/** A band-passed noise burst with an exponential decay (seconds), started at `t`. */
+function click(ac: AudioContext, out: AudioNode, t: number, freq: number, decay: number, gain: number) {
+  const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * 0.04), ac.sampleRate)
+  const data = buf.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ac.sampleRate * decay))
+  const src = ac.createBufferSource()
+  src.buffer = buf
+  const band = ac.createBiquadFilter()
+  band.type = 'bandpass'
+  band.frequency.value = freq
+  band.Q.value = 2
+  const g = ac.createGain()
+  g.gain.value = gain
+  src.connect(band).connect(g).connect(out)
+  src.start(t)
+}
+
+/** A decaying sine: the tile's short "ding". */
+function ring(ac: AudioContext, out: AudioNode, t: number, freq: number, decay: number, gain: number) {
+  const osc = ac.createOscillator()
+  osc.frequency.setValueAtTime(freq, t)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(gain, t)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + decay)
+  osc.connect(g).connect(out)
+  osc.start(t)
+  osc.stop(t + decay + 0.02)
+}
+
+/** A tile put on the table ("BD2", picked by ear from a comparison page): a crisp click, a softer
+ *  second click as it settles, and a short resin "ding". `soft`: the quieter deal sound. */
 export function playClack(volume: number, soft = false) {
   const ac = audio()
   if (!ac || volume <= 0) return
   const t = ac.currentTime
-  const len = 0.09
-  const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * len), ac.sampleRate)
-  const data = buf.getChannelData(0)
-  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ac.sampleRate * 0.012))
-  const noise = ac.createBufferSource()
-  noise.buffer = buf
-  const band = ac.createBiquadFilter()
-  band.type = 'bandpass'
-  band.frequency.value = soft ? 2400 : 1900 + Math.random() * 400
-  band.Q.value = 3.5
-  const tone = ac.createOscillator()
-  tone.type = 'sine'
-  tone.frequency.setValueAtTime(soft ? 900 : 760 + Math.random() * 80, t)
-  const toneGain = ac.createGain()
-  toneGain.gain.setValueAtTime(0.35, t)
-  toneGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05)
   const out = ac.createGain()
-  out.gain.value = volume * (soft ? 0.35 : 0.9)
-  noise.connect(band).connect(out)
-  tone.connect(toneGain).connect(out)
+  out.gain.value = volume * (soft ? 0.35 : 1)
   out.connect(ac.destination)
-  noise.start(t)
-  tone.start(t)
-  tone.stop(t + 0.06)
+  click(ac, out, t, jitter(3800, 0.08), 0.004, 1)
+  click(ac, out, t + 0.02, jitter(3000, 0.08), 0.004, 0.5)
+  ring(ac, out, t, jitter(2650, 0.03), 0.04, 0.1)
+  ring(ac, out, t, jitter(3950, 0.03), 0.03, 0.05)
 }
 
 function clip(player: string, name: VoiceName): Promise<AudioBuffer | null> {

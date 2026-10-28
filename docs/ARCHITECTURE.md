@@ -373,8 +373,10 @@ These outputs are committed, so CI needs no rendering step.
 `frontend/src/lib/sound.ts` handles two kinds of sound:
 
 - **Tile clacks** (discard, plus a soft one per dealt group) are synthesized
-  with Web Audio: a short band-passed noise burst and a decaying sine. They
-  use no files and need no license.
+  with Web Audio. "BD2", chosen by ear from a comparison of variants, is a
+  crisp band-passed click (about 3.8 kHz), a softer second click 20 ms later
+  as the tile settles, and a short resin "ding" (2.65 and 3.95 kHz sines,
+  30–40 ms). They use no files and need no license.
 - **Call, riichi and win voices** are WAV files in
   `frontend/src/assets/voice/<player>/{chi,pon,kan,riichi,ron,tsumo}.wav`,
   where `<player>` is human or ai1–3, plus `credits.json`. `sound.ts` loads
