@@ -12,6 +12,9 @@
 | `pilot.py` | 端到端试点：1v3 自我对战 → GRP 训练 → 在线训练，并输出各环节速度 |
 | `mortal_shim/` | 运行时修正，不改 Mortal 代码：GPU 上让子进程用 spawn 启动（避免 CUDA 初始化错误），CPU 上屏蔽只有 GPU 才有的调用 |
 | `setup_remote.sh` | 在租用的 Linux GPU 机器上一键装好环境（国内平台自动用国内镜像） |
+| `TRAINING_NOTES.md` | 训练记录：做了什么、怎么做的、遇到的问题和测得的数据（英文） |
+| `speedtest.py` | 正式规模的速度测试（1 到 N 个对局端） |
+| `overnight.py` | 无人值守：GRP 牌谱 → GRP → 在线训练到截止时间，可自动关机 |
 | `Mortal/` | Mortal 仓库的 clone（不提交） |
 | `runs/` | 每次训练的工作目录（不提交） |
 
