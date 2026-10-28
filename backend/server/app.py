@@ -125,6 +125,8 @@ class SettingsIn(BaseModel):
     pt_dan: int = Field(default=7, ge=1, le=10)
     bot_dir: str = Field(default="mjbot_mortal", min_length=1)
     auto_temp: float = Field(default=0.0, ge=0, le=2)
+    sound_tiles: float = Field(default=0.7, ge=0, le=1)
+    sound_voice: float = Field(default=0.8, ge=0, le=1)
     felt: str = Field(default="green", max_length=32)
     background: str = Field(default="dark", max_length=32)
 

@@ -39,6 +39,8 @@ export interface Settings {
   bot_temps: number[] // the three bots' sampling temperature
   bot_names: string[] // the three bots' display names
   auto_temp: number // AI 代打 temperature
+  sound_tiles: number // tile clack volume 0..1
+  sound_voice: number // call / riichi / win voice volume 0..1
   ai_name: string // display name of the AI ("<name> 推荐")
   pt_mode: 'score' | 'tenhou' // how pt is computed
   pt_dan: number // Tenhou dan for the 4th-place loss (1..10)

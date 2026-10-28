@@ -93,10 +93,14 @@ uv run python -m scripts.add_weights <安装包路径>
 本项目以 [GNU AGPL-3.0](LICENSE) 发布。本项目在进程内调用以 AGPL-3.0 授权的
 Mortal 与 libriichi，因此整体采用相同许可证。
 
-模型权重不属于本仓库，不受本仓库许可证约束。
+模型权重不属于本仓库，不受本仓库许可证约束。`frontend/public/sounds/voices.json` 中的语音
+同样不受 AGPL-3.0 约束，其使用须遵循上述音源利用规约并保留署名。
 
 ## 致谢
 
 - [Mortal](https://github.com/Equim-chan/Mortal)：AI 模型与 libriichi，AGPL-3.0
 - [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)：牌面图，CC0
 - [mahjong](https://github.com/MahjongRepository/mahjong)：点数计算，MIT
+- 语音：VOICEVOX:四国めたん、VOICEVOX:ずんだもん、VOICEVOX:九州そら、VOICEVOX:東北きりたん
+  （由 [VOICEVOX](https://voicevox.hiroshiba.jp/) 生成，遵循[東北ずん子・ずんだもんプロジェクトの音源利用規約](https://zunko.jp/con_ongen_kiyaku.html)；
+  生成脚本 `scripts/make_voices.py`）

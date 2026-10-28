@@ -5,6 +5,7 @@ import { type AssetName, type Settings, api, assetUrl } from '../lib/api'
 import { BACKGROUNDS, FELTS, setSettingsCache } from '../lib/appearance'
 import { scaledImage, squareAvatar } from '../lib/image'
 import { DAN_NAMES, ptRuleText } from '../lib/pt'
+import { loadVoices, playClack, playVoice } from '../lib/sound'
 
 /** Shared loader / saver for the settings-backed pages (设置, 用户). */
 export function useSettings() {
@@ -395,6 +396,8 @@ export function SettingsPage() {
         <div className="mt-3 text-[12px] text-white/45">头像会自动居中裁成正方形。「AI 提示」面板始终按严格（温度 0）的 Mortal 给出建议。</div>
       </Card>
 
+      <SoundCard settings={settings} set={set} />
+
       <Card className="mt-5 max-w-[640px]">
         <div className="text-[15px] font-semibold">外观</div>
 
@@ -449,5 +452,60 @@ export function SettingsPage() {
         <span className="text-center text-[11px] leading-snug text-white/35">头像上传后立即生效，无需保存</span>
       </div>
     </Shell>
+  )
+}
+
+const VOICE_PLAYERS: [string, string][] = [
+  ['human', '你'],
+  ['ai1', 'AI-A'],
+  ['ai2', 'AI-B'],
+  ['ai3', 'AI-C'],
+]
+
+/** Volumes of the tile clacks and the call voices, with a test button each and the voice credits. */
+function SoundCard({ settings, set }: { settings: Settings; set: <K extends keyof Settings>(k: K, v: Settings[K]) => void }) {
+  // "VOICEVOX:<character>" per player, from the voice bundle (the voices' license asks for it)
+  const [credits, setCredits] = useState<Record<string, string>>({})
+  useEffect(() => {
+    void loadVoices().then((f) => setCredits(f?.credits ?? {}))
+  }, [])
+  const row = (key: 'sound_tiles' | 'sound_voice', label: string, test: () => void) => {
+    const v = settings[key] ?? 0
+    return (
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-[13px] text-white/70">
+          {label}
+          <span className="flex items-center gap-2">
+            <span className="w-10 text-right font-mono text-white/55">{v === 0 ? '关' : `${Math.round(v * 100)}%`}</span>
+            <button className="rounded-md bg-white/10 px-2 py-0.5 text-[12px] hover:bg-white/20" onClick={test}>
+              试听
+            </button>
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={v}
+          onChange={(e) => set(key, Number(e.target.value))}
+          className="mt-1 w-full accent-emerald-400"
+        />
+      </div>
+    )
+  }
+  return (
+    <Card className="mt-5 max-w-[640px]">
+      <div className="text-[15px] font-semibold">声音</div>
+      {row('sound_tiles', '牌音（打牌、发牌）', () => playClack(settings.sound_tiles ?? 0))}
+      {row('sound_voice', '语音（吃、碰、杠、立直、荣和、自摸）', () => {
+        VOICE_PLAYERS.forEach(([p], i) => setTimeout(() => playVoice(p, (['pon', 'chi', 'riichi', 'ron'] as const)[i], settings.sound_voice ?? 0), i * 900))
+      })}
+      {Object.keys(credits).length > 0 && (
+        <div className="mt-3 text-[12px] text-white/45">
+          语音：{VOICE_PLAYERS.filter(([p]) => credits[p]).map(([p, who]) => `${who} ${credits[p]}`).join('，')}
+        </div>
+      )}
+    </Card>
   )
 }

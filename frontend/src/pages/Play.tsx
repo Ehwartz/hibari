@@ -23,6 +23,7 @@ import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { WIND_NAME } from '../lib/tiles'
+import { type SoundSettings, playClack, playVoice, preloadVoices, voiceFor } from '../lib/sound'
 
 
 // Pause after each event (ms) so the game can be followed.
@@ -55,7 +56,7 @@ interface Intro {
   sub: string
 }
 
-function usePlaySession(gameId: string) {
+function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
   const [table, setTable] = useState<TableState>(initialTable)
   const [fx, setFx] = useState<DiscardFx | null>(null)
   const [callouts, setCallouts] = useState<Callout[]>([])
@@ -109,6 +110,12 @@ function usePlaySession(gameId: string) {
     s.table = applyEvent(prev, ev)
     setTable(s.table)
     const callout = m.replay ? null : calloutFor(ev, ++s.fxKey)
+    if (!m.replay) {
+      const voice = voiceFor(ev)
+      if (voice && 'actor' in ev) playVoice(s.table.players[ev.actor] ?? 'ai1', voice, sound.current.sound_voice)
+      if (ev.type === 'dahai') playClack(sound.current.sound_tiles)
+      if (ev.type === 'start_game') preloadVoices(s.table.players)
+    }
     if (callout) {
       setCallouts((cs) => [...cs, callout])
       setTimeout(() => setCallouts((cs) => cs.filter((c) => c !== callout)), 1400)
@@ -142,6 +149,8 @@ function usePlaySession(gameId: string) {
         round: `${WIND_NAME[t.bakaze]}${t.kyoku}局`,
         sub: [`${t.honba} 本场`, t.kyotaku ? `供托 ${t.kyotaku}` : '', `亲家 ${t.names[t.oya]}`].filter(Boolean).join(' · '),
       })
+      // a soft clack per dealt group
+      for (let i = 0; i < 16; i++) setTimeout(() => playClack(sound.current.sound_tiles, true), DEAL_START_MS + i * DEAL_STEP_MS)
       await sleep(DEAL_MS)
       if (gen === r.current.gen) setIntro(null)
       return
@@ -270,6 +279,10 @@ function usePlaySession(gameId: string) {
 }
 
 export function Play({ gameId }: { gameId: string }) {
+  const settings = useAppSettings()
+  // read by the session's event loop (a callback that outlives renders)
+  const sound = useRef<SoundSettings>({ sound_tiles: 0.7, sound_voice: 0.8 })
+  sound.current = { sound_tiles: settings?.sound_tiles ?? 0.7, sound_voice: settings?.sound_voice ?? 0.8 }
   const {
     table,
     fx,
@@ -287,10 +300,9 @@ export function Play({ gameId }: { gameId: string }) {
     reorder,
     intro,
     quit,
-  } = usePlaySession(gameId)
+  } = usePlaySession(gameId, sound)
   const [confirmQuit, setConfirmQuit] = useState(false)
   const gameOver = modal === 'end' || !!table.finalScores
-  const settings = useAppSettings()
   const [showHints, setShowHints] = useState(() => localStorageGet('hints') !== '0')
   const [auto, setAuto] = useState<AutoSettings>(() => {
     try {

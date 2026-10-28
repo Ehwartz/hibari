@@ -331,6 +331,33 @@ index on Windows / Linux, PyPI on macOS).
   CI runs the whole suite and a packaged smoke test on real Linux and
   macOS runners.
 
+### Sound
+
+`frontend/src/lib/sound.ts` handles two kinds of sound:
+
+- **Tile clacks** (discard, plus a soft one per dealt group) are synthesized
+  with Web Audio: a short band-passed noise burst and a decaying sine. They
+  use no files and need no license.
+- **Call, riichi and win voices** (chi, pon, kan, riichi, ron, tsumo) are
+  WAV clips stored base64-encoded in one file,
+  `public/sounds/voices.json` (`credits` and `clips`), keyed by player:
+  human or ai1–3. They are not separate `.wav` files because download
+  managers such as IDM intercept audio requests: the page gets an empty
+  204 and the user gets a download prompt per clip. This was found on the
+  development machine. Each player has a different VOICEVOX
+  character, all from the 東北ずん子 project so that one set of terms
+  applies. That license asks for the "VOICEVOX:<character>" credit, which is
+  listed in the bundle's `credits`, shown on the settings page, and also in the
+  README and `使用说明.txt`. The clips are not covered by the AGPL.
+  `scripts/make_voices.py` regenerates them from a local VOICEVOX engine
+  and normalizes their peaks; the generated levels differed up to 6×.
+
+Voices are played from Play's event loop for live, not replayed, events.
+The bundle is fetched and the clips decoded at `start_game`. Volumes come from settings
+`sound_tiles` and `sound_voice` (0–1, where 0 turns them off). The audio
+context is resumed on the first pointer or key event because of the
+browsers' autoplay rules.
+
 ### Caching of the built UI
 
 `FrontendFiles` (in `app.py`) serves `index.html` with

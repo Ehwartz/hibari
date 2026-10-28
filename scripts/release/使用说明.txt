@@ -53,5 +53,7 @@ mjbot_mortal 中的 .py 文件），也可在 https://github.com/Ehwartz/hibari 
 - Mortal（AI 模型与 libriichi）：https://github.com/Equim-chan/Mortal ，AGPL-3.0
 - 牌面图：FluffyStuff/riichi-mahjong-tiles，CC0
 - 点数计算：mahjong（MahjongRepository），MIT
+- 语音：VOICEVOX:四国めたん、VOICEVOX:ずんだもん、VOICEVOX:九州そら、VOICEVOX:東北きりたん
+  （音源利用规约：https://zunko.jp/con_ongen_kiyaku.html ）
 - Python 运行时：python-build-standalone（PSF License）；PyTorch（BSD）等依赖见 runtime/python
 - 模型权重 mortal.pth 不属于本程序，不受本程序许可证约束，请勿公开再分发。

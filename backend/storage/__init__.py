@@ -41,6 +41,8 @@ class Settings:
     ai_name: str = "Mortal"  # display name of the AI (hints: "<name> 推荐", reviews, …)
     bot_dir: str = "mjbot_mortal"  # AI bot folder (Akagi Mortal layout); takes effect after a restart
     auto_temp: float = 0.0  # AI 代打 sampling temperature (Mortal playing your seat)
+    sound_tiles: float = 0.7  # volume of the tile clacks (0 = off)
+    sound_voice: float = 0.8  # volume of the call / riichi / win voices (0 = off)
     felt: str = "green"  # table cloth preset, or "custom" (uploaded image)
     background: str = "dark"  # page background preset, or "custom"
     # uploaded asset name -> version (unix ms), for cache busting; managed by save_asset
