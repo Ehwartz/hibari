@@ -251,10 +251,14 @@ export function ResultModal({ table, onClose }: { table: TableState; onClose?: (
                   {table.ryukyoku!.tenpai[s] ? '听牌' : '未听'}
                 </span>
                 {table.ryukyoku!.tenpai[s] && (
-                  <div className="flex gap-px">
-                    {table.ryukyoku!.hands[s].map((t, j) => (
-                      <Tile key={j} tile={t} w={26} />
-                    ))}
+                  <div className="flex items-end gap-3">
+                    <div className="flex gap-px">
+                      {table.ryukyoku!.hands[s].map((t, j) => (
+                        <Tile key={j} tile={t} w={26} />
+                      ))}
+                    </div>
+                    {/* called sets are not part of `hands` (concealed tiles only): show them like on the table */}
+                    <Melds melds={table.seats[s].melds} actor={s} w={22} />
                   </div>
                 )}
               </div>
