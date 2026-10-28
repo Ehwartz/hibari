@@ -48,6 +48,7 @@ IS_WIN = sys.platform == "win32"
 # venv-only files that must not land in the standalone interpreter
 SKIP_SITE = {"_virtualenv.py", "_virtualenv.pth", "__pycache__"}
 MAC_DATA = "$HOME/Library/Application Support/Hibari/data"
+ICONS = ROOT / "scripts" / "release" / "icons"  # made by scripts/make_icons.py from frontend/public/logo
 
 
 def step(msg: str) -> None:
@@ -155,10 +156,12 @@ def mac_bundle(bundle: Path, version: str) -> Path:
         "CFBundleVersion": version,
         "LSMinimumSystemVersion": "11.0",
         "NSHighResolutionCapable": True,
+        "CFBundleIconFile": "hibari",
     }
     import plistlib
 
     (contents / "Info.plist").write_bytes(plistlib.dumps(plist))
+    shutil.copy2(ICONS / "hibari.icns", contents / "Resources" / "hibari.icns")
     write_script(
         contents / "MacOS" / "Hibari",
         f'''#!/bin/sh
@@ -246,10 +249,11 @@ def main() -> None:
         step("compiling Hibari.exe")
         subprocess.run(
             [str(CSC), "/nologo", "/target:winexe", "/optimize+", f"/out:{app / 'Hibari.exe'}",
-             "/r:System.Windows.Forms.dll", str(ROOT / "scripts" / "release" / "Hibari.cs")],
+             f"/win32icon:{ICONS / 'hibari.ico'}", "/r:System.Windows.Forms.dll", str(ROOT / "scripts" / "release" / "Hibari.cs")],
             check=True,
         )
     elif sys.platform == "linux":
+        shutil.copy2(ICONS / "hibari-256.png", app / "hibari.png")  # for a desktop shortcut
         write_script(
             app / "start.sh",
             '''#!/bin/sh

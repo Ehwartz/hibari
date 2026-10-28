@@ -331,6 +331,28 @@ index on Windows / Linux, PyPI on macOS).
   CI runs the whole suite and a packaged smoke test on real Linux and
   macOS runners.
 
+### Logo and icons
+
+The logo is a teal skylark (雲雀) gliding over a light-blue cloud on a
+mahjong tile; the one-bamboo tile traditionally shows a bird.
+`frontend/public/logo/` holds the full design (`hibari.svg`) and a
+simplified one for 32 px and below (`hibari-small.svg`: no cloud, eye or
+wing line, bigger bird), each also on a square canvas (`*-square.svg`).
+The favicon (also the Chrome app-window icon) is `hibari-small-square.svg`,
+and the sidebar shows `hibari-small.svg` next to 雲雀 Hibari.
+
+`scripts/make_icons.py` renders PNGs from the SVGs in headless Chrome. Each
+size is drawn from the vector source, with the simplified design up to
+32 px. It writes `scripts/release/icons/`:
+
+- `hibari.ico` (PNG entries 16–256), compiled into `Hibari.exe` with
+  `csc /win32icon`;
+- `hibari.icns` (PNG entries 16–1024), used as the `CFBundleIconFile` of
+  `Hibari.app`;
+- `hibari-256.png`, shipped as `hibari.png` in the Linux package.
+
+These outputs are committed, so CI needs no rendering step.
+
 ### Sound
 
 `frontend/src/lib/sound.ts` handles two kinds of sound:
