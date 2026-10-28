@@ -379,10 +379,12 @@ These outputs are committed, so CI needs no rendering step.
   default) is shared by the game page and the replay viewer, which both
   have the toggle and 进张分析 at the right of the header, in the same order.
   Replay analyses `masked[index]`, your own view at that step. The replay header
-  has two groups, step controls and review/display toggles. On a narrow
-  window (on a 1500 px screen with a reviewed log) the second group wraps
-  to a second line instead of being clipped, and `ScaledStage` gets the
-  header's measured height (ResizeObserver).
+  has two fixed rows. The first holds the step controls and the kyoku
+  select, with the review info and display toggles at the right; it wraps
+  only below about 1300 px. The second is a full-width progress slider
+  followed by the step count and the description of the step.
+  `ScaledStage` gets the header's measured height (ResizeObserver) and
+  refits when that height changes, not only on window resize.
 - **进张分析**: `POST /api/ukeire {hand, visible}` (`backend/analysis/ukeire.py`)
   works with the `mahjong` library's shanten (chiitoitsu and kokushi from
   13 tiles). With 3n+2 tiles it returns one option per discard kind; with

@@ -184,7 +184,7 @@ export function ReplayViewer({
   const lastWheel = useRef(0)
   // the header may wrap to two lines on a narrow window: the stage scales to its real height
   const headerRef = useRef<HTMLDivElement>(null)
-  const [headerH, setHeaderH] = useState(56)
+  const [headerH, setHeaderH] = useState(81)
   useLayoutEffect(() => {
     const el = headerRef.current
     if (!el) return
@@ -334,13 +334,11 @@ export function ReplayViewer({
   const btn = 'rounded-md bg-white/10 px-2.5 py-1 text-[13px] hover:bg-white/20 disabled:opacity-30'
   return (
     <div className="flex h-full flex-col items-center" onContextMenu={onStageContextMenu}>
-      {/* two groups: step controls (left) and review / display toggles (right); on a narrow window the
-          right group wraps to a second line instead of being cut off, and the stage scales to the header */}
-      <div
-        ref={headerRef}
-        className="flex min-h-14 w-full shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-white/10 bg-black/40 px-4 py-2 text-white whitespace-nowrap"
-      >
-        <div className="flex min-w-0 grow basis-[720px] items-center gap-2 overflow-hidden [&>*]:shrink-0 [&>span.flex-1]:shrink">
+      {/* two rows: controls + review / display toggles, then a full-width progress bar with the step
+          description; the stage scales to the header's real height */}
+      <div ref={headerRef} className="w-full shrink-0 border-b border-white/10 bg-black/40 text-white whitespace-nowrap">
+      <div className="flex min-h-12 flex-wrap items-center gap-x-2 gap-y-1.5 px-4 py-1.5">
+        <div className="flex items-center gap-2">
         <a href={backHref} className="mr-1 text-white/60 hover:text-white">←</a>
         <span className="mr-3 font-bold tracking-wide">{title}</span>
         <button className={btn} onClick={() => kyokuStart(-1)} title="上一局">⏮</button>
@@ -367,18 +365,6 @@ export function ReplayViewer({
             ))}
           </select>
         )}
-        <input
-          type="range"
-          min={0}
-          max={last}
-          value={index}
-          onChange={(e) => go(Number(e.target.value))}
-          className="mx-2 w-28 shrink-0 accent-emerald-400"
-        />
-        <span className="w-20 font-mono text-[12px] text-white/60 tabular-nums">
-          {index}/{last}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-white/80">{describe(frame.event, names)}</span>
         {extra}
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -436,6 +422,21 @@ export function ReplayViewer({
           进张分析
         </button>
         </div>
+      </div>
+      <div className="flex h-8 items-center gap-3 border-t border-white/5 bg-black/20 px-4">
+        <input
+          type="range"
+          min={0}
+          max={last}
+          value={index}
+          onChange={(e) => go(Number(e.target.value))}
+          className="min-w-0 flex-1 accent-emerald-400"
+        />
+        <span className="w-[72px] shrink-0 text-right font-mono text-[12px] text-white/60 tabular-nums">
+          {index}/{last}
+        </span>
+        <span className="w-[300px] shrink-0 truncate text-[13px] text-white/80">{describe(frame.event, names)}</span>
+      </div>
       </div>
 
       {/* your own view at this step (never the open hands) */}

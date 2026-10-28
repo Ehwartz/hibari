@@ -13,6 +13,7 @@ export function ScaledStage({ reserved, children }: { reserved: number; children
   const [{ scale, width }, setFit] = useState(() => fit(reserved))
   useEffect(() => {
     const onResize = () => setFit(fit(reserved))
+    onResize() // `reserved` changed (e.g. a header that wraps): refit now, not on the next resize
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [reserved])
