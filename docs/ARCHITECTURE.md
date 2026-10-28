@@ -489,6 +489,14 @@ hand, so it is the same during play and in review.
   (`backend.mortal.sampling_engine`). T = 0.3 matches the hint panel's
   probabilities. The hint shadow is always greedy. The wall was already
   random: a random seed per game and a fresh shuffle every kyoku.
+- 2026-10-28 — pt rule is a setting (`pt_mode`). "score" = (points − 30000)
+  / 1000 + uma 20/10/−10/−20 + oka 20, the same for both lengths. "tenhou" =
+  Tenhou 鳳凰卓 dan pt, rank only: hanchan +90/+45/0/−(15·dan+15), tonpuu
+  +60/+30/0/−(10·dan+10), with `pt_dan` 1–10. The 4th-place values are from
+  memory of Tenhou's table, not from an official page. pt is never stored;
+  `storage.game_point` / `lib/pt.ts` compute it from the final scores, so
+  switching re-rates all logs. A Mahjong Soul preset was left out because
+  its per-room rank pt could not be verified.
 - 2026-10-28 — Configurable AI: `settings.bot_dir` (default `mjbot_mortal`,
   read by `backend.mortal` at startup, so a restart is needed; it must follow
   the Akagi Mortal layout) and `settings.ai_name` (default "Mortal", shown as

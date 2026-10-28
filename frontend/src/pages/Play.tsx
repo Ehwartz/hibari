@@ -23,7 +23,6 @@ import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 
-const UMA = [20, 10, -10, -20]
 
 // Pause after each event (ms) so the game can be followed.
 const DELAY: Partial<Record<MjaiEvent['type'], number>> = {
@@ -374,7 +373,7 @@ export function Play({ gameId }: { gameId: string }) {
           {modal === 'end' && (
             <EndModal
               table={table}
-              uma={UMA}
+              settings={settings}
               actions={
                 <>
                   <a href={`#/replay/${gameId}`} className="rounded-full bg-white/10 px-5 py-2 font-bold hover:bg-white/20">

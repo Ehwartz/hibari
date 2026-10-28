@@ -4,6 +4,7 @@ import { Card, ErrorBox, Shell } from '../components/Shell'
 import { type AssetName, type Settings, api, assetUrl } from '../lib/api'
 import { BACKGROUNDS, FELTS, setSettingsCache } from '../lib/appearance'
 import { scaledImage, squareAvatar } from '../lib/image'
+import { DAN_NAMES, ptRuleText } from '../lib/pt'
 
 /** Shared loader / saver for the settings-backed pages (设置, 用户). */
 export function useSettings() {
@@ -240,6 +241,43 @@ export function SettingsPage() {
           />
         </div>
         <div className="mt-1 text-[12px] text-white/45">放弃鸣牌时不会停顿；立直后的摸切固定 0.3–1 秒。下一局开始生效。</div>
+
+        <div className="mt-5 text-[13px] text-white/70">pt 计算方式</div>
+        <div className="mt-1.5 flex flex-col gap-2">
+          {(
+            [
+              ['score', '点数 + 顺位马', '(终局点数 − 30000)/1000 + 马 20/10/−10/−20，头名再 +20；东风、半庄相同'],
+              ['tenhou', '天凤段位 pt（鳳凰卓）', '只看顺位：半庄 +90/+45/0/4位扣分，东风 +60/+30/0/4位扣分（约为半庄的 2/3）'],
+            ] as const
+          ).map(([mode, label, desc]) => (
+            <button
+              key={mode}
+              onClick={() => set('pt_mode', mode)}
+              className={`rounded-lg px-3 py-2 text-left ring-1 ${settings.pt_mode === mode ? 'bg-emerald-500/20 ring-emerald-400' : 'bg-white/5 ring-white/10 hover:bg-white/10'}`}
+            >
+              <div className="text-[14px]">{label}</div>
+              <div className="text-[12px] text-white/50">{desc}</div>
+            </button>
+          ))}
+        </div>
+        {settings.pt_mode === 'tenhou' && (
+          <div className="mt-2 flex items-center gap-2 text-[13px] text-white/70">
+            段位（决定 4 位扣分）
+            <select
+              value={settings.pt_dan ?? 7}
+              onChange={(e) => set('pt_dan', Number(e.target.value))}
+              className="rounded-md bg-white/10 px-2 py-1 text-white outline-none"
+            >
+              {DAN_NAMES.map((n, i) => (
+                <option key={n} value={i + 1} className="bg-[#13241c]">
+                  {n}
+                </option>
+              ))}
+            </select>
+            <span className="text-white/50">{ptRuleText(settings)}</span>
+          </div>
+        )}
+        <div className="mt-1 text-[12px] text-white/45">切换后，所有牌谱和数据里的 pt 都按新方式重新计算。</div>
 
         <div className="mt-5 text-[12px] text-white/45">
           对局中的自动理牌 / 自动和牌 / 不吃碰杠 / 自动摸切，在对局画面左侧开关。

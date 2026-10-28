@@ -70,6 +70,7 @@ export interface TableState {
   started: boolean
   human: number // the human's seat
   players: string[] // per seat: 'human' | 'ai1' | 'ai2' | 'ai3'
+  length?: 'hanchan' | 'tonpuu'
 }
 
 export const DEFAULT_PLAYERS = ['human', 'ai1', 'ai2', 'ai3']
@@ -135,6 +136,7 @@ export function applyEvent(s: TableState, ev: MjaiEvent): TableState {
         started: true,
         human: ev.human ?? ev.id ?? 0,
         players: ev.players ?? DEFAULT_PLAYERS,
+        length: ev.length,
       }
     case 'start_kyoku':
       return {

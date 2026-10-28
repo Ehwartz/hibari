@@ -132,7 +132,7 @@ export function Stats() {
             <Tile
               label="平均 pt"
               value={s.avg_point === null ? '—' : `${s.avg_point! >= 0 ? '+' : ''}${s.avg_point!.toFixed(1)}`}
-              sub={`累计 ${s.total_point! >= 0 ? '+' : ''}${s.total_point!.toFixed(1)}（马 20/10/-10/-20）`}
+              sub={`累计 ${s.total_point! >= 0 ? '+' : ''}${s.total_point!.toFixed(1)}`}
             />
             <Tile label="被飞率" value={pct(s.tobi_rate)} />
           </div>

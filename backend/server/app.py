@@ -114,6 +114,8 @@ class SettingsIn(BaseModel):
     bot_temps: list[float] = Field(default=[0.0, 0.0, 0.0], min_length=3, max_length=3)
     bot_names: list[str] = Field(default=["AI-A", "AI-B", "AI-C"], min_length=3, max_length=3)
     ai_name: str = Field(default="Mortal", min_length=1, max_length=16)
+    pt_mode: Literal["score", "tenhou"] = "score"
+    pt_dan: int = Field(default=7, ge=1, le=10)
     bot_dir: str = Field(default="mjbot_mortal", min_length=1)
     auto_temp: float = Field(default=0.0, ge=0, le=2)
     felt: str = Field(default="green", max_length=32)

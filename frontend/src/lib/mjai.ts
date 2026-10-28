@@ -9,6 +9,7 @@ export type MjaiEvent =
       seed?: number[]
       human?: number // the human's seat (seat 0 is the first dealer)
       players?: string[] // per seat: 'human' | 'ai1' | 'ai2' | 'ai3'
+      length?: 'hanchan' | 'tonpuu'
     }
   | {
       type: 'start_kyoku'

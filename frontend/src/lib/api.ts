@@ -39,6 +39,8 @@ export interface Settings {
   bot_names: string[] // the three bots' display names
   auto_temp: number // AI 代打 temperature
   ai_name: string // display name of the AI ("<name> 推荐")
+  pt_mode: 'score' | 'tenhou' // how pt is computed
+  pt_dan: number // Tenhou dan for the 4th-place loss (1..10)
   bot_dir: string // AI bot folder (Akagi Mortal layout), restart to apply
   bot_dir_resolved?: string
   bot_dir_loaded?: string // the folder the running backend actually loaded

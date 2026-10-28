@@ -199,3 +199,16 @@ def test_saved_bot_names_are_kept(tmp_path, monkeypatch):
     for names in (["Mortal-A", "Mortal-B", "Mortal-C"], ["小A", "小B", "小C"]):
         storage.save_settings(storage.Settings(bot_names=names))
         assert _real_load_settings().bot_names == names
+
+
+def test_pt_rules():
+    s = storage.Settings()
+    scores = [47200, 30000, 15000, 7800]
+    assert storage.game_point(scores, 1, 0, "tonpuu", s) == 57.2  # (47200-30000)/1000 + 20 + 20
+    assert storage.game_point(scores, 1, 0, "hanchan", s) == 57.2  # same for both lengths
+    t = storage.Settings(pt_mode="tenhou", pt_dan=7)
+    assert storage.game_point(scores, 1, 0, "hanchan", t) == 90
+    assert storage.game_point(scores, 1, 0, "tonpuu", t) == 60
+    assert storage.game_point(scores, 4, 3, "hanchan", t) == -120  # 七段 東南 4th
+    assert storage.game_point(scores, 4, 3, "tonpuu", t) == -80  # 七段 東風 4th
+    assert storage.game_point(scores, 3, 2, "tonpuu", t) == 0

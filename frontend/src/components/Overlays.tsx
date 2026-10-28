@@ -5,6 +5,8 @@ import type { TableState } from '../lib/table'
 import { SEAT_WIND, tileName } from '../lib/tiles'
 import { Tile } from './Tile'
 import { Melds } from './TableParts'
+import type { Settings } from '../lib/api'
+import { gamePoint, ptRuleText } from '../lib/pt'
 
 // -- action bar ---------------------------------------------------------------
 
@@ -263,12 +265,12 @@ export function ResultModal({ table, onClose }: { table: TableState; onClose?: (
 
 export function EndModal({
   table,
-  uma,
+  settings,
   onClose,
   actions,
 }: {
   table: TableState
-  uma: number[]
+  settings: Settings | null
   onClose?: () => void
   actions?: React.ReactNode
 }) {
@@ -277,9 +279,10 @@ export function EndModal({
   return (
     <Modal>
       <div className="text-center text-[28px] font-bold tracking-widest">终局</div>
+      <div className="mt-1 text-center text-[12px] text-white/45">{ptRuleText(settings)}</div>
       <div className="mt-6 flex flex-col gap-3">
         {order.map((s, rank) => {
-          const pt = (scores[s] - 30000) / 1000 + uma[rank] + (rank === 0 ? 20 : 0)
+          const pt = gamePoint(scores, s, table.length, settings)
           return (
             <div
               key={s}

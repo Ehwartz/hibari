@@ -383,7 +383,7 @@ export function ReplayViewer({
                 </div>
               )}
               {showResult && <ResultModal table={table} />}
-              {t === 'end_game' && <EndModal table={table} uma={[20, 10, -10, -20]} />}
+              {t === 'end_game' && <EndModal table={table} settings={settings} />}
             </Table>
               )}
       </ScaledStage>

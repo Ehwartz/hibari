@@ -37,6 +37,9 @@ class Settings:
     # sampling temperature of Mortal-A/B/C (0 = always the top action)
     bot_temps: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     bot_names: list[str] = field(default_factory=lambda: list(DEFAULT_BOT_NAMES))
+    # how a game's pt is computed (see game_point): "score" = points + uma, "tenhou" = Tenhou dan pt
+    pt_mode: str = "score"
+    pt_dan: int = 7  # Tenhou dan (1 = 初段 … 10 = 十段): sets the 4th-place loss
     ai_name: str = "Mortal"  # display name of the AI (hints: "<name> 推荐", reviews, …)
     bot_dir: str = "mjbot_mortal"  # AI bot folder (Akagi Mortal layout); takes effect after a restart
     auto_temp: float = 0.0  # AI 代打 sampling temperature (Mortal playing your seat)
@@ -154,6 +157,20 @@ _meta_cache: dict[Path, tuple[tuple[float, float], GameMeta]] = {}
 UMA = (20, 10, -10, -20)
 
 
+def game_point(scores: list[int], rank: int, seat: int, length: str, s: Settings) -> float:
+    """pt of one finished game for ``seat`` under the configured rule.
+
+    score:  (points - 30000) / 1000 + uma 20/10/-10/-20 + oka 20 for 1st (same for both lengths)
+    tenhou: Tenhou 鳳凰卓 dan pt, rank only — hanchan +90/+45/0/-(15·dan+15),
+            tonpuu +60/+30/0/-(10·dan+10) (tonpuu is 2/3 of hanchan)
+    """
+    if s.pt_mode == "tenhou":
+        dan = min(10, max(1, s.pt_dan))
+        table = (60, 30, 0, -(10 * dan + 10)) if length == "tonpuu" else (90, 45, 0, -(15 * dan + 15))
+        return float(table[rank - 1])
+    return round((scores[seat] - 30000) / 1000 + UMA[rank - 1] + (20 if rank == 1 else 0), 1)
+
+
 def log_file(settings: Settings, game_id: str) -> Path:
     if not _ID.match(game_id):
         raise ValueError("bad game id")
@@ -211,7 +228,7 @@ def _meta(path: Path) -> GameMeta | None:
         scores=scores,
         human=human,
         rank=rank,
-        point=round((scores[human] - 30000) / 1000 + UMA[rank - 1] + (20 if rank == 1 else 0), 1),
+        point=0.0,  # filled in by list_games under the current pt rule
         kyoku=len({(e.get("bakaze"), e.get("kyoku"), e.get("honba")) for e in events if e["type"] == "start_kyoku"}),
         finished=end is not None,
         size=path.stat().st_size,
@@ -227,6 +244,10 @@ def list_games(settings: Settings) -> list[GameMeta]:
     if not folder.is_dir():
         return []
     metas = [m for p in folder.glob("*.json.gz") if (m := _meta(p))]
+    # pt depends on settings (rule can change), so it is computed here rather than cached
+    from dataclasses import replace
+
+    metas = [replace(m, point=game_point(m.scores, m.rank, m.human, m.length, settings)) for m in metas]
     return sorted(metas, key=lambda m: m.started_at, reverse=True)
 
 
