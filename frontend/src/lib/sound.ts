@@ -1,7 +1,16 @@
 // Table sounds: tile clacks are synthesised with Web Audio (no audio files), call / riichi / win
-// voices are short clips generated with VOICEVOX by scripts/make_voices.py. The clips come in one
-// JSON file (public/sounds/voices.json, base64 WAVs): download managers such as IDM intercept
-// requests for audio files and give the page an empty response (plus a download prompt).
+// voices are short clips generated with VOICEVOX by scripts/make_voices.py
+// (src/assets/voice/<player>/<name>.wav). The clips are inlined at build time into small lazy JS
+// chunks (data URLs), so the browser never requests a .wav: download managers such as IDM intercept
+// audio file requests and give the page an empty response (plus a download prompt).
+
+import voiceCredits from '../assets/voice/credits.json'
+
+/** "VOICEVOX:<character>" per player (the voices' license asks for this credit). */
+export const VOICE_CREDITS: Record<string, string> = voiceCredits
+
+// '../assets/voice/ai1/pon.wav' -> () => import(...) resolving to a data: URL
+const VOICE_FILES = import.meta.glob<string>('../assets/voice/*/*.wav', { query: '?inline', import: 'default' })
 
 /** Voice clip names, by the event that triggers them. */
 export type VoiceName = 'chi' | 'pon' | 'kan' | 'riichi' | 'ron' | 'tsumo'
@@ -14,20 +23,6 @@ export interface SoundSettings {
 let ctx: AudioContext | null = null
 const clips = new Map<string, Promise<AudioBuffer | null>>()
 
-interface VoiceFile {
-  credits: Record<string, string> // player -> "VOICEVOX:<character>"
-  clips: Record<string, Partial<Record<VoiceName, string>>> // player -> clip -> base64 WAV
-}
-
-let voiceFile: Promise<VoiceFile | null> | null = null
-
-/** The voice bundle (fetched once; null if missing). */
-export function loadVoices(): Promise<VoiceFile | null> {
-  voiceFile ??= fetch('/sounds/voices.json')
-    .then((r) => (r.ok ? (r.json() as Promise<VoiceFile>) : null))
-    .catch(() => null)
-  return voiceFile
-}
 
 function audio(): AudioContext | null {
   if (typeof AudioContext === 'undefined') return null
@@ -79,16 +74,15 @@ function clip(player: string, name: VoiceName): Promise<AudioBuffer | null> {
   let p = clips.get(key)
   if (!p) {
     const ac = audio()
-    p = ac
-      ? loadVoices()
-          .then((f) => {
-            const b64 = f?.clips[player]?.[name]
-            if (!b64) return null // a missing clip just stays silent
-            const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-            return ac.decodeAudioData(bytes.buffer)
-          })
-          .catch(() => null)
-      : Promise.resolve(null)
+    const load = VOICE_FILES[`../assets/voice/${key}.wav`]
+    p =
+      ac && load
+        ? load()
+            .then((dataUrl) => fetch(dataUrl)) // a data: URL, decoded locally (no network)
+            .then((r) => r.arrayBuffer())
+            .then((b) => ac.decodeAudioData(b))
+            .catch(() => null) // a missing / broken clip just stays silent
+        : Promise.resolve(null)
     clips.set(key, p)
   }
   return p

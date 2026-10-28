@@ -5,7 +5,7 @@ import { type AssetName, type Settings, api, assetUrl } from '../lib/api'
 import { BACKGROUNDS, FELTS, setSettingsCache } from '../lib/appearance'
 import { scaledImage, squareAvatar } from '../lib/image'
 import { DAN_NAMES, ptRuleText } from '../lib/pt'
-import { loadVoices, playClack, playVoice } from '../lib/sound'
+import { VOICE_CREDITS, playClack, playVoice } from '../lib/sound'
 
 /** Shared loader / saver for the settings-backed pages (设置, 用户). */
 export function useSettings() {
@@ -464,11 +464,7 @@ const VOICE_PLAYERS: [string, string][] = [
 
 /** Volumes of the tile clacks and the call voices, with a test button each and the voice credits. */
 function SoundCard({ settings, set }: { settings: Settings; set: <K extends keyof Settings>(k: K, v: Settings[K]) => void }) {
-  // "VOICEVOX:<character>" per player, from the voice bundle (the voices' license asks for it)
-  const [credits, setCredits] = useState<Record<string, string>>({})
-  useEffect(() => {
-    void loadVoices().then((f) => setCredits(f?.credits ?? {}))
-  }, [])
+  const credits = VOICE_CREDITS
   const row = (key: 'sound_tiles' | 'sound_voice', label: string, test: () => void) => {
     const v = settings[key] ?? 0
     return (

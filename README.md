@@ -93,7 +93,7 @@ uv run python -m scripts.add_weights <安装包路径>
 本项目以 [GNU AGPL-3.0](LICENSE) 发布。本项目在进程内调用以 AGPL-3.0 授权的
 Mortal 与 libriichi，因此整体采用相同许可证。
 
-模型权重不属于本仓库，不受本仓库许可证约束。`frontend/public/sounds/voices.json` 中的语音
+模型权重不属于本仓库，不受本仓库许可证约束。`frontend/src/assets/voice/` 中的语音文件
 同样不受 AGPL-3.0 约束，其使用须遵循上述音源利用规约并保留署名。
 
 ## 致谢

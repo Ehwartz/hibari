@@ -3,17 +3,16 @@
     # start the engine first (e.g. D:/VOICEVOX/engine/run.exe), then:
     uv run python -m scripts.make_voices [--engine http://127.0.0.1:50021] [--policies DIR]
 
-Writes frontend/public/sounds/voices.json: {"credits": {player: "VOICEVOX:<character>"}, "clips":
-{player: {name: <base64 WAV>}}} for the four players (the characters' terms require the credit).
-One JSON file instead of .wav files: download managers such as IDM intercept audio file requests
-and hand the browser an empty response. With --policies, each character's terms of use (from the
-engine) are saved there for review.
+Writes frontend/src/assets/voice/<player>/<name>.wav for the four players and credits.json there
+({player: "VOICEVOX:<character>"}; the characters' terms require the credit). The UI imports the
+clips at build time (inlined into small JS chunks), so the browser never requests a .wav file:
+download managers such as IDM intercept those. With --policies, each character's terms of use (from
+the engine) are saved there for review.
 """
 from __future__ import annotations
 
 import argparse
 import array
-import base64
 import io
 import json
 import wave
@@ -22,7 +21,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "frontend" / "public" / "sounds" / "voices.json"
+OUT = ROOT / "frontend" / "src" / "assets" / "voice"
 
 # player -> VOICEVOX character (style ノーマル); four distinct voices, all from the 東北ずん子
 # project, so one set of terms applies (https://zunko.jp/con_ongen_kiyaku.html: credit required)
@@ -66,7 +65,6 @@ def main() -> None:
     speakers = json.loads(call(args.engine, "/speakers"))
     by_name = {s["name"]: s for s in speakers}
     credits: dict[str, str] = {}
-    clips: dict[str, dict[str, str]] = {}
     for player, name in VOICES.items():
         sp = by_name.get(name)
         if sp is None:
@@ -76,19 +74,19 @@ def main() -> None:
             info = json.loads(call(args.engine, "/speaker_info", {"speaker_uuid": sp["speaker_uuid"]}))
             args.policies.mkdir(parents=True, exist_ok=True)
             (args.policies / f"{name}.md").write_text(info["policy"], encoding="utf-8")
-        clips[player] = {}
+        out = OUT / player
+        out.mkdir(parents=True, exist_ok=True)
         for key, text in LINES.items():
             query = json.loads(call(args.engine, "/audio_query", {"text": text, "speaker": style["id"]}))
             # short, punchy calls: a bit faster, more intonation, little silence around them
             query.update(speedScale=1.12, intonationScale=1.35, volumeScale=1.25,
                          prePhonemeLength=0.03, postPhonemeLength=0.06)
             wav = call(args.engine, "/synthesis", {"speaker": style["id"]}, json.dumps(query).encode())
-            clips[player][key] = base64.b64encode(normalize(wav)).decode()
+            (out / f"{key}.wav").write_bytes(normalize(wav))
         credits[player] = f"VOICEVOX:{name}"
         print(f"{player}: {name} ({style['name']}, id {style['id']}) — {len(LINES)} clips")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps({"credits": credits, "clips": clips}, ensure_ascii=False), encoding="utf-8")
-    print(f"done: {OUT} ({OUT.stat().st_size // 1024} KB)")
+    (OUT / "credits.json").write_text(json.dumps(credits, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"done: {OUT}")
 
 
 if __name__ == "__main__":

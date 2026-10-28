@@ -10,6 +10,7 @@ import { WIND_NAME, tileName } from '../lib/tiles'
 import { RYUKYOKU_NAME } from '../lib/labels'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
 import { ActionBar, EndModal, HintPanel, ResultModal } from './Overlays'
+import { playClack, playVoice, voiceFor } from '../lib/sound'
 import { ScaledStage } from './Stage'
 import { type DiscardFx, Table, calloutFor } from './Table'
 
@@ -193,6 +194,18 @@ export function ReplayViewer({
     return null
   }, [dec, index, frames, last, me])
   const danger = useMemo(() => (showDanger ? computeDanger(table, me) : []), [showDanger, table, me])
+
+  // sounds when stepping forward one event (click, wheel, →, auto-play); not on jumps or going back
+  const prevIndex = useRef(index)
+  useEffect(() => {
+    const forward = index === prevIndex.current + 1
+    prevIndex.current = index
+    if (!forward || !settings) return
+    const e = frames[index].event
+    if (e.type === 'dahai') playClack(settings.sound_tiles ?? 0)
+    const voice = voiceFor(e)
+    if (voice && 'actor' in e) playVoice(table.players[e.actor] ?? 'ai1', voice, settings.sound_voice ?? 0)
+  }, [index, frames, settings, table.players])
 
   const findFrom = (from: number, step: number, pred: (f: Frame) => boolean) => {
     for (let i = from + step; i >= 0 && i <= last; i += step) if (pred(frames[i])) return i
