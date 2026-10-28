@@ -374,8 +374,11 @@ These outputs are committed, so CI needs no rendering step.
   carries `data-tile`, and the hand listens with one delegated `mouseover`.
   `Table` then marks the same kind (red fives included) in all rivers and
   melds with a blue tint (`Tile mark`), distinct from the gold hint
-  highlight. A checkbox on the game page (`localStorage` `samehl`, on by
-  default) turns it off; the replay viewer follows the same setting.
+  highlight. The mark also covers the tile's edge, which is drawn as a box
+  shadow below the face. The setting (`localStorage` `samehl`, on by
+  default) is shared by the game page and the replay viewer, which both
+  have the toggle and 进张分析 at the right of the header, in the same order.
+  Replay analyses `masked[index]`, your own view at that step.
 - **进张分析**: `POST /api/ukeire {hand, visible}` (`backend/analysis/ukeire.py`)
   works with the `mahjong` library's shanten (chiitoitsu and kokushi from
   13 tiles). With 3n+2 tiles it returns one option per discard kind; with
@@ -386,6 +389,11 @@ These outputs are committed, so CI needs no rendering step.
   centered, scrollable window sorted by shanten and then total acceptance.
   It recomputes whenever your hand or the visible tiles change, and closes
   with Esc or a click outside.
+- Quitting a game arms a 3 s fallback redirect home in case the server's
+  answer is lost. It is cleared when the answer arrives or the page
+  unmounts, and it only redirects while the game page is still shown.
+  Before this fix, opening a replay right after quitting could be yanked
+  back home.
 
 ### Sound
 

@@ -49,9 +49,15 @@ export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, ho
         />
       )}
       {highlight && <div className="absolute inset-0 rounded-[inherit] bg-amber-200/20 ring-2 ring-amber-400 ring-inset" />}
-      {mark && <div className="absolute inset-0 rounded-[inherit] bg-sky-400/30 ring-2 ring-sky-400 ring-inset" />}
       {dim && <div className="absolute inset-0 bg-black/45" />}
     </div>
+  )
+  // the same-kind mark covers the face and the tile's edge below it (the box-shadow "thickness")
+  const markEl = mark && (
+    <div
+      className="pointer-events-none absolute bg-sky-400/30 ring-2 ring-sky-400 ring-inset"
+      style={{ left: 0, top: 0, width: w, height: h + depth, borderRadius: w * 0.12 }}
+    />
   )
   return (
     <div
@@ -68,9 +74,13 @@ export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, ho
       {sideways ? (
         <div className="absolute" style={{ left: (h - w) / 2, top: (w - h) / 2, transform: 'rotate(-90deg)' }}>
           {inner}
+          {markEl}
         </div>
       ) : (
-        inner
+        <>
+          {inner}
+          {markEl}
+        </>
       )}
     </div>
   )

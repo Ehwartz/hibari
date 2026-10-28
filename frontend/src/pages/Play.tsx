@@ -46,6 +46,11 @@ const DELAY: Partial<Record<MjaiEvent['type'], number>> = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** Go home after quitting, but only if the user is still on this game's page (not already elsewhere). */
+function leaveGame(gameId: string) {
+  if (location.hash.startsWith(`#/play/${gameId}`)) location.hash = '#/'
+}
+
 // Start of a kyoku: the "东1局 0本场" banner, then the deal (16 groups) — see Table's deal prop.
 const INTRO_MS = 1300
 const DEAL_START_MS = 1100 // the deal starts while the banner fades out
@@ -78,6 +83,7 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
     ws: null as WebSocket | null,
     autoplay: false,
     quitting: false, // the player left: no reconnect
+    quitTimer: undefined as ReturnType<typeof setTimeout> | undefined, // fallback if the quit answer never comes
   })
   const [autoplay, setAutoplay] = useState(false)
 
@@ -199,7 +205,8 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
         if (msg.type === 'quit') {
           // the server stopped the game (we asked it to): leave right away, whatever is queued
           r.current.quitting = true
-          location.hash = '#/'
+          clearTimeout(r.current.quitTimer)
+          leaveGame(gameId)
           return
         }
         r.current.queue.push(msg)
@@ -219,6 +226,7 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
     return () => {
       closed = true
       clearTimeout(retry)
+      clearTimeout(r.current.quitTimer) // left the page another way: never pull the user back home later
       r.current.ws?.close()
     }
   }, [gameId, pump])
@@ -238,7 +246,7 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
     }
     r.current.quitting = true
     ws.send(JSON.stringify({ type: 'quit', save }))
-    setTimeout(() => (location.hash = '#/'), 3000) // in case the answer never comes
+    r.current.quitTimer = setTimeout(() => leaveGame(gameId), 3000) // in case the answer never comes
   }
   // manual arrangement of your hand (auto-sort off); kept across draws / discards / calls
   const reorder = (from: number, to: number) => {

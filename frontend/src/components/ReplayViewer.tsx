@@ -11,6 +11,7 @@ import { RYUKYOKU_NAME } from '../lib/labels'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
 import { ActionBar, EndModal, HintPanel, ResultModal } from './Overlays'
 import { playClack, playVoice, voiceFor } from '../lib/sound'
+import { UkeirePanel } from './UkeirePanel'
 import { ScaledStage } from './Stage'
 import { type DiscardFx, Table, calloutFor } from './Table'
 
@@ -32,8 +33,8 @@ export function qGap(d: ReviewDecision, label: string): string {
   return gap < 0.005 ? '0' : `−${gap.toFixed(2)}`
 }
 
-/** The 同牌高亮 preference set on the game page (on unless turned off there). */
-function sameTileHighlight(): boolean {
+/** The 同牌高亮 preference, shared with the game page (on unless turned off). */
+function loadSameTile(): boolean {
   try {
     return localStorage.getItem('samehl') !== '0'
   } catch {
@@ -168,6 +169,16 @@ export function ReplayViewer({
   const [showHints, setShowHints] = useState(true)
   const [showTsumogiri, setShowTsumogiri] = useState(() => new URLSearchParams(location.search).has('review'))
   const [showDanger, setShowDanger] = useState(true)
+  const [sameTile, setSameTile] = useState(loadSameTile)
+  const [showUkeire, setShowUkeire] = useState(false)
+  const toggleSameTile = (on: boolean) => {
+    setSameTile(on)
+    try {
+      localStorage.setItem('samehl', on ? '1' : '0')
+    } catch {
+      /* private mode */
+    }
+  }
   // AI numbers as probabilities, or as the q-gap to the AI's choice (how much worse each option is)
   const [qView, setQView] = useState(false)
   const lastWheel = useRef(0)
@@ -373,19 +384,11 @@ export function ReplayViewer({
           )
         )}
         <label className="ml-2 flex items-center gap-1.5 text-[13px]">
-          <input type="checkbox" checked={showDanger} onChange={(e) => setShowDanger(e.target.checked)} /> 铳率
-        </label>
-        <label className="ml-3 flex items-center gap-1.5 text-[13px]">
           <input type="checkbox" checked={openHands} onChange={(e) => setOpenHands(e.target.checked)} /> 明牌
         </label>
         <label className="ml-3 flex items-center gap-1.5 text-[13px]" title="复盘用：牌河里摸切的牌变暗，手切的牌保持明亮">
           <input type="checkbox" checked={showTsumogiri} onChange={(e) => setShowTsumogiri(e.target.checked)} /> 摸切明暗
         </label>
-        {hasHints && (
-          <label className="ml-3 flex items-center gap-1.5 text-[13px]">
-            <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} /> AI 提示
-          </label>
-        )}
         {review && (
           <label
             className="ml-3 flex items-center gap-1.5 text-[13px]"
@@ -394,7 +397,30 @@ export function ReplayViewer({
             <input type="checkbox" checked={qView} onChange={(e) => setQView(e.target.checked)} /> Q 差
           </label>
         )}
+        {/* same toggles, same order as the game page */}
+        <span className="ml-2 h-5 w-px bg-white/15" />
+        <label className="ml-2 flex items-center gap-1.5 text-[13px]" title="根据牌河、副露、立直估算每张牌对三家的放铳率">
+          <input type="checkbox" checked={showDanger} onChange={(e) => setShowDanger(e.target.checked)} /> 铳率
+        </label>
+        {hasHints && (
+          <label className="ml-3 flex items-center gap-1.5 text-[13px]">
+            <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} /> AI 提示
+          </label>
+        )}
+        <label className="ml-3 flex items-center gap-1.5 text-[13px]" title="鼠标停在手牌上时，牌河和副露中相同的牌会高亮">
+          <input type="checkbox" checked={sameTile} onChange={(e) => toggleSameTile(e.target.checked)} /> 同牌高亮
+        </label>
+        <button
+          onClick={() => setShowUkeire((v) => !v)}
+          title="每种打法的向听数和进张（扣除这一步你能看到的牌）"
+          className={`ml-2 rounded-full px-3 py-1 text-[12px] font-bold ${showUkeire ? 'bg-emerald-600' : 'bg-white/10 hover:bg-white/20'}`}
+        >
+          进张分析
+        </button>
       </div>
+
+      {/* your own view at this step (never the open hands) */}
+      {showUkeire && <UkeirePanel table={masked[index]} onClose={() => setShowUkeire(false)} />}
 
       <div className="flex w-full flex-1" onClick={onStageClick} onWheel={onStageWheel}>
       <ScaledStage reserved={56}>
@@ -411,7 +437,7 @@ export function ReplayViewer({
               avatars={seatAvatars(settings, table.players)}
               danger={danger}
               tileInfo={tileInfo}
-              sameTileHighlight={sameTileHighlight()}
+              sameTileHighlight={sameTile}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
