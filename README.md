@@ -19,12 +19,22 @@ mjbot_mortal/mortal.pth
 
 ## 运行环境
 
-- Windows 10 / 11（64 位）
+| 系统 | 支持情况 |
+|---|---|
+| Windows 10 / 11（x64） | 支持，另有免安装版 |
+| macOS（Apple Silicon） | 支持，从源码运行 |
+| Linux（x86_64） | 支持，从源码运行 |
+| macOS（Intel）、ARM 版 Linux / Windows | 不支持（缺少对应的 PyTorch 或 libriichi 预编译包） |
+
+另需：
+
 - Python 3.12，使用 [uv](https://docs.astral.sh/uv/) 管理依赖
 - Node.js，用于构建前端
-- Google Chrome 或新版 Microsoft Edge
+- Google Chrome、Microsoft Edge 或 Chromium
 
 ## 安装与启动
+
+Windows：
 
 ```powershell
 python -m uv sync
@@ -32,8 +42,22 @@ cd frontend; npm install; cd ..
 .\start.cmd
 ```
 
-`start.cmd` 启动后端服务并打开程序窗口。开发时使用 `dev.cmd`，运行测试使用
-`python -m uv run pytest`。
+macOS / Linux：
+
+```sh
+uv sync
+(cd frontend && npm install)
+./start.sh
+```
+
+macOS 也可以在访达中双击 `start.command`。
+
+启动脚本会启动后端服务，并以应用窗口形式打开界面；关闭窗口即退出程序。
+在 macOS 上关闭窗口后浏览器进程仍会保留，请按 Cmd+Q 退出。未安装 Chromium
+内核浏览器时，界面会在系统默认浏览器中打开。
+
+开发时使用 `dev.cmd`（Windows）或 `./dev.sh`（macOS / Linux）。运行测试使用
+`uv run pytest`。
 
 ## 数据存储
 
@@ -45,8 +69,8 @@ cd frontend; npm install; cd ..
 python -m uv run python -m scripts.build_release
 ```
 
-生成免安装版本 `release/Hibari-<版本>-win64.zip`，内置 Python 运行环境，
-解压后运行 `Hibari.exe` 即可使用。详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+生成 Windows 免安装版本 `release/Hibari-<版本>-win64.zip`，内置 Python 运行环境，
+解压后运行 `Hibari.exe` 即可使用。该脚本须在 Windows 上运行。详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 中的 “Portable release” 一节。
 
 ## 许可证

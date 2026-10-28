@@ -303,6 +303,33 @@ class Agent(Protocol):
   would leak the tile, which is the classic 手出し位置 read. Review shows
   hands sorted.
 
+### Platforms
+
+Everything except launching and packaging is portable: the backend, the
+engine, the UI, and libriichi, which ships prebuilt for py3.10–3.12 on
+win-x64, linux-x86_64 and macOS x86_64 / arm64. torch 2.8 has no Intel-Mac
+wheels, so the supported targets are Windows x64, Linux x86_64 and Apple
+Silicon macOS. `uv.lock` already resolves torch for all three (the CPU
+index on Windows / Linux, PyPI on macOS).
+
+- `scripts/launch.py` picks a Chromium browser per OS:
+  - Windows: App Paths registry, then the install folders.
+  - macOS: `/Applications` or `~/Applications` (Chrome, Edge, Chromium).
+  - Linux: commands on `PATH` (google-chrome, microsoft-edge, chromium).
+
+  Without one, it opens the default browser and runs until stopped.
+  Messages go to `MessageBoxW`, `osascript` or `zenity`, and also to
+  stderr. On non-Windows the version comes from `--version`. The macOS
+  browser outlives its last window, so Hibari stops on Cmd+Q.
+- Entry points are `start.cmd` / `dev.cmd` (Windows), `start.sh` /
+  `dev.sh` (Linux and macOS), and `start.command` (macOS Finder,
+  delegates to `start.sh`). `.gitattributes` keeps the shell scripts LF and
+  the batch files CRLF. The shell scripts are committed executable.
+- `tests/test_launch.py` simulates the macOS and Linux browser lookup.
+  They have not run on a real Mac or Linux box yet; a CI matrix is the
+  next step, which would also build per-OS packages. `build_release.py`
+  refuses to run off Windows.
+
 ### Caching of the built UI
 
 `FrontendFiles` (in `app.py`) serves `index.html` with

@@ -111,6 +111,9 @@ def main() -> None:
     ap.add_argument("--no-zip", action="store_true", help="only build release/Hibari/")
     ap.add_argument("--no-avatars", action="store_true", help="don't ship the AI avatars from data/assets")
     args = ap.parse_args()
+    if sys.platform != "win32":
+        raise SystemExit("build_release builds the Windows package and must run on Windows. "
+                         "On macOS / Linux, run from source with ./start.sh (see README).")
 
     version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     weights = ROOT / "mjbot_mortal" / "mortal.pth"

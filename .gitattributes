@@ -1,0 +1,5 @@
+# shell scripts must keep LF line endings on every platform (CRLF breaks /bin/sh)
+*.sh      text eol=lf
+*.command text eol=lf
+# Windows batch files stay CRLF
+*.cmd     text eol=crlf

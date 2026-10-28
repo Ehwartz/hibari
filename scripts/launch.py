@@ -4,12 +4,14 @@
 2. Starts the backend (which also serves the built UI) on a free port.
 3. Opens Chrome in ``--app`` mode with its own profile, so the window behaves
    like a separate program (own taskbar entry, no address bar / tabs).
-   Without Chrome it uses Edge (Chromium, same flags).
-4. When that window is closed, stops the backend.
+   Without Chrome it uses Edge or Chromium (same flags); with none of them,
+   the default browser (then the backend runs until the launcher is stopped).
+4. When that window is closed, stops the backend. On macOS the browser keeps
+   running after its last window closes: quit it (Cmd+Q) to stop Hibari.
 
-Run with ``start.cmd`` (no console), ``Hibari.exe`` in the portable release,
-or ``uv run python -m scripts.launch``. Output goes to ``data/launcher.log``;
-failures also show a message box (there is no console).
+Windows: ``start.cmd`` (no console) or ``Hibari.exe`` in the portable release.
+macOS: ``start.command``; Linux: ``start.sh``. Or ``uv run python -m scripts.launch``.
+Output goes to ``data/launcher.log``; failures also show a message box.
 """
 from __future__ import annotations
 
@@ -21,15 +23,16 @@ import subprocess
 import sys
 import time
 import urllib.request
-import ctypes
-import winreg
+import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 DATA = ROOT / "data"
-NODE_DIR = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "nodejs"
-NO_WINDOW = subprocess.CREATE_NO_WINDOW
+NODE_DIR = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "nodejs"  # Windows: portable Node
+IS_WIN = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
+NO_WINDOW = subprocess.CREATE_NO_WINDOW if IS_WIN else 0
 
 log = logging.getLogger("launcher")
 
@@ -39,6 +42,9 @@ MIN_CHROMIUM = 111
 
 
 def _find_exe(app_paths_name: str, *rel: str) -> Path | None:
+    """Windows: a browser from the App Paths registry key, or its default install folders."""
+    import winreg
+
     for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
         try:
             with winreg.OpenKey(hive, rf"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{app_paths_name}") as k:
@@ -53,25 +59,79 @@ def _find_exe(app_paths_name: str, *rel: str) -> Path | None:
     return None
 
 
+def parse_major(text: str) -> int | None:
+    """Major version from ``--version`` output such as "Google Chrome 141.0.7390.54"."""
+    for word in text.split():
+        head = word.split(".")[0]
+        if head.isdigit() and "." in word:
+            return int(head)
+    return None
+
+
 def browser_version(exe: Path) -> int | None:
-    """Major version of a Chromium browser, from the version folder next to its exe."""
-    majors = [int(d.name.split(".")[0]) for d in exe.parent.iterdir() if d.is_dir() and d.name.split(".")[0].isdigit()]
-    return max(majors) if majors else None
+    """Major version of a Chromium browser (None if unknown)."""
+    if IS_WIN:  # chrome.exe --version opens a window; the version folder next to it tells
+        majors = [int(d.name.split(".")[0]) for d in exe.parent.iterdir() if d.is_dir() and d.name.split(".")[0].isdigit()]
+        return max(majors) if majors else None
+    try:
+        out = subprocess.run([str(exe), "--version"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return parse_major(out)
 
 
-def find_browser() -> tuple[str, Path]:
-    """Chrome if installed, otherwise Edge: (name, exe)."""
-    chrome = _find_exe("chrome.exe", "Google", "Chrome", "Application", "chrome.exe")
-    if chrome:
-        return "Chrome", chrome
-    edge = _find_exe("msedge.exe", "Microsoft", "Edge", "Application", "msedge.exe")
-    if edge:
-        return "Edge", edge
-    raise FileNotFoundError("找不到 Chrome 或 Edge。请安装 Google Chrome 后再运行。")
+# (name, macOS app executable / Linux command) in order of preference
+MAC_BROWSERS = [
+    ("Chrome", "Google Chrome.app/Contents/MacOS/Google Chrome"),
+    ("Edge", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+    ("Chromium", "Chromium.app/Contents/MacOS/Chromium"),
+]
+LINUX_BROWSERS = [
+    ("Chrome", "google-chrome"),
+    ("Chrome", "google-chrome-stable"),
+    ("Edge", "microsoft-edge"),
+    ("Edge", "microsoft-edge-stable"),
+    ("Chromium", "chromium"),
+    ("Chromium", "chromium-browser"),
+]
+
+
+def find_browser() -> tuple[str, Path] | None:
+    """The Chromium browser to open the app window with: Chrome, else Edge, else Chromium."""
+    if IS_WIN:
+        chrome = _find_exe("chrome.exe", "Google", "Chrome", "Application", "chrome.exe")
+        if chrome:
+            return "Chrome", chrome
+        edge = _find_exe("msedge.exe", "Microsoft", "Edge", "Application", "msedge.exe")
+        return ("Edge", edge) if edge else None
+    if IS_MAC:
+        for name, rel in MAC_BROWSERS:
+            for apps in (Path("/Applications"), Path.home() / "Applications"):
+                if (p := apps / rel).exists():
+                    return name, p
+        return None
+    for name, cmd in LINUX_BROWSERS:
+        if p := shutil.which(cmd):
+            return name, Path(p)
+    return None
 
 
 def message_box(text: str, title: str = "雲雀 Hibari", error: bool = True) -> None:
-    ctypes.windll.user32.MessageBoxW(None, text, title, 0x10 if error else 0x30)
+    """Show a message to someone who may have no console (double-clicked launcher)."""
+    print(text, file=sys.stderr)
+    try:
+        if IS_WIN:
+            import ctypes
+
+            ctypes.windll.user32.MessageBoxW(None, text, title, 0x10 if error else 0x30)
+        elif IS_MAC:
+            esc = text.replace("\\", "\\\\").replace('"', '\\"')
+            icon = "stop" if error else "caution"
+            subprocess.run(["osascript", "-e", f'display dialog "{esc}" with title "{title}" buttons {{"OK"}} with icon {icon}'], timeout=600)
+        elif shutil.which("zenity"):
+            subprocess.run(["zenity", "--error" if error else "--warning", f"--title={title}", f"--text={text}"], timeout=600)
+    except Exception:  # the message is in the log and on stderr anyway
+        log.exception("message box failed")
 
 
 def _newest_mtime(paths: list[Path]) -> float:
@@ -132,7 +192,7 @@ def main() -> None:
         ensure_frontend_built()
         port = free_port()
         python = Path(sys.executable)
-        if python.name.lower() == "pythonw.exe":  # keep the server's own output going to the log
+        if python.name.lower() == "pythonw.exe":  # Windows: keep the server's own output going to the log
             python = python.with_name("python.exe")
         server_log = open(DATA / "server.log", "a", encoding="utf-8")
         server = subprocess.Popen(
@@ -146,7 +206,19 @@ def main() -> None:
             url = f"http://127.0.0.1:{port}/"
             wait_ready(url + "api/health", server)
             log.info("backend ready at %s", url)
-            name, exe = find_browser()
+            found = find_browser()
+            if found is None:
+                # no Chromium browser: the default one, without app mode; runs until stopped
+                log.info("no Chromium browser found, opening %s in the default browser", url)
+                webbrowser.open(url)
+                message_box(
+                    f"没有找到 Chrome / Edge / Chromium，已用默认浏览器打开 {url}\n"
+                    "界面在 Chromium 内核浏览器里效果最好。结束时关闭启动 Hibari 的终端窗口即可。",
+                    error=False,
+                )
+                server.wait()
+                return
+            name, exe = found
             version = browser_version(exe)
             log.info("browser: %s %s (%s)", name, version, exe)
             if version is not None and version < MIN_CHROMIUM:
