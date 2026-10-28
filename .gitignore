@@ -19,3 +19,4 @@ mjbot_mortal/*avatars/
 /train_mortal/Mortal/
 /train_mortal/.venv/
 /train_mortal/runs/
+/train_mortal/remote/

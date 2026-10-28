@@ -36,8 +36,8 @@ def step(msg: str) -> None:
 
 def mortal_env(**extra: str) -> dict[str, str]:
     env = {**os.environ, "MORTAL_CFG": str(WORK / "config.toml"), "PYTHONUNBUFFERED": "1", **extra}
-    if not torch.cuda.is_available():  # see cpu_shim/sitecustomize.py
-        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(HERE / "cpu_shim"), env.get("PYTHONPATH")]))
+    # runtime fixes for Mortal on this machine (spawned workers with CUDA, no-op CUDA calls on a CPU)
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(HERE / "mortal_shim"), env.get("PYTHONPATH")]))
     return env
 
 

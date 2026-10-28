@@ -10,7 +10,8 @@
 | `make_config.py` | 生成 Mortal 的 `config.toml`：风格（`--style`）、规模（`--scale pilot/full`）、设备 |
 | `prepare.py` | 把 `mortal.pth` 整理成 `baseline.pth`（固定的对手）和 `trainee.pth`（学生的起点） |
 | `pilot.py` | 端到端试点：1v3 自我对战 → GRP 训练 → 在线训练，并输出各环节速度 |
-| `cpu_shim/` | 只在没有 GPU 时使用，让 Mortal 能在 CPU 上跑通流程（正式训练不需要） |
+| `mortal_shim/` | 运行时修正，不改 Mortal 代码：GPU 上让子进程用 spawn 启动（避免 CUDA 初始化错误），CPU 上屏蔽只有 GPU 才有的调用 |
+| `setup_remote.sh` | 在租用的 Linux GPU 机器上一键装好环境（国内平台自动用国内镜像） |
 | `Mortal/` | Mortal 仓库的 clone（不提交） |
 | `runs/` | 每次训练的工作目录（不提交） |
 
@@ -61,6 +62,7 @@ python pilot.py --device cuda:0 --amp      # 先试点，记下各环节速度
 python make_config.py --work runs/avoid4 --style avoid4 --scale full --device cuda:0 --amp
 python prepare.py --work runs/avoid4 --amp
 export MORTAL_CFG=$PWD/runs/avoid4/config.toml
+export PYTHONPATH=$PWD/mortal_shim     # 必须：运行时修正，见 mortal_shim/sitecustomize.py
 cd Mortal/mortal
 python one_vs_three.py            # GRP 牌谱（games_per_iter 局）
 python train_grp.py               # 训练 GRP，loss 稳定后 Ctrl+C
