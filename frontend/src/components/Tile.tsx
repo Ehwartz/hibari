@@ -18,6 +18,12 @@ interface Props {
   title?: string
 }
 
+// the face artwork covers 86% of the tile, centred, leaving a margin like other clients
+// (picked from a side-by-side comparison; it used to fill the whole face)
+const FACE_SCALE = 0.86
+const FACE_SIZE = `${FACE_SCALE * 100}%`
+const FACE_INSET = `${((1 - FACE_SCALE) / 2) * 100}%`
+
 export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, hoverable, onClick, title }: Props) {
   const h = Math.round((w * 4) / 3)
   const hidden = back || tile === '?'
@@ -34,11 +40,19 @@ export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, ho
         boxShadow: `0 ${depth}px 0 ${hidden ? 'var(--tile-back-edge)' : 'var(--tile-edge)'}, 0 ${depth + 2}px ${depth * 2}px rgba(0,0,0,.35)`,
       }}
     >
-      {face && <img src={face} alt={tileName(tile)} draggable={false} className="absolute inset-0 h-full w-full" />}
+      {face && (
+        <img
+          src={face}
+          alt={tileName(tile)}
+          draggable={false}
+          className="absolute"
+          style={{ left: FACE_INSET, top: FACE_INSET, width: FACE_SIZE, height: FACE_SIZE }}
+        />
+      )}
       {!hidden && tile === 'P' && (
         // haku is blank in this tile set; draw the usual frame so it reads as a tile
         <div
-          className="absolute inset-x-[22%] inset-y-[20%] rounded-[6%]"
+          className="absolute inset-x-[26%] inset-y-[24%] rounded-[6%]"
           style={{ border: `${Math.max(1, w / 18)}px solid #6f9fd8` }}
         />
       )}
