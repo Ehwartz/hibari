@@ -139,6 +139,10 @@ def _settings_out(s: storage.Settings) -> dict:
         "bot_dir_resolved": str(storage.bot_dir_path(s)),
         # the folder this process actually loaded (bot_dir changes need a restart)
         "bot_dir_loaded": str(mortal.MORTAL_DIR),
+        # preset avatars from the bot folder (URL with a version for caching)
+        "avatar_presets": [
+            f"/api/avatar-presets/{rel}?v={int(f.stat().st_mtime)}" for rel, f in storage.avatar_presets(s)
+        ],
     }
 
 
@@ -171,6 +175,14 @@ async def put_settings(body: SettingsIn) -> dict:
 
 
 # -- assets: avatars, table cloth, background ---------------------------------------
+
+
+@app.get("/api/avatar-presets/{rel:path}")
+async def get_avatar_preset(rel: str) -> FileResponse:
+    for name, f in storage.avatar_presets(storage.load_settings()):
+        if name == rel:  # only listed files: no path tricks
+            return FileResponse(f)
+    raise HTTPException(404, "no such preset")
 
 
 @app.get("/api/assets/{name}")

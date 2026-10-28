@@ -331,6 +331,21 @@ index on Windows / Linux, PyPI on macOS).
   CI runs the whole suite and a packaged smoke test on real Linux and
   macOS runners.
 
+### Preset avatars
+
+Image files in the bot folder's `*avatars` subfolders (for example
+`mjbot_mortal/saki_avatars/`) are preset avatars, listed by
+`storage.avatar_presets`. Settings carry their URLs as `avatar_presets`,
+and `GET /api/avatar-presets/<dir>/<file>` serves only listed files.
+
+- AI-A/B/C without an uploaded avatar show presets 1–3 (`avatarUrl` in
+  `appearance.ts`).
+- Every avatar picker shows the presets as thumbnails. Picking one fetches
+  it and uploads it like a chosen file (square crop).
+- The presets are third-party artwork. Like the weights, they are
+  git-ignored and travel with them: `build_release` copies them when it
+  includes the weights, and `add_weights` adds them too.
+
 ### Logo and icons
 
 The logo is a teal skylark (雲雀) gliding over a light-blue cloud on a

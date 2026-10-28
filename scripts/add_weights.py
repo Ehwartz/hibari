@@ -1,4 +1,5 @@
-"""Add the Mortal weights (and this machine's AI avatars) to a release package built without them.
+"""Add the private files to a release package built without them: the Mortal weights, the preset
+avatars next to them (mjbot_mortal/*avatars) and this machine's AI avatars (data/assets).
 
     uv run python -m scripts.add_weights release/Hibari-0.1.0-macos-arm64.zip [--weights PATH] [--no-avatars]
 
@@ -19,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.build_release import ai_avatar_files  # noqa: E402
+from scripts.build_release import ai_avatar_files, preset_dirs  # noqa: E402
 
 
 def app_prefix(names: list[str]) -> str:
@@ -33,6 +34,10 @@ def app_prefix(names: list[str]) -> str:
 
 def extra_files(prefix: str, weights: Path, avatars: bool) -> dict[str, bytes]:
     out = {f"{prefix}mjbot_mortal/mortal.pth": weights.read_bytes()}
+    for d in preset_dirs():
+        for f in sorted(d.iterdir()):
+            if f.is_file():
+                out[f"{prefix}mjbot_mortal/{d.name}/{f.name}"] = f.read_bytes()
     if avatars:
         files, versions = ai_avatar_files()
         for rel, src in files.items():

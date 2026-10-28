@@ -97,6 +97,21 @@ IMAGE_TYPES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 MAX_ASSET_BYTES = 8 * 1024 * 1024
 
 
+def avatar_presets(s: Settings) -> list[tuple[str, Path]]:
+    """Preset avatars shipped with the bot: images in its ``*avatars`` subfolders (e.g.
+    ``mjbot_mortal/saki_avatars``), as (path relative to the bot folder, file), sorted.
+    Like the weights they are not in the repository; the AIs use the first three by default."""
+    bot = bot_dir_path(s)
+    if not bot.is_dir():
+        return []
+    out = []
+    for d in sorted(p for p in bot.iterdir() if p.is_dir() and p.name.lower().endswith("avatars")):
+        for f in sorted(d.iterdir()):
+            if f.is_file() and f.suffix.lower() in {*IMAGE_TYPES.values(), ".jpeg"}:
+                out.append((f"{d.name}/{f.name}", f))
+    return out
+
+
 def asset_path(name: str) -> Path | None:
     """The stored file for an asset, or None."""
     base = ASSET_DIR / ASSETS[name]

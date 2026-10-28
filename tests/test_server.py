@@ -291,3 +291,22 @@ def test_index_html_is_not_cached():
         assert client.get("/").headers["cache-control"] == "no-cache"
         asset = next((FRONTEND_DIST / "assets").glob("*.js")).name
         assert "immutable" in client.get(f"/assets/{asset}").headers["cache-control"]
+
+
+def test_avatar_presets(tmp_path, monkeypatch):
+    bot = tmp_path / "bot"
+    (bot / "saki_avatars").mkdir(parents=True)
+    (bot / "model.py").write_text("")
+    (bot / "saki_avatars" / "b.jpg").write_bytes(b"\xff\xd8jpeg")
+    (bot / "saki_avatars" / "a.png").write_bytes(b"\x89PNGpng")
+    (bot / "saki_avatars" / "notes.txt").write_text("not an image")
+    (bot / "other").mkdir()
+    (bot / "other" / "c.png").write_bytes(b"png")
+    monkeypatch.setattr(storage, "load_settings", lambda: storage.Settings(log_dir=str(tmp_path / "games"), bot_dir=str(bot)))
+    with TestClient(app) as client:
+        presets = client.get("/api/settings").json()["avatar_presets"]
+        assert [u.split("?")[0] for u in presets] == ["/api/avatar-presets/saki_avatars/a.png", "/api/avatar-presets/saki_avatars/b.jpg"]
+        assert client.get(presets[1]).content == b"\xff\xd8jpeg"
+        assert client.get("/api/avatar-presets/other/c.png").status_code == 404
+        assert client.get("/api/avatar-presets/saki_avatars/notes.txt").status_code == 404
+        assert client.get("/api/avatar-presets/..%2Fmodel.py").status_code == 404

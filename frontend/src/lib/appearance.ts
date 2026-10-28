@@ -69,6 +69,12 @@ export function useAppSettings(): Settings | null {
 }
 
 /** Avatar URL per seat, from who sits there ('human' | 'ai1' | 'ai2' | 'ai3'). */
+/** An avatar to show: the uploaded one, else (AI-A/B/C) the matching preset from the bot folder, else null. */
+export function avatarUrl(s: Settings | null, asset: AssetName): string | null {
+  const ai = ['avatar_ai1', 'avatar_ai2', 'avatar_ai3'].indexOf(asset)
+  return assetUrl(s, asset) ?? (ai >= 0 ? (s?.avatar_presets?.[ai] ?? null) : null)
+}
+
 export function seatAvatars(s: Settings | null, players: string[]): (string | null)[] {
-  return players.map((p) => assetUrl(s, (p === 'human' ? 'avatar_player' : `avatar_${p}`) as AssetName))
+  return players.map((p) => avatarUrl(s, (p === 'human' ? 'avatar_player' : `avatar_${p}`) as AssetName))
 }

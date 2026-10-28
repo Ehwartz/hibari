@@ -41,6 +41,7 @@ export interface Settings {
   auto_temp: number // AI 代打 temperature
   sound_tiles: number // tile clack volume 0..1
   sound_voice: number // call / riichi / win voice volume 0..1
+  avatar_presets?: string[] // URLs of the preset avatars in the bot folder (AI-A/B/C default to the first three)
   ai_name: string // display name of the AI ("<name> 推荐")
   pt_mode: 'score' | 'tenhou' // how pt is computed
   pt_dan: number // Tenhou dan for the 4th-place loss (1..10)

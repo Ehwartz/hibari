@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Card, ErrorBox, Shell } from '../components/Shell'
 import { type AssetName, type Settings, api, assetUrl } from '../lib/api'
-import { BACKGROUNDS, FELTS, setSettingsCache } from '../lib/appearance'
+import { BACKGROUNDS, FELTS, avatarUrl, setSettingsCache } from '../lib/appearance'
 import { scaledImage, squareAvatar } from '../lib/image'
 import { DAN_NAMES, ptRuleText } from '../lib/pt'
 import { VOICE_CREDITS, playClack, playVoice } from '../lib/sound'
@@ -68,7 +68,14 @@ export function AvatarPicker({
   onUpload: (name: AssetName, file: File | null) => void
 }) {
   const input = useRef<HTMLInputElement>(null)
-  const url = assetUrl(settings, asset)
+  const url = avatarUrl(settings, asset)
+  const uploaded = assetUrl(settings, asset) !== null
+  const presets = settings.avatar_presets ?? []
+  // a preset goes through the same path as an uploaded file (square crop, stored as this slot's avatar)
+  const pickPreset = async (src: string) => {
+    const blob = await (await fetch(src)).blob()
+    onUpload(asset, new File([blob], src.split('/').pop()!.split('?')[0], { type: blob.type }))
+  }
   return (
     <div className="flex items-center gap-3">
       <Avatar url={url} name={name} size={size} className="ring-2 ring-white/20" />
@@ -78,12 +85,21 @@ export function AvatarPicker({
           <button onClick={() => input.current?.click()} className="rounded-md bg-white/10 px-3 py-1 text-[13px] hover:bg-white/20">
             更换
           </button>
-          {url && (
+          {uploaded && (
             <button onClick={() => onUpload(asset, null)} className="rounded-md px-2 py-1 text-[13px] text-white/55 hover:text-white">
               恢复默认
             </button>
           )}
         </div>
+        {presets.length > 0 && (
+          <div className="mt-1.5 flex gap-1" title="预设头像">
+            {presets.map((p) => (
+              <button key={p} onClick={() => void pickPreset(p)} className="rounded-md ring-1 ring-white/15 hover:ring-emerald-400">
+                <img src={p} alt="" className="h-6 w-6 rounded-md object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
         <ImageInput inputRef={input} onFile={(f) => onUpload(asset, f)} />
       </div>
     </div>

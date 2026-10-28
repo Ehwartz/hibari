@@ -16,8 +16,8 @@ The app folder keeps the repo layout, so paths in the code stay valid:
     LICENSE  使用说明.txt
     data/             only the AI avatars from this machine's data/ (seed for the first run)
 
-Without mortal.pth (CI) pass --allow-no-weights; scripts/add_weights.py adds the weights (and the AI
-avatars) to a downloaded package later.
+Without mortal.pth (CI) pass --allow-no-weights; scripts/add_weights.py adds the weights, the preset
+avatars (mjbot_mortal/*avatars) and the AI avatars to a downloaded package later.
 """
 from __future__ import annotations
 
@@ -107,6 +107,12 @@ def write_script(path: Path, text: str) -> None:
 
 
 AI_AVATARS = ("avatar_ai1", "avatar_ai2", "avatar_ai3")
+
+
+def preset_dirs() -> list[Path]:
+    """The bot folder's preset avatar folders (``mjbot_mortal/*avatars``)."""
+    bot = ROOT / "mjbot_mortal"
+    return sorted(d for d in bot.iterdir() if d.is_dir() and d.name.lower().endswith("avatars"))
 
 
 def ai_avatar_files() -> tuple[dict[str, Path], dict[str, int]]:
@@ -236,6 +242,10 @@ def main() -> None:
     shutil.copy2(ROOT / "mjbot_mortal" / "libriichi" / lib, bot / "libriichi" / lib)
     if weights.exists() and not args.no_weights:
         shutil.copy2(weights, bot / "mortal.pth")
+        # preset avatars live next to the weights and travel with them (not in the repo either)
+        for d in preset_dirs():
+            copy_tree(d, bot / d.name)
+            step(f"preset avatars: {d.name} ({sum(1 for _ in d.iterdir())} files)")
     else:
         step("no mortal.pth — package built without weights (add them with scripts/add_weights.py)")
     shutil.copy2(ROOT / "LICENSE", app / "LICENSE")
