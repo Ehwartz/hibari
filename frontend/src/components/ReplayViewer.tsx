@@ -242,8 +242,6 @@ export function ReplayViewer({
   const discards = actions.filter((a) => a.type === 'dahai')
   const discardable = discards.length ? new Set(discards.map((a) => (a as { pai: string }).pai)) : undefined
   const hints = dec ? reviewHints(dec) : (frame.hint ?? null)
-  // discard decisions are annotated on the tiles; keep the box for calls / riichi / passes
-  const showHintBox = !dec || !dec.discard || dec.best in CALL_HINT || dec.actual in CALL_HINT
   const topHint = showHints && !dec && frame.hint?.[0]?.type === 'dahai' ? frame.hint[0].tiles[0] : null
   const t = frame.event.type
   const showResult = (t === 'hora' || t === 'ryukyoku' || t === 'end_kyoku') && (table.horas.length > 0 || !!table.ryukyoku)
@@ -374,7 +372,7 @@ export function ReplayViewer({
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
-              {hasHints && showHints && showHintBox && <HintPanel hints={hints} chosen={chosenText} />}
+              {hasHints && showHints && <HintPanel hints={hints} chosen={chosenText} />}
               {actions.some((a) => a.type !== 'dahai') && <ActionBar key={index} actions={actions} onAction={onAction} />}
               {toast && (
                 <div className="absolute top-[612px] left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1.5 text-[14px] text-white">

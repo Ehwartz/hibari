@@ -46,7 +46,7 @@ export function ActionBar({ actions, onAction }: { actions: Action[]; onAction: 
   if (!groups.length) return null
   const openGroup = groups.find((g) => g.key === open)
   return (
-    <div className="absolute right-[150px] flex flex-col items-end gap-2" style={{ top: 664 }}>
+    <div className="absolute right-[250px] flex flex-col items-end gap-2" style={{ top: 664 }}>
       {openGroup && openGroup.options.length > 1 && (
         <div className="flex gap-2 rounded-xl bg-black/60 p-2 backdrop-blur">
           {openGroup.options.map((a, i) => (
@@ -82,7 +82,7 @@ export function ActionBar({ actions, onAction }: { actions: Action[]; onAction: 
 
 export function HintPanel({ hints, chosen }: { hints: Hint[] | null; chosen?: string }) {
   return (
-    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, top: 486 }}>
+    <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, bottom: 140 }}>
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-white/85">Mortal 推荐</span>
         {chosen && <span className="text-[11px] text-white/45">{chosen}</span>}

@@ -35,9 +35,11 @@ interface CardDanger {
   side: (typeof DANGER_SIDES)[number]
   open: boolean
   onToggle: () => void
+  /** Where the 34-tile popover opens: below the card, or to its left (right player, towards the centre). */
+  dir: 'below' | 'left'
 }
 
-function DangerButton({ d, side, open, onToggle }: CardDanger) {
+function DangerButton({ d, side, open, onToggle, dir }: CardDanger) {
   return (
     <div className="relative mt-1 w-full" data-noadvance>
       <button
@@ -49,7 +51,9 @@ function DangerButton({ d, side, open, onToggle }: CardDanger) {
         <span className="text-white/80">{d.riichi ? '立直' : `听${Math.round(d.tenpai * 100)}%`}</span>
       </button>
       {open && (
-        <div className="absolute top-full left-1/2 z-30 mt-1.5 w-[226px] -translate-x-1/2 rounded-xl bg-black/90 p-2.5 shadow-2xl ring-1 ring-white/15">
+        <div
+          className={`absolute z-30 w-[226px] rounded-xl bg-black/90 p-2.5 shadow-2xl ring-1 ring-white/15 ${dir === 'left' ? 'top-1/2 right-full mr-2 -translate-y-1/2' : 'top-full left-1/2 mt-1.5 -translate-x-1/2'}`}
+        >
           <div className="mb-2 flex items-center gap-1.5 text-[12px]">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ background: side.color }} />
             <span className="text-white/85">{side.label} 铳率</span>
@@ -288,6 +292,7 @@ export function Table({
       side: DANGER_SIDES[i],
       open: dangerOpen === seat,
       onToggle: () => setDangerOpen(dangerOpen === seat ? null : seat),
+      dir: rel(seat, me) === 1 ? 'left' : 'below',
     }
   }
   const [fx, setFx] = useState<DiscardFx | null>(null)
