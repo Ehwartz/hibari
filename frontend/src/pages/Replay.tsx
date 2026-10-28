@@ -38,7 +38,8 @@ export function Replay({ gameId }: { gameId: string }) {
       </Shell>
     )
   if (!frames) return <div className="flex h-full items-center justify-center text-white/50">读取中…</div>
-  const q = new URLSearchParams(location.search).get('frame')
+  // ?frame=N, after the hash (#/replay/<id>?frame=N) or in the page URL
+  const q = new URLSearchParams(location.hash.split('?')[1] ?? location.search).get('frame')
   const first = q ? Number(q) : Math.max(0, frames.findIndex((f) => f.event.type === 'start_kyoku'))
   return (
     <ReplayViewer

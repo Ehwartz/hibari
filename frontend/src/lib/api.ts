@@ -112,6 +112,41 @@ export interface Review {
   decisions: ReviewDecision[]
 }
 
+/** Practice record of one drill. grade: best = AI's top choice, good = AI gave it >= good_prob, miss = otherwise. */
+export interface DrillResult {
+  attempts: number
+  correct: number
+  streak: number // right answers in a row (>= mastered: drops out of the 错题 list)
+  last: DrillGrade
+  at: string
+}
+
+export type DrillGrade = 'best' | 'good' | 'miss'
+
+/** A discard decision from a reviewed game where you differed from the AI (何切练习). */
+export interface Drill {
+  id: string // "<game_id>:<event index>"
+  game_id: string
+  index: number
+  started_at: string
+  kyoku: string // "东1局 0本场"
+  turn: number // your n-th draw of the kyoku
+  riichi: boolean // an opponent was in riichi
+  best: string
+  best_prob: number
+  actual: string // what you played in the game
+  actual_prob: number
+  loss: number // AI q-value gap between its choice and yours
+  result: DrillResult | null
+}
+
+export interface DrillList {
+  items: Drill[]
+  unreviewed: string[] // finished games of yours without a review yet
+  good_prob: number
+  mastered: number
+}
+
 export type StatValues = Record<string, number | null>
 
 export interface StatsResponse {
@@ -153,6 +188,12 @@ export const api = {
     ),
   cancelBatch: () => fetch('/api/batch/cancel', { method: 'POST' }).then((r) => json<BatchStatus>(r)),
   deleteLog: (id: string) => fetch(`/api/logs/${id}`, { method: 'DELETE' }).then((r) => json<{ deleted: string }>(r)),
+  drills: () => fetch('/api/drills').then((r) => json<DrillList>(r)),
+  answerDrill: (id: string, choice: string) =>
+    fetch('/api/drills/answer', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ id, choice }) }).then((r) =>
+      json<{ grade: DrillGrade; prob: number; result: DrillResult }>(r),
+    ),
+  resetDrills: () => fetch('/api/drills/results', { method: 'DELETE' }).then((r) => json<{ ok: boolean }>(r)),
   uploadAsset: (name: AssetName, blob: Blob) =>
     fetch(`/api/assets/${name}`, { method: 'PUT', headers: { 'Content-Type': blob.type }, body: blob }).then((r) =>
       json<Settings>(r),

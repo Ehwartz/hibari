@@ -26,11 +26,11 @@ const CALL_HINT: Record<string, { type: Hint['type']; name: string }> = {
 }
 
 /** Human-readable name of an AI (Mortal-style) action label. */
-function labelName(label: string): string {
+export function labelName(label: string): string {
   return CALL_HINT[label]?.name ?? `打 ${tileName(label)}`
 }
 
-function reviewHints(d: ReviewDecision): Hint[] {
+export function reviewHints(d: ReviewDecision): Hint[] {
   return Object.entries(d.probs)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)

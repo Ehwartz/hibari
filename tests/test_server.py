@@ -12,6 +12,7 @@ _real_load_settings = storage.load_settings  # the autouse fixture below replace
 def tmp_settings(tmp_path, monkeypatch):
     """Keep settings and saved logs out of the real data/ folder."""
     monkeypatch.setattr(storage, "SETTINGS_FILE", tmp_path / "settings.json")
+    monkeypatch.setattr(storage, "DRILLS_FILE", tmp_path / "drills.json")
     monkeypatch.setattr(storage, "load_settings", lambda: storage.Settings(log_dir=str(tmp_path / "games")))
     return tmp_path
 
@@ -122,10 +123,25 @@ def test_logs_and_stats_api(tmp_settings):
         assert stats["stat"]["avg_rank"] == meta["rank"]
 
         assert client.get(f"/api/logs/{game_id}/review").status_code == 404
+        assert client.get("/api/drills").json()["unreviewed"] == [game_id]
         review = client.post(f"/api/logs/{game_id}/review").json()
         assert review["summary"]["decisions"] > 10 and review["human"] == meta["human"]
         assert client.get("/api/logs").json()["games"][0]["review"]["decisions"] == review["summary"]["decisions"]
         assert client.get(f"/api/logs/{game_id}/review").status_code == 200
+
+        # drills: the discard decisions that differ from Mortal (this player always tsumogiris)
+        drills = client.get("/api/drills").json()
+        mismatches = [d for d in review["decisions"] if d["discard"] and not d["match"]]
+        assert drills["unreviewed"] == [] and len(drills["items"]) == len(mismatches) > 0
+        item = drills["items"][0]
+        assert item["kyoku"].startswith("东") and item["turn"] >= 1 and item["result"] is None
+        ans = client.post("/api/drills/answer", json={"id": item["id"], "choice": item["best"]}).json()
+        assert ans["grade"] == "best" and ans["result"] == {**ans["result"], "attempts": 1, "correct": 1, "streak": 1}
+        ans = client.post("/api/drills/answer", json={"id": item["id"], "choice": "none"}).json()
+        assert ans["grade"] == "miss" and ans["result"]["streak"] == 0 and ans["result"]["attempts"] == 2
+        assert client.get("/api/drills").json()["items"][0]["result"]["last"] == "miss"
+        assert client.post("/api/drills/answer", json={"id": f"{game_id}:99999", "choice": "1m"}).status_code == 404
+        assert tmp_settings.joinpath("drills.json").exists()
 
         assert client.get("/api/logs/..%2Fsecret").status_code in (400, 404)
         assert client.delete(f"/api/logs/{game_id}").status_code == 200

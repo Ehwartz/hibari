@@ -7,6 +7,7 @@ export const NAV = [
   { href: '#/', label: '主页' },
   { href: '#/new', label: '对局' },
   { href: '#/logs', label: '牌谱' },
+  { href: '#/drill', label: '练习' },
   { href: '#/stats', label: '数据' },
   { href: '#/settings', label: '设置' },
   { href: '#/user', label: '用户' },

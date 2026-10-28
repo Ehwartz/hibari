@@ -252,6 +252,33 @@ async def run_review(game_id: str) -> dict:
     return review
 
 
+# -- discard drills (何切练习) ------------------------------------------------------
+
+
+@app.get("/api/drills")
+async def list_drills() -> dict:
+    return await asyncio.to_thread(storage.list_drills, storage.load_settings())
+
+
+class DrillAnswer(BaseModel):
+    id: str = Field(max_length=100)
+    choice: str = Field(max_length=16)
+
+
+@app.post("/api/drills/answer")
+async def answer_drill(a: DrillAnswer) -> dict:
+    try:
+        return storage.grade_drill(storage.load_settings(), a.id, a.choice)
+    except (KeyError, ValueError):
+        raise HTTPException(404, "no such drill") from None
+
+
+@app.delete("/api/drills/results")
+async def reset_drills() -> dict:
+    storage.reset_drills()
+    return {"ok": True}
+
+
 class BatchRequest(BaseModel):
     length: Literal["hanchan", "tonpuu"] = "hanchan"
     count: int = Field(ge=1, le=200)

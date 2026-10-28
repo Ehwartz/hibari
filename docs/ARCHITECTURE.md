@@ -374,7 +374,9 @@ source of truth**.
   preset key or `custom`. Presets and CSS variables are in
   `frontend/src/lib/appearance.ts`.
 - API: `GET/PUT /api/settings`, `GET /api/logs`, `GET /api/logs/{id}`
-  (events), `DELETE /api/logs/{id}`, `POST /api/stats {game_ids?}`.
+  (events), `DELETE /api/logs/{id}`, `POST /api/stats {game_ids?}`,
+  `GET /api/drills`, `POST /api/drills/answer`, `DELETE /api/drills/results`.
+- Drill results: `data/drills.json` (see §8, Discard drills).
 - Tests point `storage.load_settings` / `SETTINGS_FILE` at a temp dir and
   never write to `data/`.
 
@@ -452,6 +454,34 @@ hand, so it is the same during play and in review.
 - Fully AI-played games are excluded from stats by default (数据 has a
   「计入代打对局」 toggle; the default `/api/stats` selection skips them).
 
+### Discard drills (何切练习, M5)
+
+- Questions come from existing reviews, with no extra AI runs: every discard
+  decision (`discard: true`) where you did not pick Mortal's top choice, in
+  finished games that were not fully AI-played (`storage.list_drills`).
+  Each item carries the kyoku label, your turn number, whether an opponent's
+  riichi stood, the best and actual labels with probabilities, and the
+  q-gap. Items are cached per game by (log mtime, review mtime). Drill id =
+  `"<game_id>:<event index>"`.
+- Answers: `POST /api/drills/answer {id, choice}`. The grade is computed on
+  the server from the review: `best` = top choice, `good` = prob ≥ 0.2,
+  otherwise `miss`. Results go to `data/drills.json`, keyed by drill id,
+  with attempts / correct / streak / last. Two right answers in a row
+  count as mastered and drop the item out of 错题. `DELETE
+  /api/drills/results` resets them.
+- UI (`pages/Drill.tsx`): 练习 in the sidebar shows totals, filters
+  (全部 / 恶手 < 5% / 错题 / 未练习 / 有人立直), the question count, a
+  「全部复盘」 button for unreviewed games, and the question list.
+  `#/drill/run?f=&n=` replays the log (masked to your seat) up to the
+  decision event and lets you click a tile, or a 立直 / 杠 / … button for
+  non-tile labels. It then shows the grade, Mortal's probabilities on every
+  tile, the top 3, what you played in the game, and a link to
+  `#/replay/<id>?frame=<index>` (Replay now also reads `?frame` after the
+  hash).
+- Partial-autoplay games stay in the pool. Their AI-made decisions are not
+  marked in the log, but at `auto_temp` 0 they match the review and so
+  never become questions.
+
 ## 9. Milestones & status
 
 | # | Milestone | Status |
@@ -461,7 +491,7 @@ hand, so it is the same during play and in review.
 | M2 | Human vs 3 bots in the browser (WebSocket + React table) | ✅ done 2026-10-27 |
 | M3 | Persist games, replay viewer | ✅ done 2026-10-27 (log folder + list / replay / delete) |
 | M4 | Mortal review | ✅ done 2026-10-28 (review + replay annotations + deal-in risk) |
-| M5 | Stats dashboard, training features | stats dashboard done; training features open |
+| M5 | Stats dashboard, training features | ✅ done 2026-10-28 (stats dashboard + 何切 discard drills) |
 | M6 | Desktop packaging | — |
 
 ## 10. Decision log
@@ -489,6 +519,10 @@ hand, so it is the same during play and in review.
   (`backend.mortal.sampling_engine`). T = 0.3 matches the hint panel's
   probabilities. The hint shadow is always greedy. The wall was already
   random: a random seed per game and a fresh shuffle every kyoku.
+- 2026-10-28 — 何切 drills are built from saved reviews instead of a
+  separate puzzle set, so they reflect your own mistakes and cost no extra
+  inference. "Good" (prob ≥ 0.2) counts as right, because close second
+  choices are not real mistakes.
 - 2026-10-28 — pt rule is a setting (`pt_mode`). "score" = (points − 30000)
   / 1000 + uma 20/10/−10/−20 + oka 20, the same for both lengths. "tenhou" =
   Tenhou 鳳凰卓 dan pt, rank only: hanchan +90/+45/0/−(15·dan+15), tonpuu

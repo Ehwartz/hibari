@@ -314,3 +314,117 @@ def _num(v):
         return None if v != v else round(v, 4)  # NaN (no samples) -> null
     return v
 
+
+
+# -- discard drills (何切练习) ------------------------------------------------------
+
+DRILLS_FILE = DATA / "drills.json"
+# an answer counts as "good" (not the top choice, but fine) when Mortal gave it at least this
+DRILL_GOOD_PROB = 0.2
+# answered right this many times in a row = mastered (drops out of the 错题 list)
+DRILL_MASTERED = 2
+_WIND = "东南西北"
+_drill_cache: dict[Path, tuple[tuple[float, float], list[dict]]] = {}
+_drills_lock = threading.Lock()
+
+
+def _game_drills(path: Path, meta: GameMeta) -> list[dict]:
+    """Discard decisions of one reviewed game where the human differed from Mortal."""
+    rf = review_file(path)
+    mtime = (path.stat().st_mtime, rf.stat().st_mtime)
+    cached = _drill_cache.get(path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    review = read_review(path) or {}
+    events = read_events(path)
+    seat = meta.human
+    # per event: kyoku label, own turn number, whether an opponent's riichi stands
+    ctx: list[tuple[str, int, bool]] = []
+    label, turn, riichi = "", 0, False
+    for ev in events:
+        t = ev["type"]
+        if t == "start_kyoku":
+            label = f"{_WIND[['E', 'S', 'W', 'N'].index(ev['bakaze'])]}{ev['kyoku']}局 {ev['honba']}本场"
+            turn, riichi = 0, False
+        elif t == "tsumo" and ev["actor"] == seat:
+            turn += 1
+        elif t == "reach_accepted" and ev["actor"] != seat:
+            riichi = True
+        ctx.append((label, turn, riichi))
+    items = []
+    for d in review.get("decisions", []):
+        if not d.get("discard") or d.get("match") or d["index"] >= len(ctx):
+            continue
+        label, turn, riichi = ctx[d["index"]]
+        q = d.get("q", {})
+        items.append(
+            {
+                "id": f"{meta.id}:{d['index']}",
+                "game_id": meta.id,
+                "index": d["index"],
+                "started_at": meta.started_at,
+                "kyoku": label,
+                "turn": max(turn, 1),
+                "riichi": riichi,  # an opponent is in riichi
+                "best": d["best"],
+                "best_prob": d["probs"].get(d["best"], 0.0),
+                "actual": d["actual"],
+                "actual_prob": d["actual_prob"],
+                "loss": round(q.get(d["best"], 0.0) - q.get(d["actual"], 0.0), 4),
+            }
+        )
+    _drill_cache[path] = (mtime, items)
+    return items
+
+
+def _drill_results() -> dict[str, dict]:
+    try:
+        return json.loads(DRILLS_FILE.read_text(encoding="utf-8")).get("results", {})
+    except (OSError, ValueError):
+        return {}
+
+
+def list_drills(settings: Settings) -> dict:
+    """Drill questions from all reviewed games you played yourself, with your practice record."""
+    results = _drill_results()
+    items: list[dict] = []
+    unreviewed: list[str] = []
+    for g in list_games(settings):
+        if not g.finished or g.autoplay == "full":
+            continue
+        if g.review is None:
+            unreviewed.append(g.id)
+            continue
+        for it in _game_drills(log_file(settings, g.id), g):
+            items.append({**it, "result": results.get(it["id"])})
+    return {"items": items, "unreviewed": unreviewed, "good_prob": DRILL_GOOD_PROB, "mastered": DRILL_MASTERED}
+
+
+def grade_drill(settings: Settings, drill_id: str, choice: str) -> dict:
+    """Grade an answer against the review and record it. Raises KeyError for an unknown drill."""
+    game_id, _, index = drill_id.partition(":")
+    path = log_file(settings, game_id)
+    review = read_review(path) or {}
+    d = next((d for d in review.get("decisions", []) if str(d["index"]) == index and d.get("discard")), None)
+    if d is None:
+        raise KeyError(drill_id)
+    prob = d["probs"].get(choice, 0.0)
+    grade = "best" if choice == d["best"] else "good" if prob >= DRILL_GOOD_PROB else "miss"
+    ok = grade != "miss"
+    with _drills_lock:
+        results = _drill_results()
+        r = results.get(drill_id) or {"attempts": 0, "correct": 0, "streak": 0}
+        r["attempts"] += 1
+        r["correct"] += ok
+        r["streak"] = r["streak"] + 1 if ok else 0
+        r["last"] = grade
+        r["at"] = datetime.now().isoformat(timespec="seconds")
+        results[drill_id] = r
+        DATA.mkdir(parents=True, exist_ok=True)
+        DRILLS_FILE.write_text(json.dumps({"results": results}, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"grade": grade, "prob": prob, "result": r}
+
+
+def reset_drills() -> None:
+    with _drills_lock:
+        DRILLS_FILE.unlink(missing_ok=True)
