@@ -686,6 +686,8 @@ hand, so it is the same during play and in review.
 
 ## 9. Milestones & status
 
+Planned features: see [TODO.md](TODO.md).
+
 | # | Milestone | Status |
 |---|---|---|
 | M0 | Env: uv + Python 3.12 + CPU torch; load Mortal in-process; bot answers sample events; `PlayerState` works | ✅ done 2026-10-27 |
