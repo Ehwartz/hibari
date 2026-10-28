@@ -13,6 +13,8 @@ Server -> client messages:
 Client -> server:
     {"type": "action", "action": <one of the offered actions>}
     {"type": "autoplay", "on": bool}       Mortal plays the human's seat
+    {"type": "quit", "save": bool}         leave the game (see ``quit``); answered with
+                                           {"type": "quit", "saved": path | null}
 """
 from __future__ import annotations
 
@@ -103,7 +105,10 @@ class GameSession:
     # -- connection --------------------------------------------------------
 
     def start(self) -> None:
-        self._task = asyncio.create_task(self._run())
+        """Start the game loop (once). Called when the first client attaches, so the client sees
+        the first kyoku live (with its intro animation) rather than as replayed history."""
+        if self._task is None:
+            self._task = asyncio.create_task(self._run())
 
     async def attach(self, ws: WebSocket) -> None:
         """Make ``ws`` the client and replay everything sent so far."""
@@ -116,6 +121,7 @@ class GameSession:
             await ws.send_json({**out, "replay": msg is not self.pending})
             sent += 1
         self._ws = ws  # no await since the loop's last check: nothing can slip in between
+        self.start()
 
     def detach(self, ws: WebSocket) -> None:
         if self._ws is ws:
@@ -129,6 +135,26 @@ class GameSession:
         if on and self.pending is not None:
             await self._actions.put(_AUTO)  # resolve the open decision automatically
         await self._send({"type": "autoplay", "on": on}, record=False)
+
+    async def quit(self, save: bool) -> str | None:
+        """Stop the game because the player left it.
+
+        With ``save``, the log so far is written like a finished game's, minus
+        ``end_game`` (so it shows as unfinished and stays out of stats / drills).
+        Returns the saved path, if any.
+        """
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except BaseException:  # CancelledError (or a crash) — the game is over either way
+                pass
+        path = None
+        if save and not self.finished and any(e["type"] == "start_kyoku" for e in self.game.log):
+            path = self.log_dir / f"{self.id}.json.gz"
+            await asyncio.to_thread(write_log, path, list(self.game.log))
+        self.finished = True
+        return str(path) if path else None
 
     async def _send(self, msg: dict, record: bool = True) -> None:
         if record:

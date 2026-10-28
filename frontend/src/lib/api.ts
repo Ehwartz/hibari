@@ -5,6 +5,7 @@ export type ServerMsg =
   | { type: 'error'; message: string; fatal: boolean }
   | { type: 'saved'; path: string }
   | { type: 'autoplay'; on: boolean }
+  | { type: 'quit'; saved: string | null }
 
 export interface NewGameOptions {
   length?: 'hanchan' | 'tonpuu' // default: settings

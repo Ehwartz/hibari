@@ -109,9 +109,11 @@ interface HandProps {
   info?: (tile: TileT, fromDrawn: boolean) => TileInfo | undefined
   /** Manual arrangement (auto-sort off): drag hand tile `from` so it ends up at index `to`. */
   onReorder?: (from: number, to: number) => void
+  /** Deal animation: tile i appears after this many ms (keyed so a new deal restarts it). */
+  deal?: { key: number; delay: (i: number) => number }
 }
 
-export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info, onReorder }: HandProps) {
+export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info, onReorder, deal }: HandProps) {
   // drag & drop arrangement: `drag` = index being dragged, `drop` = insertion point (0..n)
   const [drag, setDrag] = useState<number | null>(null)
   const [drop, setDrop] = useState<number | null>(null)
@@ -214,7 +216,11 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
     <div className="flex items-end">
       <div className="flex items-end gap-[2px]">
         {hand.map((t, i) =>
-          sortable ? (
+          deal ? (
+            <div key={`deal${deal.key}-${i}`} className="deal-in" style={{ animationDelay: `${deal.delay(i)}ms` }}>
+              {tile(t, `h${i}`, false, i)}
+            </div>
+          ) : sortable ? (
             <div key={`d${i}`} className={`relative ${drag === i ? 'opacity-40' : ''} cursor-grab`} {...dragProps(i)}>
               {marker(i)}
               {tile(t, `h${i}`, false, i)}

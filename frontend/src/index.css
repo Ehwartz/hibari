@@ -133,3 +133,37 @@ body {
     transform: translate(-50%, -3px);
   }
 }
+
+/* kyoku intro: "东1局 0本场" banner, then the deal */
+.kyoku-intro {
+  animation: kyoku-intro 1300ms ease-out forwards;
+}
+@keyframes kyoku-intro {
+  0% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.deal-in {
+  animation: deal-in 260ms ease-out both;
+}
+@keyframes deal-in {
+  from {
+    opacity: 0;
+    transform: translateY(-45%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

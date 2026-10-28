@@ -200,9 +200,14 @@ interface Props {
   width?: number
   /** Manual hand arrangement (used when auto-sort is off). */
   onReorder?: (from: number, to: number) => void
+  /** Start-of-kyoku deal animation: tiles start appearing `start` ms after `key` changes. */
+  deal?: { key: number; start: number } | null
 }
 
 const rel = (seat: number, me: number) => (seat - me + 4) % 4
+
+/** Gap between two dealt groups; a full deal is 16 steps. */
+export const DEAL_STEP_MS = 85
 
 /** A group rotated so that local +y points towards the seat at relative position `r`. */
 function Rotated({ r, cx, children }: { r: number; cx: number; children: ReactNode }) {
@@ -296,6 +301,7 @@ export function Table({
   children,
   width = STAGE_W,
   onReorder,
+  deal,
 }: Props) {
   const cx = width / 2
   const [dangerOpen, setDangerOpen] = useState<number | null>(null)
@@ -327,6 +333,15 @@ export function Table({
     }
     return { hand: arrange(table.seats[seat].hand, sort), drawn: table.seats[seat].drawn, leaving: null }
   }
+
+  // dealt like at a real table: 4 tiles to each player (dealer first) three times, then 1 each
+  const dealOf = (seat: number) =>
+    deal
+      ? {
+          key: deal.key,
+          delay: (i: number) => deal.start + (Math.min(Math.floor(i / 4), 3) * 4 + rel(seat, table.oya)) * DEAL_STEP_MS,
+        }
+      : undefined
 
   const card = (seat: number): CardProps => ({
     name: table.names[seat],
@@ -363,7 +378,7 @@ export function Table({
               >
                 {/* top player: beside the hand, mirroring yours */}
                 {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={beside(OPP_W)} danger={dangerFor(seat)} {...card(seat)} />}
-                <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} />
+                <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} deal={dealOf(seat)} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} />
               </div>
             )}
@@ -389,6 +404,7 @@ export function Table({
           onDiscard={onDiscard}
           info={tileInfo}
           onReorder={!sortHand ? onReorder : undefined}
+          deal={dealOf(me)}
         />
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} />
       </div>

@@ -17,16 +17,16 @@ import {
 } from '../components/Overlays'
 import { computeDanger, tileRisks } from '../lib/danger'
 import { ScaledStage } from '../components/Stage'
-import { type Callout, type DiscardFx, Table, calloutFor } from '../components/Table'
+import { type Callout, DEAL_STEP_MS, type DiscardFx, Table, calloutFor } from '../components/Table'
 import { type ServerMsg, wsUrl } from '../lib/api'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
+import { WIND_NAME } from '../lib/tiles'
 
 
 // Pause after each event (ms) so the game can be followed.
 const DELAY: Partial<Record<MjaiEvent['type'], number>> = {
-  start_kyoku: 900,
   tsumo: 120,
   dahai: 520,
   // calls / riichi / wins get a callout and time to take it in
@@ -44,6 +44,17 @@ const DELAY: Partial<Record<MjaiEvent['type'], number>> = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// Start of a kyoku: the "东1局 0本场" banner, then the deal (16 groups) — see Table's deal prop.
+const INTRO_MS = 1300
+const DEAL_START_MS = 1100 // the deal starts while the banner fades out
+const DEAL_MS = DEAL_START_MS + 15 * DEAL_STEP_MS + 300
+
+interface Intro {
+  key: number
+  round: string
+  sub: string
+}
+
 function usePlaySession(gameId: string) {
   const [table, setTable] = useState<TableState>(initialTable)
   const [fx, setFx] = useState<DiscardFx | null>(null)
@@ -53,6 +64,7 @@ function usePlaySession(gameId: string) {
   const [status, setStatus] = useState<'connecting' | 'live' | 'reconnecting'>('connecting')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [intro, setIntro] = useState<Intro | null>(null)
 
   const r = useRef({
     table: initialTable(),
@@ -63,6 +75,7 @@ function usePlaySession(gameId: string) {
     fxKey: 0,
     ws: null as WebSocket | null,
     autoplay: false,
+    quitting: false, // the player left: no reconnect
   })
   const [autoplay, setAutoplay] = useState(false)
 
@@ -90,6 +103,7 @@ function usePlaySession(gameId: string) {
       setAutoplay(m.on)
       return
     }
+    if (m.type === 'quit') return // handled in onmessage
     const ev = m.event
     const prev = s.table
     s.table = applyEvent(prev, ev)
@@ -121,6 +135,17 @@ function usePlaySession(gameId: string) {
       return
     }
     if (m.replay) return
+    if (ev.type === 'start_kyoku') {
+      const t = s.table
+      setIntro({
+        key: ++s.fxKey,
+        round: `${WIND_NAME[t.bakaze]}${t.kyoku}局`,
+        sub: [`${t.honba} 本场`, t.kyotaku ? `供托 ${t.kyotaku}` : '', `亲家 ${t.names[t.oya]}`].filter(Boolean).join(' · '),
+      })
+      await sleep(DEAL_MS)
+      if (gen === r.current.gen) setIntro(null)
+      return
+    }
     if (ev.type === 'end_kyoku' && (s.table.horas.length > 0 || s.table.ryukyoku)) {
       setModal('result')
       // with AI 代打 on, results close by themselves
@@ -160,11 +185,18 @@ function usePlaySession(gameId: string) {
         setStatus('live')
       }
       ws.onmessage = (e) => {
-        r.current.queue.push(JSON.parse(e.data))
+        const msg = JSON.parse(e.data) as ServerMsg
+        if (msg.type === 'quit') {
+          // the server stopped the game (we asked it to): leave right away, whatever is queued
+          r.current.quitting = true
+          location.hash = '#/'
+          return
+        }
+        r.current.queue.push(msg)
         pump()
       }
       ws.onclose = (e) => {
-        if (closed) return
+        if (closed || r.current.quitting) return
         if (e.code === 4404) {
           setError('找不到这个对局（服务器可能已重启）')
           return
@@ -187,6 +219,17 @@ function usePlaySession(gameId: string) {
     resume()
   }
   const closeModal = () => resume()
+  /** Leave the game: the server stops it (and saves the log so far with `save`), then we go home. */
+  const quit = (save: boolean) => {
+    const ws = r.current.ws
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      location.hash = '#/'
+      return
+    }
+    r.current.quitting = true
+    ws.send(JSON.stringify({ type: 'quit', save }))
+    setTimeout(() => (location.hash = '#/'), 3000) // in case the answer never comes
+  }
   // manual arrangement of your hand (auto-sort off); kept across draws / discards / calls
   const reorder = (from: number, to: number) => {
     const s = r.current
@@ -221,6 +264,8 @@ function usePlaySession(gameId: string) {
     autoplay,
     toggleAutoplay,
     reorder,
+    intro,
+    quit,
   }
 }
 
@@ -240,7 +285,11 @@ export function Play({ gameId }: { gameId: string }) {
     autoplay,
     toggleAutoplay,
     reorder,
+    intro,
+    quit,
   } = usePlaySession(gameId)
+  const [confirmQuit, setConfirmQuit] = useState(false)
+  const gameOver = modal === 'end' || !!table.finalScores
   const settings = useAppSettings()
   const [showHints, setShowHints] = useState(() => localStorageGet('hints') !== '0')
   const [auto, setAuto] = useState<AutoSettings>(() => {
@@ -313,7 +362,12 @@ export function Play({ gameId }: { gameId: string }) {
   return (
     <div className="flex h-full flex-col items-center" onContextMenu={onRightClick}>
       <div className="flex h-12 w-full shrink-0 items-center gap-3 border-b border-white/10 bg-black/40 px-4 text-[13px] text-white">
-        <a href="#/" className="text-white/60 hover:text-white">← 主界面</a>
+        <button
+          onClick={() => (gameOver ? (location.hash = '#/') : setConfirmQuit(true))}
+          className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-bold hover:bg-rose-700/80"
+        >
+          退出对局
+        </button>
         <span className="font-bold tracking-wide">对局</span>
         <span className="font-mono text-white/35">{gameId}</span>
         <span
@@ -338,6 +392,28 @@ export function Play({ gameId }: { gameId: string }) {
         </label>
       </div>
 
+      {confirmQuit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setConfirmQuit(false)}>
+          <div className="w-[420px] rounded-2xl bg-[#13241c] p-6 text-white shadow-2xl ring-1 ring-white/15" onClick={(e) => e.stopPropagation()}>
+            <div className="text-[18px] font-bold">退出这局对局？</div>
+            <div className="mt-2 text-[13px] leading-relaxed text-white/65">
+              对局还没有结束。可以保存已经打完的部分（记为未完成，可在「牌谱」里回放，不计入数据和练习），也可以直接放弃。
+            </div>
+            <div className="mt-5 flex flex-col gap-2">
+              <button className="rounded-lg bg-emerald-600 py-2 font-bold hover:bg-emerald-500" onClick={() => quit(true)}>
+                保存牌谱并退出
+              </button>
+              <button className="rounded-lg bg-white/10 py-2 hover:bg-rose-700/80" onClick={() => quit(false)}>
+                不保存，直接退出
+              </button>
+              <button className="rounded-lg py-2 text-white/60 hover:text-white" onClick={() => setConfirmQuit(false)}>
+                继续对局
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="w-full bg-rose-900/70 px-4 py-2 text-center text-[13px] text-rose-100">
           {error} <a href="#/" className="ml-3 underline">返回首页</a>
@@ -355,6 +431,7 @@ export function Play({ gameId }: { gameId: string }) {
           onDiscard={onDiscard}
           sortHand={auto.autoSort}
           onReorder={reorder}
+          deal={intro ? { key: intro.key, start: DEAL_START_MS } : null}
           discardFx={fx}
           callouts={callouts}
           avatars={seatAvatars(settings, table.players)}
@@ -362,6 +439,14 @@ export function Play({ gameId }: { gameId: string }) {
           tileInfo={danger.length ? (t) => ({ risks: tileRisks(danger, t) }) : undefined}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
+          {intro && (
+            <div key={intro.key} className="kyoku-intro pointer-events-none absolute inset-x-0 z-20 flex justify-center" style={{ top: 300, animationDuration: `${INTRO_MS}ms` }}>
+              <div className="rounded-2xl bg-[#0b1611] px-14 py-6 text-center text-white shadow-2xl ring-1 ring-amber-300/40">
+                <div className="text-[56px] leading-tight font-black tracking-[0.2em] text-amber-200">{intro.round}</div>
+                <div className="mt-1 text-[18px] tracking-wider text-white/80">{intro.sub}</div>
+              </div>
+            </div>
+          )}
           {showHints && <HintPanel hints={hint} title={`${settings?.ai_name || 'AI'} 推荐`} />}
           {actions.some((a) => a.type !== 'dahai') && <ActionBar key={JSON.stringify(actions)} actions={actions} onAction={act} />}
           {notice && (

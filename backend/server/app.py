@@ -71,8 +71,7 @@ async def create_game(req: NewGame) -> dict:
         auto_temp=settings.auto_temp,
         log_dir=settings.log_path,
     )
-    sessions[game_id] = session
-    session.start()
+    sessions[game_id] = session  # the game starts when the client connects (GameSession.attach)
     return {"game_id": game_id, "seed": session.game.seed}
 
 
@@ -99,6 +98,12 @@ async def play(ws: WebSocket, game_id: str) -> None:
                 await session.submit(msg["action"])
             elif msg.get("type") == "autoplay":
                 await session.set_autoplay(bool(msg.get("on")))
+            elif msg.get("type") == "quit":
+                saved = await session.quit(bool(msg.get("save", True)))
+                sessions.pop(game_id, None)
+                await ws.send_json({"type": "quit", "saved": saved})
+                await ws.close()
+                return
     except WebSocketDisconnect:
         session.detach(ws)
 

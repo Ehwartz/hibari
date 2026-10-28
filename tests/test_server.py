@@ -235,3 +235,33 @@ def test_pt_rules():
     assert storage.game_point(scores, 4, 3, "hanchan", t) == -120  # 七段 東南 4th
     assert storage.game_point(scores, 4, 3, "tonpuu", t) == -80  # 七段 東風 4th
     assert storage.game_point(scores, 3, 2, "tonpuu", t) == 0
+
+
+def test_quit_saves_unfinished_log(tmp_settings):
+    with TestClient(app) as client:
+        new = {"length": "tonpuu", "seed": 3, "bots": "simple", "hints": False, "think": [0, 0]}
+        game_id = client.post("/api/games", json=new).json()["game_id"]
+        with client.websocket_connect(f"/api/games/{game_id}/ws") as ws:
+            decisions = 0
+            while decisions < 3:  # play a few of our decisions, then leave mid-kyoku
+                msg = ws.receive_json()
+                if "actions" in msg:
+                    ws.send_json({"type": "action", "action": _pick(msg["actions"])})
+                    decisions += 1
+            ws.send_json({"type": "quit", "save": True})
+            while (msg := ws.receive_json())["type"] != "quit":
+                pass
+            assert msg["saved"] and msg["saved"].endswith(f"{game_id}.json.gz")
+        games = client.get("/api/logs").json()["games"]
+        assert [g["id"] for g in games] == [game_id] and not games[0]["finished"]
+        assert client.get(f"/api/games/{game_id}").status_code == 404  # session is gone
+        assert client.post("/api/stats", json={}).json()["stat"] is None  # unfinished: not counted
+
+        # quitting without saving leaves no log
+        other = client.post("/api/games", json=new).json()["game_id"]
+        with client.websocket_connect(f"/api/games/{other}/ws") as ws:
+            ws.send_json({"type": "quit", "save": False})
+            while (msg := ws.receive_json())["type"] != "quit":
+                pass
+            assert msg["saved"] is None
+        assert [g["id"] for g in client.get("/api/logs").json()["games"]] == [game_id]

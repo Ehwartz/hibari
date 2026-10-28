@@ -303,6 +303,24 @@ class Agent(Protocol):
   would leak the tile, which is the classic 手出し位置 read. Review shows
   hands sorted.
 
+### Kyoku intro and leaving a game
+
+- A live (not replayed) `start_kyoku` shows a "东1局 / 0 本场 · 供托 · 亲家"
+  banner for 1.3 s. It is followed by a deal animation: Table's `deal`
+  prop passes per-tile `animation-delay`s to `Hand`. Dealing is 4 tiles
+  per player three times, dealer first, then 1 each, which makes 16 steps
+  at 85 ms. Playback pauses for the whole intro, about 2.7 s.
+- The game loop starts when the first client attaches
+  (`GameSession.start` from `attach`), not when the game is created.
+  Otherwise the first kyoku could already be history, replayed without the
+  intro, by the time the page connects.
+- 「退出对局」 asks for confirmation. Choosing 保存 or 不保存 sends
+  `{"type": "quit", "save": bool}`. The session cancels its task and, with
+  `save`, writes the log so far (no `end_game`, so it is unfinished: it can
+  be replayed but is not in stats or drills). It then answers
+  `{"type": "quit", "saved": path | null}` and is dropped. The client goes
+  home and does not reconnect. A finished game's button just goes home.
+
 ### Server → client contract (M2)
 
 The browser rebuilds the table itself from **masked mjai events**
