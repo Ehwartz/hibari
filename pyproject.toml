@@ -1,6 +1,6 @@
 [project]
 name = "hibari"
-version = "0.1.1"
+version = "0.1.2"
 description = "Hibari (雲雀): riichi mahjong trainer - play against AI, record and review games"
 requires-python = ">=3.12,<3.13"
 license = "AGPL-3.0-only"
