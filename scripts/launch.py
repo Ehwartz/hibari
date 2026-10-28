@@ -86,6 +86,11 @@ MAC_BROWSERS = [
     ("Edge", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
     ("Chromium", "Chromium.app/Contents/MacOS/Chromium"),
 ]
+# where macOS apps are installed (a function, so tests can point it elsewhere)
+def mac_app_dirs() -> list[Path]:
+    return [Path("/Applications"), Path.home() / "Applications"]
+
+
 LINUX_BROWSERS = [
     ("Chrome", "google-chrome"),
     ("Chrome", "google-chrome-stable"),
@@ -106,7 +111,7 @@ def find_browser() -> tuple[str, Path] | None:
         return ("Edge", edge) if edge else None
     if IS_MAC:
         for name, rel in MAC_BROWSERS:
-            for apps in (Path("/Applications"), Path.home() / "Applications"):
+            for apps in mac_app_dirs():
                 if (p := apps / rel).exists():
                     return name, p
         return None

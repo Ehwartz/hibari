@@ -15,6 +15,7 @@ jobs:
   build:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +39,7 @@ jobs:
           uv sync --frozen
           cd frontend && npm ci
       - name: Tests
-        run: uv run pytest -q -rs
+        run: uv run pytest -q -rs -x --tb=short
       - name: Build package
         run: uv run python -m scripts.build_release --allow-no-weights
       - name: Smoke test the package

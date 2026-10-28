@@ -17,7 +17,7 @@ def test_parse_major():
 def mac(monkeypatch, tmp_path):
     monkeypatch.setattr(launch, "IS_WIN", False)
     monkeypatch.setattr(launch, "IS_MAC", True)
-    monkeypatch.setattr(launch.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(launch, "mac_app_dirs", lambda: [tmp_path / "Applications"])
     return tmp_path
 
 
