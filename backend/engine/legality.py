@@ -33,7 +33,11 @@ def discard_error(st: KyokuState, seat: int, action: dict, event: dict) -> str |
     s = st.seats[seat]
     pai, tsumogiri = action["pai"], action.get("tsumogiri", False)
     own_draw = event["type"] == "tsumo" and event["actor"] == seat
-    if tsumogiri and not (own_draw and pai == event["pai"]):
+    # the riichi declaration discard replies to the reach event, but the drawn tile is still the one
+    # just drawn (draw -> reach -> dahai): discarding it is a tsumogiri too
+    just_drawn = st.last_tsumo[1] if st.last_tsumo and st.last_tsumo[0] == seat else None
+    after_own_reach = event["type"] == "reach" and event["actor"] == seat
+    if tsumogiri and not ((own_draw or after_own_reach) and pai == just_drawn):
         return "tsumogiri of a tile that was not just drawn"
     if s.riichi_accepted:
         if not (own_draw and tsumogiri and pai == event["pai"]):

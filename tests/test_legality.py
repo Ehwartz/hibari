@@ -39,6 +39,18 @@ def test_riichi_discard_must_keep_tenpai():
     assert discard_error(st, 0, _dahai("5m"), reach)
 
 
+def test_riichi_declared_with_the_drawn_tile_is_tsumogiri():
+    """Draw, declare riichi, discard the drawn tile: that discard replies to the reach event but is
+    still a tsumogiri (Mortal sends tsumogiri=true; this crashed an AI 代打 game)."""
+    st = _state(TENPAI)
+    st.apply({"type": "tsumo", "actor": 0, "pai": "S"})
+    reach = {"type": "reach", "actor": 0}
+    st.apply(reach)
+    assert discard_error(st, 0, _dahai("S", True), reach) is None
+    assert discard_error(st, 0, _dahai("S", False), reach) is None
+    assert discard_error(st, 0, _dahai("1p", True), reach)  # 1p is not the drawn tile
+
+
 def test_tsumogiri_flag_must_match_drawn_tile():
     st = _state(TENPAI)
     draw = {"type": "tsumo", "actor": 0, "pai": "S"}

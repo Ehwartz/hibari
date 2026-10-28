@@ -74,7 +74,9 @@ def legal_actions(ref, cans, st: KyokuState, seat: int, event: dict) -> list[dic
                 out += [{"type": "chi", **call, "consumed": x + y} for x in a for y in b]
 
     if cans.can_discard:
-        drawn = event["pai"] if event["type"] == "tsumo" and event["actor"] == seat else None
+        # the tile just drawn: also right after declaring riichi (draw -> reach -> discard)
+        replies_to_own = event["type"] in ("tsumo", "reach") and event["actor"] == seat
+        drawn = st.last_tsumo[1] if replies_to_own and st.last_tsumo and st.last_tsumo[0] == seat else None
         for t in sorted(set(hand), key=sort_key):
             if t == drawn:
                 out.append({"type": "dahai", "actor": seat, "pai": t, "tsumogiri": True})
