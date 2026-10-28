@@ -80,11 +80,11 @@ export function ActionBar({ actions, onAction }: { actions: Action[]; onAction: 
 
 // -- Mortal hint panel ---------------------------------------------------------
 
-export function HintPanel({ hints, chosen }: { hints: Hint[] | null; chosen?: string }) {
+export function HintPanel({ hints, chosen, title = 'AI 推荐' }: { hints: Hint[] | null; chosen?: string; title?: string }) {
   return (
     <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, bottom: 140 }}>
       <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-[13px] font-semibold text-white/85">Mortal 推荐</span>
+        <span className="text-[13px] font-semibold text-white/85">{title}</span>
         {chosen && <span className="text-[11px] text-white/45">{chosen}</span>}
       </div>
       {!hints?.length ? (

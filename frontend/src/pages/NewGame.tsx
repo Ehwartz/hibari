@@ -77,7 +77,7 @@ export function NewGame() {
   )
 }
 
-/** AI 代打 several games back to back (Mortal plays your seat too) to build up logs. */
+/** AI 代打 several games back to back (the AI plays your seat too) to build up logs. */
 function BatchCard() {
   const [status, setStatus] = useState<BatchStatus | null>(null)
   const [length, setLength] = useState<'hanchan' | 'tonpuu'>('tonpuu')
@@ -114,7 +114,7 @@ function BatchCard() {
     <Card className="mt-5 max-w-[520px]">
       <div className="text-[15px] font-semibold">AI 代打积攒牌谱</div>
       <div className="mt-1 text-[12px] text-white/50">
-        Mortal 替你连续打完设定的局数（不等待思考时间），牌谱照常保存，标记为「代打」，默认不计入你的数据。代打温度在「设置」中调整。
+        AI 替你连续打完设定的局数（不等待思考时间），牌谱照常保存，标记为「代打」，默认不计入你的数据。代打温度在「设置」中调整。
       </div>
       {running ? (
         <div className="mt-4">

@@ -36,7 +36,9 @@ class Settings:
     think_max: float = 3.0
     # sampling temperature of Mortal-A/B/C (0 = always the top action)
     bot_temps: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
-    bot_names: list[str] = field(default_factory=lambda: ["Mortal-A", "Mortal-B", "Mortal-C"])
+    bot_names: list[str] = field(default_factory=lambda: list(DEFAULT_BOT_NAMES))
+    ai_name: str = "Mortal"  # display name of the AI (hints: "<name> 推荐", reviews, …)
+    bot_dir: str = "mjbot_mortal"  # AI bot folder (Akagi Mortal layout); takes effect after a restart
     auto_temp: float = 0.0  # AI 代打 sampling temperature (Mortal playing your seat)
     felt: str = "green"  # table cloth preset, or "custom" (uploaded image)
     background: str = "dark"  # page background preset, or "custom"
@@ -52,13 +54,24 @@ class Settings:
 _settings_lock = threading.Lock()
 
 
+DEFAULT_BOT_NAMES = ("AI-A", "AI-B", "AI-C")
+_OLD_DEFAULT_BOT_NAMES = ["Mortal-A", "Mortal-B", "Mortal-C"]
+
+
 def load_settings() -> Settings:
     try:
         raw = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return Settings()
     known = {k: v for k, v in raw.items() if k in Settings.__dataclass_fields__}
+    if known.get("bot_names") == _OLD_DEFAULT_BOT_NAMES:  # never customised: follow the new default
+        known["bot_names"] = list(DEFAULT_BOT_NAMES)
     return Settings(**known)
+
+
+def bot_dir_path(s: Settings) -> Path:
+    p = Path(s.bot_dir)
+    return p if p.is_absolute() else ROOT / p
 
 
 def save_settings(s: Settings) -> Settings:

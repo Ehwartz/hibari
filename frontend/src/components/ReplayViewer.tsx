@@ -25,7 +25,7 @@ const CALL_HINT: Record<string, { type: Hint['type']; name: string }> = {
   none: { type: 'none', name: '跳过' },
 }
 
-/** Human-readable name of a Mortal action label. */
+/** Human-readable name of an AI (Mortal-style) action label. */
 function labelName(label: string): string {
   return CALL_HINT[label]?.name ?? `打 ${tileName(label)}`
 }
@@ -126,7 +126,7 @@ interface Props {
   defaultOpen?: boolean
   /** Extra header content (e.g. game info). */
   extra?: React.ReactNode
-  /** Mortal review of this log (log replay only). */
+  /** AI review of this log (log replay only). */
   review?: Review | null
   onRunReview?: () => void
   reviewing?: boolean
@@ -146,6 +146,7 @@ export function ReplayViewer({
   const masked = useMemo(() => buildStates(frames, false), [frames])
   const open = useMemo(() => buildStates(frames, true), [frames])
   const settings = useAppSettings()
+  const ai = settings?.ai_name || 'AI'
   const [index, setIndex] = useState(initialIndex)
   const [openHands, setOpenHands] = useState(defaultOpen)
   const [showHints, setShowHints] = useState(true)
@@ -248,7 +249,7 @@ export function ReplayViewer({
   const chosenText = dec
     ? `你：${labelName(dec.actual)} ${dec.match ? '✓' : `(${Math.round(dec.actual_prob * 100)}%)`}`
     : frame.chosen
-      ? `Mortal 实际：${actionLabel(frame.chosen)}`
+      ? `${ai} 实际：${actionLabel(frame.chosen)}`
       : undefined
 
   const tileInfo = (tile: string, fromDrawn: boolean) => {
@@ -325,7 +326,7 @@ export function ReplayViewer({
           <>
             <span
               className="rounded-md bg-emerald-700/50 px-2 py-1 text-[12px]"
-              title={`Mortal 一致 ${review.summary.matches}/${review.summary.decisions}，恶手（实际选择 < 5%）${review.summary.bad} 处`}
+              title={`${ai} 一致 ${review.summary.matches}/${review.summary.decisions}，恶手（实际选择 < 5%）${review.summary.bad} 处`}
             >
               一致率 {review.summary.rate === null ? '—' : `${(review.summary.rate * 100).toFixed(1)}%`}
             </span>
@@ -336,7 +337,7 @@ export function ReplayViewer({
         ) : (
           onRunReview && (
             <button className={`${btn} bg-emerald-700/70 hover:bg-emerald-600`} onClick={onRunReview} disabled={reviewing}>
-              {reviewing ? 'Mortal 复盘中…' : 'Mortal 复盘'}
+              {reviewing ? `${ai} 复盘中…` : `${ai} 复盘`}
             </button>
           )
         )}
@@ -358,7 +359,9 @@ export function ReplayViewer({
 
       <div className="flex w-full flex-1" onClick={onStageClick} onWheel={onStageWheel}>
       <ScaledStage reserved={56}>
+        {(width) => (
             <Table
+          width={width}
               table={table}
               me={table.human}
               openHands={openHands}
@@ -372,7 +375,7 @@ export function ReplayViewer({
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
-              {hasHints && showHints && <HintPanel hints={hints} chosen={chosenText} />}
+              {hasHints && showHints && <HintPanel hints={hints} chosen={chosenText} title={`${ai} 推荐`} />}
               {actions.some((a) => a.type !== 'dahai') && <ActionBar key={index} actions={actions} onAction={onAction} />}
               {toast && (
                 <div className="absolute top-[612px] left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1.5 text-[14px] text-white">
@@ -382,6 +385,7 @@ export function ReplayViewer({
               {showResult && <ResultModal table={table} />}
               {t === 'end_game' && <EndModal table={table} uma={[20, 10, -10, -20]} />}
             </Table>
+              )}
       </ScaledStage>
       </div>
     </div>

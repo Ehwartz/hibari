@@ -18,7 +18,9 @@ export function Avatar({ url, name, size, className = '' }: { url: string | null
       />
     )
   const h = hue(name || '?')
-  const initial = name.startsWith('Mortal-') ? name.slice(7, 8) : [...(name || '?')][0].toUpperCase()
+  // "AI-A" / "Mortal-B" style names show their suffix letter
+  const suffix = name.match(/-([A-Za-z0-9])$/)
+  const initial = suffix ? suffix[1].toUpperCase() : [...(name || '?')][0].toUpperCase()
   return (
     <div
       className={`flex shrink-0 items-center justify-center rounded-lg font-black text-white/90 select-none ${className}`}

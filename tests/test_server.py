@@ -135,6 +135,8 @@ def test_logs_and_stats_api(tmp_settings):
 def test_settings_roundtrip(tmp_settings):
     with TestClient(app) as client:
         body = {"player_name": "雀士", "log_dir": str(tmp_settings / "logs2"), "default_length": "tonpuu", "think_min": 0.5, "think_max": 2}
+        assert client.put("/api/settings", json={**body, "bot_dir": str(tmp_settings)}).status_code == 422  # no model.py
+        assert client.put("/api/settings", json={**body, "ai_name": "  "}).json()["ai_name"] == "Mortal"
         r = client.put("/api/settings", json=body)
         assert r.status_code == 200 and (tmp_settings / "logs2").is_dir()
         assert storage.SETTINGS_FILE.exists() and "雀士" in storage.SETTINGS_FILE.read_text(encoding="utf-8")

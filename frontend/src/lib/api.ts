@@ -38,6 +38,10 @@ export interface Settings {
   bot_temps: number[] // the three bots' sampling temperature
   bot_names: string[] // the three bots' display names
   auto_temp: number // AI 代打 temperature
+  ai_name: string // display name of the AI ("<name> 推荐")
+  bot_dir: string // AI bot folder (Akagi Mortal layout), restart to apply
+  bot_dir_resolved?: string
+  bot_dir_loaded?: string // the folder the running backend actually loaded
   felt: string
   background: string
   assets: Record<string, number> // uploaded asset -> version

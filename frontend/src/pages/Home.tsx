@@ -59,7 +59,7 @@ export function Home() {
       )}
 
       <Card className="felt">
-        <div className="text-[13px] text-white/70">快速开始 · 你 vs 三个 Mortal</div>
+        <div className="text-[13px] text-white/70">快速开始 · 你 vs 三个 AI</div>
         <div className="mt-3 flex gap-4">
           {quick('hanchan', '半庄', '东风场 + 南风场')}
           {quick('tonpuu', '东风', '只打东风场')}

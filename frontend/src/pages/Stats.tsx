@@ -113,7 +113,7 @@ export function Stats() {
           {seg<Length>('hanchan', length, setLength, '半庄')}
           {seg<Length>('tonpuu', length, setLength, '东风')}
         </div>
-        <label className="flex items-center gap-1.5 text-[13px] text-white/70" title="整局由 Mortal 代打的对局默认不计入">
+        <label className="flex items-center gap-1.5 text-[13px] text-white/70" title="整局由 AI 代打的对局默认不计入">
           <input type="checkbox" checked={withAuto} onChange={(e) => setWithAuto(e.target.checked)} /> 计入代打对局
         </label>
         <span className="text-[13px] text-white/45">统计口径与 libriichi（天凤）一致；只统计已完成的对局</span>

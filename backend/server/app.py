@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import storage
+from backend import mortal, storage
 from backend.analysis.review import review_game
 from backend.engine.rules import Rules
 from backend.server import batch
@@ -112,14 +112,23 @@ class SettingsIn(BaseModel):
     think_min: float = Field(ge=0, le=30)
     think_max: float = Field(ge=0, le=30)
     bot_temps: list[float] = Field(default=[0.0, 0.0, 0.0], min_length=3, max_length=3)
-    bot_names: list[str] = Field(default=["Mortal-A", "Mortal-B", "Mortal-C"], min_length=3, max_length=3)
+    bot_names: list[str] = Field(default=["AI-A", "AI-B", "AI-C"], min_length=3, max_length=3)
+    ai_name: str = Field(default="Mortal", min_length=1, max_length=16)
+    bot_dir: str = Field(default="mjbot_mortal", min_length=1)
     auto_temp: float = Field(default=0.0, ge=0, le=2)
     felt: str = Field(default="green", max_length=32)
     background: str = Field(default="dark", max_length=32)
 
 
 def _settings_out(s: storage.Settings) -> dict:
-    return {**asdict(s), "log_dir_resolved": str(s.log_path), "asset_dir": str(storage.ASSET_DIR)}
+    return {
+        **asdict(s),
+        "log_dir_resolved": str(s.log_path),
+        "asset_dir": str(storage.ASSET_DIR),
+        "bot_dir_resolved": str(storage.bot_dir_path(s)),
+        # the folder this process actually loaded (bot_dir changes need a restart)
+        "bot_dir_loaded": str(mortal.MORTAL_DIR),
+    }
 
 
 @app.get("/api/settings")
@@ -136,6 +145,10 @@ async def put_settings(body: SettingsIn) -> dict:
     body.bot_names = [n.strip() for n in body.bot_names]
     if not all(1 <= len(n) <= 16 for n in body.bot_names):
         raise HTTPException(422, "bot names must be 1-16 characters")
+    body.ai_name = body.ai_name.strip() or "Mortal"
+    bot = storage.bot_dir_path(storage.Settings(bot_dir=body.bot_dir))
+    if not (bot / "model.py").is_file():
+        raise HTTPException(422, f"not a bot folder (no model.py): {bot}")
     # uploaded assets are managed by /api/assets; keep them
     s = storage.Settings(**body.model_dump(), assets=storage.load_settings().assets)
     try:

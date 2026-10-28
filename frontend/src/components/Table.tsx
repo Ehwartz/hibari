@@ -6,9 +6,10 @@ import { Avatar } from './Avatar'
 import { Tile } from './Tile'
 import { Hand, type Leaving, Melds, River, type TileInfo } from './TableParts'
 
+/** Minimum stage width; wider windows get a wider stage (the table stays centred). */
 export const STAGE_W = 1280
+export const STAGE_MAX_W = 1800
 export const STAGE_H = 880
-const CX = 640
 const CY = 418
 
 const RIVER_W = 34
@@ -29,31 +30,40 @@ interface CardProps {
   self: boolean
 }
 
-/** Deal-in risk against one opponent, shown under their avatar. */
+/** Deal-in risk against one opponent: a button under their avatar. */
 interface CardDanger {
   d: OpponentDanger
   side: (typeof DANGER_SIDES)[number]
   open: boolean
   onToggle: () => void
-  /** Where the 34-tile popover opens: below the card, or to its left (right player, towards the centre). */
-  dir: 'below' | 'left'
 }
 
-function DangerButton({ d, side, open, onToggle, dir }: CardDanger) {
+function DangerButton({ d, side, open, onToggle }: CardDanger) {
   return (
     <div className="relative mt-1 w-full" data-noadvance>
       <button
         onClick={onToggle}
         title="点击查看所有牌对这一家的铳率"
-        className={`flex w-full items-center justify-center gap-1 rounded-md px-0.5 py-[1px] text-[10px] whitespace-nowrap ${open ? 'bg-white/20' : 'bg-white/5 hover:bg-white/15'}`}
+        className={`flex w-full items-center justify-center gap-1 rounded-md px-0.5 py-[1px] text-[10px] whitespace-nowrap ${open ? 'bg-white/20 ring-1 ring-white/30' : 'bg-white/5 hover:bg-white/15'}`}
       >
         <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: side.color }} />
         <span className="text-white/80">{d.riichi ? '立直' : `听${Math.round(d.tenpai * 100)}%`}</span>
       </button>
-      {open && (
-        <div
-          className={`absolute z-30 w-[226px] rounded-xl bg-black/90 p-2.5 shadow-2xl ring-1 ring-white/15 ${dir === 'left' ? 'top-1/2 right-full mr-2 -translate-y-1/2' : 'top-full left-1/2 mt-1.5 -translate-x-1/2'}`}
-        >
+    </div>
+  )
+}
+
+// The 34-tile risk popover sits in the empty margin on that player's side, never over hands,
+// melds or rivers: 上家 left, 对家 top-right, 下家 right (above the hint box).
+const POPOVER_POS: Record<number, React.CSSProperties> = {
+  3: { left: 18, top: 290 },
+  2: { right: 18, top: 18 },
+  1: { right: 18, top: 170 },
+}
+
+function DangerPopover({ d, side, pos }: { d: OpponentDanger; side: (typeof DANGER_SIDES)[number]; pos: React.CSSProperties }) {
+  return (
+    <div className="absolute z-30 w-[226px] rounded-xl bg-black/90 p-2.5 shadow-2xl ring-1 ring-white/15" style={pos} data-noadvance>
           <div className="mb-2 flex items-center gap-1.5 text-[12px]">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ background: side.color }} />
             <span className="text-white/85">{side.label} 铳率</span>
@@ -74,8 +84,6 @@ function DangerButton({ d, side, open, onToggle, dir }: CardDanger) {
             ))}
           </div>
           <div className="mt-2 text-[10px] leading-snug text-white/45">按听牌概率 × 牌型放铳率估算（现物、筋、壁、字牌见张数），仅供参考。</div>
-        </div>
-      )}
     </div>
   )
 }
@@ -133,11 +141,11 @@ export interface Callout {
   tone: 'call' | 'riichi' | 'win'
 }
 
-const CALLOUT_POS = [
-  { left: CX, top: CY + 250 },
-  { left: CX + 250, top: CY },
-  { left: CX, top: CY - 250 },
-  { left: CX - 250, top: CY },
+const calloutPos = (cx: number) => [
+  { left: cx, top: CY + 250 },
+  { left: cx + 250, top: CY },
+  { left: cx, top: CY - 250 },
+  { left: cx - 250, top: CY },
 ]
 
 /** The callout for an event, if it deserves one. */
@@ -185,28 +193,30 @@ interface Props {
   avatars?: (string | null)[]
   /** Deal-in risk vs each opponent (DANGER_SIDES order); shows a button under their avatar. */
   danger?: OpponentDanger[]
-  /** Per-tile extras for the own hand (Mortal probabilities, deal-in risk). */
+  /** Per-tile extras for the own hand (AI probabilities, deal-in risk). */
   tileInfo?: (tile: TileT, fromDrawn: boolean) => TileInfo | undefined
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
+  /** Stage width (>= STAGE_W); the table is centred, side panels hug the edges. */
+  width?: number
 }
 
 const rel = (seat: number, me: number) => (seat - me + 4) % 4
 
 /** A group rotated so that local +y points towards the seat at relative position `r`. */
-function Rotated({ r, children, raised }: { r: number; children: ReactNode; raised?: boolean }) {
+function Rotated({ r, cx, children }: { r: number; cx: number; children: ReactNode }) {
   return (
-    <div className="absolute" style={{ left: CX, top: CY, transform: `rotate(${-90 * r}deg)`, zIndex: raised ? 30 : undefined }}>
+    <div className="absolute" style={{ left: cx, top: CY, transform: `rotate(${-90 * r}deg)` }}>
       {children}
     </div>
   )
 }
 
-function CenterPanel({ table, me }: { table: TableState; me: number }) {
+function CenterPanel({ table, me, cx }: { table: TableState; me: number; cx: number }) {
   const round = `${WIND_NAME[table.bakaze]}${table.kyoku}局`
   return (
     <div
       className="absolute rounded-xl border border-white/10 bg-black/45 shadow-inner"
-      style={{ left: CX - 108, top: CY - 108, width: 216, height: 216 }}
+      style={{ left: cx - 108, top: CY - 108, width: 216, height: 216 }}
     >
       {[0, 1, 2, 3].map((seat) => {
         const r = rel(seat, me)
@@ -282,7 +292,9 @@ export function Table({
   tileInfo,
   danger = [],
   children,
+  width = STAGE_W,
 }: Props) {
+  const cx = width / 2
   const [dangerOpen, setDangerOpen] = useState<number | null>(null)
   const dangerFor = (seat: number): CardDanger | undefined => {
     const i = danger.findIndex((d) => d.seat === seat)
@@ -292,9 +304,9 @@ export function Table({
       side: DANGER_SIDES[i],
       open: dangerOpen === seat,
       onToggle: () => setDangerOpen(dangerOpen === seat ? null : seat),
-      dir: rel(seat, me) === 1 ? 'left' : 'below',
     }
   }
+  const openDanger = danger.findIndex((d) => d.seat === dangerOpen)
   const [fx, setFx] = useState<DiscardFx | null>(null)
   useEffect(() => {
     setFx(discardFx ?? null)
@@ -322,16 +334,16 @@ export function Table({
   })
 
   return (
-    <div className="felt relative overflow-hidden rounded-[28px]" style={{ width: STAGE_W, height: STAGE_H }}>
+    <div className="felt relative overflow-hidden rounded-[28px]" style={{ width, height: STAGE_H }}>
       <DoraPanel table={table} />
-      <CenterPanel table={table} me={me} />
+      <CenterPanel table={table} me={me} cx={cx} />
 
       {[0, 1, 2, 3].map((seat) => {
         const r = rel(seat, me)
         const s = table.seats[seat]
         const last = table.lastDiscard?.actor === seat ? table.lastDiscard.index : null
         return (
-          <Rotated key={seat} r={r} raised={dangerOpen === seat}>
+          <Rotated key={seat} r={r} cx={cx}>
             <div className="absolute" style={{ left: -108, top: 116 }}>
               <River
                 river={s.river}
@@ -363,7 +375,7 @@ export function Table({
       {/* own hand: not rotated, larger tiles */}
       <div
         className="absolute flex items-end gap-6"
-        style={{ left: CX, top: CY + 330 + tileH(OWN_W), transform: 'translate(-50%, -100%)' }}
+        style={{ left: cx, top: CY + 330 + tileH(OWN_W), transform: 'translate(-50%, -100%)' }}
       >
         <HandAvatar r={0} size={OWN_AVATAR} place={beside(OWN_W)} {...card(me)} />
         <Hand
@@ -380,11 +392,18 @@ export function Table({
         <div
           key={c.key}
           className={`callout callout-${c.tone} pointer-events-none absolute z-10`}
-          style={CALLOUT_POS[rel(c.seat, me)]}
+          style={calloutPos(cx)[rel(c.seat, me)]}
         >
           {c.text}
         </div>
       ))}
+      {openDanger >= 0 && (
+        <DangerPopover
+          d={danger[openDanger]}
+          side={DANGER_SIDES[openDanger]}
+          pos={POPOVER_POS[rel(danger[openDanger].seat, me)]}
+        />
+      )}
       {children}
     </div>
   )

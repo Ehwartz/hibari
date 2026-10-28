@@ -171,7 +171,7 @@ export function SaveRow({ onSave, saved }: { onSave: () => void; saved: boolean 
   )
 }
 
-const DEFAULT_BOT_NAMES = ['Mortal-A', 'Mortal-B', 'Mortal-C']
+const DEFAULT_BOT_NAMES = ['AI-A', 'AI-B', 'AI-C']
 
 function tempLabel(t: number) {
   if (t === 0) return '严格'
@@ -247,11 +247,41 @@ export function SettingsPage() {
       </Card>
 
       <Card className="mt-5 max-w-[640px]">
+        <div className="text-[15px] font-semibold">AI 程序</div>
+        <label className="mt-3 block text-[13px] text-white/70">
+          AI 名称（显示为「{settings.ai_name || 'AI'} 推荐」「{settings.ai_name || 'AI'} 复盘」等）
+          <input
+            value={settings.ai_name ?? ''}
+            maxLength={16}
+            placeholder="Mortal"
+            onChange={(e) => set('ai_name', e.target.value)}
+            className={`${inputCls} w-60`}
+          />
+        </label>
+        <label className="mt-4 block text-[13px] text-white/70">
+          AI 程序文件夹
+          <input
+            value={settings.bot_dir ?? ''}
+            onChange={(e) => set('bot_dir', e.target.value)}
+            className={`${inputCls} font-mono`}
+          />
+        </label>
+        <div className="mt-1 text-[12px] leading-relaxed text-white/45">
+          可以是绝对路径或相对项目目录的路径，需与 Akagi 的 Mortal bot 结构一致（含 model.py、权重等）。
+          <br />
+          当前正在使用：<span className="font-mono text-white/65">{settings.bot_dir_loaded}</span>
+          {settings.bot_dir_resolved && settings.bot_dir_loaded && settings.bot_dir_resolved !== settings.bot_dir_loaded && (
+            <span className="ml-1 text-amber-300">（已改为 {settings.bot_dir_resolved}，保存后重启程序生效）</span>
+          )}
+        </div>
+      </Card>
+
+      <Card className="mt-5 max-w-[640px]">
         <div className="text-[15px] font-semibold">AI 对手</div>
         <div className="mt-1 text-[12px] text-white/45">名字、头像和温度都可以分别设置；名字从下一局开始生效。</div>
         <div className="mt-1 text-[12px] text-white/45">
-          温度控制出牌的随机度：0 时总是选 Mortal 认为最好的动作；调高后按概率抽选，越高越随机。设为 0.3
-          时，正好按「Mortal 推荐」面板上显示的概率来选。座位每局随机分配。
+          温度控制出牌的随机度：0 时总是选 AI 认为最好的动作；调高后按概率抽选，越高越随机。设为 0.3
+          时，正好按「推荐」面板上显示的概率来选。座位每局随机分配。
         </div>
         <div className="mt-4 flex flex-col gap-4">
           {(['avatar_ai1', 'avatar_ai2', 'avatar_ai3'] as const).map((a, i) => {
@@ -308,7 +338,7 @@ export function SettingsPage() {
         </div>
         <div className="mt-5 border-t border-white/10 pt-4">
           <div className="flex items-baseline justify-between text-[13px]">
-            <span className="text-white/80">AI 代打（Mortal 替你打）的温度</span>
+            <span className="text-white/80">AI 代打（AI 替你打）的温度</span>
             <span>
               <span className="font-mono tabular-nums">{(settings.auto_temp ?? 0).toFixed(2)}</span>
               <span className="ml-2 text-white/50">{tempLabel(settings.auto_temp ?? 0)}</span>

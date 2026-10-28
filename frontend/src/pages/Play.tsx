@@ -286,7 +286,7 @@ export function Play({ gameId }: { gameId: string }) {
         <span className="flex-1" />
         <button
           onClick={() => toggleAutoplay(!autoplay)}
-          title="让 Mortal 替你打（温度在「设置」中调整），可随时关闭"
+          title="让 AI 替你打（温度在「设置」中调整），可随时关闭"
           className={`rounded-full px-3 py-1 text-[12px] font-bold ${autoplay ? 'bg-amber-500 text-black' : 'bg-white/10 hover:bg-white/20'}`}
         >
           {autoplay ? 'AI 代打中 · 点击接管' : 'AI 代打'}
@@ -307,7 +307,9 @@ export function Play({ gameId }: { gameId: string }) {
       )}
 
       <ScaledStage reserved={48 + (error ? 36 : 0)}>
+        {(width) => (
         <Table
+          width={width}
           table={table}
           me={table.human}
           discardable={discardable}
@@ -321,7 +323,7 @@ export function Play({ gameId }: { gameId: string }) {
           tileInfo={danger.length ? (t) => ({ risks: tileRisks(danger, t) }) : undefined}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
-          {showHints && <HintPanel hints={hint} />}
+          {showHints && <HintPanel hints={hint} title={`${settings?.ai_name || 'AI'} 推荐`} />}
           {actions.some((a) => a.type !== 'dahai') && <ActionBar key={JSON.stringify(actions)} actions={actions} onAction={act} />}
           {notice && (
             <div className="absolute top-[612px] left-1/2 max-w-[700px] -translate-x-1/2 truncate rounded-full bg-black/70 px-4 py-1.5 text-[14px] text-white">
@@ -346,6 +348,7 @@ export function Play({ gameId }: { gameId: string }) {
             />
           )}
         </Table>
+              )}
       </ScaledStage>
     </div>
   )

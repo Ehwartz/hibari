@@ -1,17 +1,39 @@
-"""In-process adapter for the vendored Mortal bot in ``mjbot_mortal/``.
+"""In-process adapter for the AI bot (default: the vendored Mortal in ``mjbot_mortal/``).
 
-``mjbot_mortal`` is not a package: ``model.py`` imports ``_libriichi_loader``
-and ``libriichi`` as top-level modules. We put its directory on ``sys.path``
-and load the matching prebuilt ``libriichi`` before importing ``model``.
+The bot folder comes from ``bot_dir`` in ``data/settings.json`` (read once,
+when the model is first loaded; changing it needs a restart). It must follow
+the Akagi Mortal layout: ``model.py`` with ``load_model`` / ``_get_engine`` /
+``MortalEngine``, ``_libriichi_loader.py``, ``meta_show.py`` and the weights.
+
+The folder is not a package: ``model.py`` imports ``_libriichi_loader`` and
+``libriichi`` as top-level modules. We put it on ``sys.path`` and load the
+matching prebuilt ``libriichi`` before importing ``model``.
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
 from types import ModuleType
 
-MORTAL_DIR = Path(__file__).resolve().parents[2] / "mjbot_mortal"
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_BOT_DIR = ROOT / "mjbot_mortal"
+
+
+def bot_dir() -> Path:
+    """The configured bot folder (``bot_dir`` in data/settings.json), default ``mjbot_mortal``."""
+    try:
+        raw = json.loads((ROOT / "data" / "settings.json").read_text(encoding="utf-8")).get("bot_dir")
+    except (OSError, ValueError):
+        raw = None
+    if not raw:
+        return DEFAULT_BOT_DIR
+    p = Path(raw)
+    return p if p.is_absolute() else ROOT / p
+
+
+MORTAL_DIR = bot_dir()  # the folder actually loaded by this process
 
 _model: ModuleType | None = None
 

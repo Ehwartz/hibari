@@ -38,7 +38,7 @@ from backend.engine.rules import Rules
 log = logging.getLogger(__name__)
 
 BOT_IDS = ["ai1", "ai2", "ai3"]
-DEFAULT_BOT_NAMES = ("Mortal-A", "Mortal-B", "Mortal-C")
+DEFAULT_BOT_NAMES = ("AI-A", "AI-B", "AI-C")
 _AUTO = {"__autoplay__": True}  # queued to wake a pending decision when autoplay turns on
 
 

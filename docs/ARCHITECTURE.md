@@ -487,6 +487,17 @@ hand, so it is the same during play and in review.
   (`backend.mortal.sampling_engine`). T = 0.3 matches the hint panel's
   probabilities. The hint shadow is always greedy. The wall was already
   random: a random seed per game and a fresh shuffle every kyoku.
+- 2026-10-28 — Configurable AI: `settings.bot_dir` (default `mjbot_mortal`,
+  read by `backend.mortal` at startup, so a restart is needed; it must follow
+  the Akagi Mortal layout) and `settings.ai_name` (default "Mortal", shown as
+  "<name> 推荐" / "<name> 复盘"). The default opponent names are now
+  AI-A/B/C; settings still holding the old defaults Mortal-A/B/C migrate
+  automatically.
+- 2026-10-28 — Wide stage: `ScaledStage` gives the table the window's spare
+  width (1280–1800 virtual px). The table stays centred (`cx = width / 2`)
+  and side panels hug the edges. Deal-in popovers moved off the avatars into
+  the margins (上家 left, 对家 top-right, 下家 right), so they never cover
+  hands, melds or rivers.
 - 2026-10-27 — Avatars and appearance: avatar cards are attached to the
   hand rows, so identity is obvious. Yours sits at the left end of your
   hand; the top player's at their row's left end, which is point-symmetric
