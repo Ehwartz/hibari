@@ -11,4 +11,4 @@ mjbot_mortal/settings.toml
 mjbot_mortal/mortal.pth
 
 # portable build output (scripts/build_release.py)
-release/
+/release/

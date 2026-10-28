@@ -1,0 +1,38 @@
+雲雀 Hibari — AI 麻雀训练场  {version}
+================================================
+
+日本麻将（四人立直麻将）训练软件：和 3 个 Mortal AI 对局，自动保存牌谱，
+可以回放、用 AI 复盘，做何切 / 听牌 / 点数练习，查看统计数据。
+
+运行
+----
+1. 把压缩包【完整解压】到任意文件夹（路径里有中文也可以；不要直接在压缩包里双击运行）。
+2. 双击 Hibari.exe。第一次启动需要十几秒加载 AI。
+3. 关闭程序窗口即退出。
+
+系统要求
+--------
+- 64 位 Windows 10 / 11
+- Google Chrome（推荐）或较新版本的 Microsoft Edge —— 程序界面在它们的"应用窗口"里显示
+- 不需要显卡，不需要安装 Python。约 1.5 GB 磁盘空间
+
+数据
+----
+牌谱、设置、头像、练习记录都保存在本文件夹的 data\ 里。
+- 备份 / 换电脑：复制 data\ 文件夹即可
+- 升级新版本：把旧版的 data\ 复制到新版文件夹
+- 彻底删除：直接删除整个文件夹（不写注册表）
+
+遇到问题
+--------
+启动失败时会弹出提示；详细日志在 data\launcher.log 和 data\server.log。
+
+许可与致谢
+----------
+本程序以 GNU AGPL-3.0 发布（见 LICENSE），源代码就在本文件夹里（backend\、scripts\、
+mjbot_mortal\ 的 .py 文件）。
+- Mortal（AI 模型与 libriichi）：https://github.com/Equim-chan/Mortal ，AGPL-3.0
+- 牌面图：FluffyStuff/riichi-mahjong-tiles，CC0
+- 点数计算：mahjong（MahjongRepository），MIT
+- Python 运行时：python-build-standalone（PSF License）；PyTorch（BSD）等依赖见 runtime\python\Lib\site-packages
+- 模型权重 mjbot_mortal\mortal.pth 仅供个人学习使用，请勿公开再分发。
