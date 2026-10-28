@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 from backend import storage
 from backend.server.app import app
 
+_real_load_settings = storage.load_settings  # the autouse fixture below replaces it
+
 
 @pytest.fixture(autouse=True)
 def tmp_settings(tmp_path, monkeypatch):
@@ -196,4 +198,4 @@ def test_saved_bot_names_are_kept(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "SETTINGS_FILE", tmp_path / "settings.json")
     for names in (["Mortal-A", "Mortal-B", "Mortal-C"], ["小A", "小B", "小C"]):
         storage.save_settings(storage.Settings(bot_names=names))
-        assert storage.load_settings().bot_names == names
+        assert _real_load_settings().bot_names == names
