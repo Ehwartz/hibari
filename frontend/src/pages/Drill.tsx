@@ -1,9 +1,10 @@
 // 何切练习: discard decisions from your reviewed games where you differed from the AI, replayed as quizzes.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { labelName, reviewHints } from '../components/ReplayViewer'
+import { labelName, qGap, reviewHints } from '../components/ReplayViewer'
 import { Card, ErrorBox, Shell } from '../components/Shell'
 import { HintPanel } from '../components/Overlays'
+import { PracticeTabs } from './Quiz'
 import { ScaledStage } from '../components/Stage'
 import { Table } from '../components/Table'
 import { Tile } from '../components/Tile'
@@ -132,7 +133,7 @@ export function Drill() {
     `rounded-lg px-3 py-1.5 text-[13px] ring-1 ${on ? 'bg-emerald-500/20 ring-emerald-400' : 'bg-white/5 ring-white/10 hover:bg-white/10'}`
 
   return (
-    <Shell title="何切练习">
+    <Shell title="何切练习" actions={<PracticeTabs />}>
       <div className="grid grid-cols-4 gap-3">
         {[
           ['题库', `${items.length}`, '已复盘对局中和 AI 不一致的打牌'],
@@ -530,6 +531,12 @@ export function DrillRun() {
                         <span className="flex items-center gap-2">
                           <span className="w-16 text-white/50">对局中</span>
                           <LabelChip label={dec.actual} prob={dec.actual_prob} />
+                        </span>
+                        <span
+                          className="mt-1 text-[12px] text-white/55"
+                          title="比 AI 首选差多少（AI 的价值估计之差，0 = 首选，越大越亏；不是点数）"
+                        >
+                          Q 差：你 {qGap(dec, answer.choice)} · 对局中 {qGap(dec, dec.actual)}
                         </span>
                       </div>
                       <div className="flex flex-col gap-1.5">

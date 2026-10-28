@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAppSettings } from './lib/appearance'
 import { Drill, DrillRun } from './pages/Drill'
 import { Home } from './pages/Home'
+import { ScoreQuizPage, WaitQuizPage } from './pages/Quiz'
 import { Logs } from './pages/Logs'
 import { NewGame } from './pages/NewGame'
 import { Play } from './pages/Play'
@@ -34,6 +35,8 @@ export default function App() {
   if (hash.startsWith('#/new')) return <NewGame />
   if (hash.startsWith('#/logs')) return <Logs />
   if (hash.startsWith('#/drill/run')) return <DrillRun />
+  if (hash.startsWith('#/drill/wait')) return <WaitQuizPage />
+  if (hash.startsWith('#/drill/score')) return <ScoreQuizPage />
   if (hash.startsWith('#/drill')) return <Drill />
   if (hash.startsWith('#/stats')) return <Stats />
   if (hash.startsWith('#/settings')) return <SettingsPage />

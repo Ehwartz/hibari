@@ -82,7 +82,18 @@ export function ActionBar({ actions, onAction }: { actions: Action[]; onAction: 
 
 // -- Mortal hint panel ---------------------------------------------------------
 
-export function HintPanel({ hints, chosen, title = 'AI 推荐' }: { hints: Hint[] | null; chosen?: string; title?: string }) {
+export function HintPanel({
+  hints,
+  chosen,
+  title = 'AI 推荐',
+  value,
+}: {
+  hints: Hint[] | null
+  chosen?: string
+  title?: string
+  /** Number shown per hint (default: the probability). */
+  value?: (h: Hint) => string
+}) {
   return (
     <div className="absolute w-[214px] rounded-xl bg-black/40 p-3" style={{ right: 18, bottom: 140 }}>
       <div className="mb-2 flex items-baseline justify-between">
@@ -105,7 +116,7 @@ export function HintPanel({ hints, chosen, title = 'AI 推荐' }: { hints: Hint[
                   ))}
                 </div>
                 <span className="ml-auto font-mono text-[12px] text-white/80 tabular-nums">
-                  {(h.prob * 100).toFixed(1)}%
+                  {value ? value(h) : `${(h.prob * 100).toFixed(1)}%`}
                 </span>
               </div>
               <div className="mt-1 h-1 overflow-hidden rounded bg-white/10">

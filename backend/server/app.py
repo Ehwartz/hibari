@@ -8,6 +8,7 @@ If ``frontend/dist`` exists (``npm run build``), the built UI is served at
 from __future__ import annotations
 
 import asyncio
+import random
 import uuid
 from dataclasses import asdict
 from datetime import datetime
@@ -20,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend import mortal, storage
+from backend.analysis import quiz
 from backend.analysis.review import review_game
 from backend.engine.rules import Rules
 from backend.server import batch
@@ -277,6 +279,19 @@ async def answer_drill(a: DrillAnswer) -> dict:
 async def reset_drills() -> dict:
     storage.reset_drills()
     return {"ok": True}
+
+
+# -- generated quizzes (听牌 / 点数) ---------------------------------------------------
+
+
+@app.get("/api/quiz/wait")
+async def quiz_wait(mode: Literal["mixed", "chinitsu"] = "mixed", seed: int | None = None) -> dict:
+    return quiz.wait_question(random.Random(seed), mode)
+
+
+@app.get("/api/quiz/score")
+async def quiz_score(seed: int | None = None) -> dict:
+    return quiz.score_question(random.Random(seed))
 
 
 class BatchRequest(BaseModel):

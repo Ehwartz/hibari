@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card, ErrorBox, Shell } from '../components/Shell'
-import { type GameMeta, type StatsResponse, api } from '../lib/api'
+import { type GameMeta, type ReviewBreakdown, type StatsResponse, api } from '../lib/api'
+import { useAppSettings } from '../lib/appearance'
 import { formatDate } from './Logs'
 
 type Range = 'all' | 10 | 30 | 100
@@ -150,6 +151,8 @@ export function Stats() {
             </Card>
           </div>
 
+          <ReviewSection games={games} breakdown={data?.review ?? null} />
+
           {GROUPS.map((g) => (
             <div key={g.title} className="mt-6">
               <div className="mb-2 text-[14px] font-semibold text-white/80">{g.title}</div>
@@ -275,5 +278,178 @@ function RankTrend({ games }: { games: GameMeta[] }) {
         </div>
       )}
     </div>
+  )
+}
+
+// -- agreement with the AI (reviewed games) --------------------------------------
+
+function ReviewSection({ games, breakdown }: { games: GameMeta[]; breakdown: ReviewBreakdown | null }) {
+  const ai = useAppSettings()?.ai_name || 'AI'
+  // oldest -> newest, last 50 reviewed games
+  const reviewed = games
+    .filter((g) => g.review && g.review.decisions > 0)
+    .slice(0, 50)
+    .reverse()
+  if (!reviewed.length)
+    return (
+      <Card className="mt-4">
+        <div className="text-[14px] font-semibold">{ai} 一致率</div>
+        <div className="mt-2 text-[13px] text-white/50">
+          所选范围内没有复盘过的对局。在「牌谱」或「练习」页复盘后，这里会显示一致率走势和分类统计。
+        </div>
+      </Card>
+    )
+  return (
+    <>
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <Card>
+          <div className="mb-3 text-[14px] font-semibold">
+            {ai} 一致率走势{' '}
+            <span className="font-normal text-white/45">（{reviewed.length} 局已复盘；点 = 单局，线 = 近 5 局平均）</span>
+          </div>
+          <MetricTrend games={reviewed} value={(g) => g.review!.matches / g.review!.decisions} label="一致率" />
+        </Card>
+        <Card>
+          <div className="mb-3 text-[14px] font-semibold">
+            恶手率走势 <span className="font-normal text-white/45">（恶手 / 决策数；恶手 = {ai} 只给了 &lt; 5%）</span>
+          </div>
+          <MetricTrend games={reviewed} value={(g) => g.review!.bad / g.review!.decisions} label="恶手率" />
+        </Card>
+      </div>
+      {breakdown && <BreakdownTable breakdown={breakdown} ai={ai} />}
+    </>
+  )
+}
+
+/** One metric per game (0..1), oldest -> newest: a dot per game + 5-game moving average, hover crosshair. */
+function MetricTrend({ games, value, label }: { games: GameMeta[]; value: (g: GameMeta) => number; label: string }) {
+  const [hover, setHover] = useState<number | null>(null)
+  const W = 520
+  const H = 170
+  const pad = { l: 44, r: 12, t: 12, b: 12 }
+  const vals = games.map(value)
+  const avg = vals.map((_, i) => {
+    const win = vals.slice(Math.max(0, i - 4), i + 1)
+    return win.reduce((a, b) => a + b, 0) / win.length
+  })
+  // y range padded around the data, in 5 % steps
+  const lo = Math.max(0, Math.floor((Math.min(...vals) - 0.02) * 20) / 20)
+  const hi = Math.min(1, Math.ceil((Math.max(...vals) + 0.02) * 20) / 20)
+  const step = games.length > 1 ? (W - pad.l - pad.r) / (games.length - 1) : 0
+  const x = (i: number) => (games.length > 1 ? pad.l + i * step : (W + pad.l - pad.r) / 2)
+  const y = (v: number) => pad.t + (1 - (v - lo) / (hi - lo || 1)) * (H - pad.t - pad.b)
+  const ticks = [lo, (lo + hi) / 2, hi]
+  const g = hover !== null ? games[hover] : null
+  return (
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        role="img"
+        aria-label={`${label}走势`}
+        onMouseLeave={() => setHover(null)}
+        onMouseMove={(e) => {
+          const box = e.currentTarget.getBoundingClientRect()
+          const px = ((e.clientX - box.left) / box.width) * W
+          const i = games.length > 1 ? Math.round((px - pad.l) / step) : 0
+          setHover(Math.max(0, Math.min(games.length - 1, i)))
+        }}
+      >
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="rgba(255,255,255,.08)" />
+            <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="rgba(255,255,255,.5)">
+              {(t * 100).toFixed(Number.isInteger(Math.round(t * 1000) / 10) ? 0 : 1)}%
+            </text>
+          </g>
+        ))}
+        {games.length > 1 && (
+          <polyline
+            points={avg.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
+            fill="none"
+            stroke={HUE}
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+        )}
+        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={H - pad.b} stroke="rgba(255,255,255,.3)" />}
+        {games.map((gm, i) => (
+          <circle
+            key={gm.id}
+            cx={x(i)}
+            cy={y(vals[i])}
+            r={hover === i ? 5.5 : 4}
+            fill={HUE}
+            fillOpacity={hover === i ? 1 : 0.45}
+            stroke="#0d1813"
+            strokeWidth={2}
+          />
+        ))}
+      </svg>
+      {g && hover !== null && (
+        <div className="pointer-events-none absolute top-0 right-0 rounded-md bg-black/80 px-2.5 py-1.5 text-[12px]">
+          {formatDate(g.started_at)} · {label} {(vals[hover] * 100).toFixed(1)}%（近 5 局 {(avg[hover] * 100).toFixed(1)}%）·{' '}
+          {g.review!.decisions} 个决策
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Agreement / bad moves / q-gap per situation, one block per dimension. */
+function BreakdownTable({ breakdown, ai }: { breakdown: ReviewBreakdown; ai: string }) {
+  return (
+    <Card className="mt-4">
+      <div className="mb-1 text-[14px] font-semibold">
+        分类统计 <span className="font-normal text-white/45">（{breakdown.games} 局已复盘，找出最弱的局面）</span>
+      </div>
+      <div className="mb-3 text-[12px] text-white/45">
+        一致率 = 和 {ai} 首选相同的比例；恶手 = {ai} 只给了 &lt; 5% 的选择；平均 Q 差 = 每个决策比 {ai} 首选差多少（{ai}
+        的价值估计之差，不是点数），越小越好。
+      </div>
+      <table className="w-full text-[13px] tabular-nums">
+        <thead className="text-left text-white/45">
+          <tr className="border-b border-white/10">
+            <th className="py-2 font-normal">局面</th>
+            <th className="py-2 text-right font-normal">决策数</th>
+            <th className="py-2 pl-6 font-normal">一致率</th>
+            <th className="py-2 text-right font-normal">恶手</th>
+            <th className="py-2 text-right font-normal">恶手率</th>
+            <th className="py-2 text-right font-normal">平均 Q 差</th>
+          </tr>
+        </thead>
+        {breakdown.groups.map((grp) => (
+          <tbody key={grp.key}>
+            <tr>
+              <td colSpan={6} className="pt-3 pb-1 text-[12px] font-semibold text-white/60">
+                {grp.label}
+              </td>
+            </tr>
+            {grp.rows.map((r) => {
+              const rate = r.decisions ? r.matches / r.decisions : 0
+              return (
+                <tr key={r.bucket} className="border-b border-white/5">
+                  <td className="py-1.5 pl-3">{r.bucket}</td>
+                  <td className="py-1.5 text-right text-white/70">{r.decisions}</td>
+                  <td className="py-1.5 pl-6">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-32 overflow-hidden rounded bg-white/10">
+                        <div className="h-full rounded" style={{ width: `${rate * 100}%`, background: HUE }} />
+                      </div>
+                      <span className="font-mono">{(rate * 100).toFixed(1)}%</span>
+                    </div>
+                  </td>
+                  <td className="py-1.5 text-right text-white/70">{r.bad}</td>
+                  <td className="py-1.5 text-right font-mono">
+                    {r.decisions ? `${((r.bad / r.decisions) * 100).toFixed(1)}%` : '—'}
+                  </td>
+                  <td className="py-1.5 text-right font-mono">{r.avg_loss.toFixed(3)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        ))}
+      </table>
+    </Card>
   )
 }

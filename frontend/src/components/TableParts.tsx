@@ -84,6 +84,7 @@ export function Melds({ melds, actor, w }: { melds: Meld[]; actor: number; w: nu
 /** Extra per-tile info for the own hand (review / danger). */
 export interface TileInfo {
   prob?: number // Mortal's probability of discarding this tile
+  text?: string // label shown instead of the probability (e.g. the q-gap)
   best?: boolean // Mortal's top choice
   actual?: boolean // the tile actually discarded
   risks?: number[] // deal-in risk vs 上家 / 对家 / 下家 (0..1)
@@ -161,7 +162,7 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
           <div
             className={`pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1 font-mono text-[11px] whitespace-nowrap tabular-nums ${i.best ? 'bg-amber-400 font-bold text-black' : 'bg-black/65 text-white/85'}`}
           >
-            {Math.round(i.prob * 100)}%
+            {i.text ?? `${Math.round(i.prob * 100)}%`}
           </div>
         )}
         {i.actual && (

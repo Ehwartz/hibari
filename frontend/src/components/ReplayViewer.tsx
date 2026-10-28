@@ -25,6 +25,12 @@ const CALL_HINT: Record<string, { type: Hint['type']; name: string }> = {
   none: { type: 'none', name: '跳过' },
 }
 
+/** Q-gap of an action vs the AI's choice ("0" for the choice itself), from a review decision. */
+export function qGap(d: ReviewDecision, label: string): string {
+  const gap = (d.q[d.best] ?? 0) - (d.q[label] ?? d.q[d.best] ?? 0)
+  return gap < 0.005 ? '0' : `−${gap.toFixed(2)}`
+}
+
 /** Human-readable name of an AI (Mortal-style) action label. */
 export function labelName(label: string): string {
   return CALL_HINT[label]?.name ?? `打 ${tileName(label)}`
@@ -152,6 +158,8 @@ export function ReplayViewer({
   const [showHints, setShowHints] = useState(true)
   const [showTsumogiri, setShowTsumogiri] = useState(() => new URLSearchParams(location.search).has('review'))
   const [showDanger, setShowDanger] = useState(true)
+  // AI numbers as probabilities, or as the q-gap to the AI's choice (how much worse each option is)
+  const [qView, setQView] = useState(false)
   const lastWheel = useRef(0)
   const [playing, setPlaying] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -247,7 +255,7 @@ export function ReplayViewer({
   const t = frame.event.type
   const showResult = (t === 'hora' || t === 'ryukyoku' || t === 'end_kyoku') && (table.horas.length > 0 || !!table.ryukyoku)
   const chosenText = dec
-    ? `你：${labelName(dec.actual)} ${dec.match ? '✓' : `(${Math.round(dec.actual_prob * 100)}%)`}`
+    ? `你：${labelName(dec.actual)} ${dec.match ? '✓' : qView ? `(${qGap(dec, dec.actual)})` : `(${Math.round(dec.actual_prob * 100)}%)`}`
     : frame.chosen
       ? `${ai} 实际：${actionLabel(frame.chosen)}`
       : undefined
@@ -258,6 +266,7 @@ export function ReplayViewer({
     return {
       risks: danger.length ? tileRisks(danger, tile) : undefined,
       prob: annotate ? (dec!.probs[tile] ?? 0) : undefined,
+      text: annotate && qView && tile in dec!.q ? qGap(dec!, tile) : undefined,
       best: annotate ? dec!.best === tile : undefined,
       actual: annotate && actualDahai ? actualDahai.pai === tile && actualDahai.tsumogiri === fromDrawn : undefined,
     }
@@ -282,7 +291,7 @@ export function ReplayViewer({
   const btn = 'rounded-md bg-white/10 px-2.5 py-1 text-[13px] hover:bg-white/20 disabled:opacity-30'
   return (
     <div className="flex h-full flex-col items-center" onContextMenu={onStageContextMenu}>
-      <div className="flex h-14 w-full shrink-0 items-center gap-2 border-b border-white/10 bg-black/40 px-4 text-white">
+      <div className="flex h-14 w-full shrink-0 items-center gap-2 overflow-hidden border-b border-white/10 bg-black/40 px-4 text-white whitespace-nowrap [&>*]:shrink-0 [&>span.flex-1]:shrink">
         <a href={backHref} className="mr-1 text-white/60 hover:text-white">←</a>
         <span className="mr-3 font-bold tracking-wide">{title}</span>
         <button className={btn} onClick={() => kyokuStart(-1)} title="上一局">⏮</button>
@@ -315,12 +324,12 @@ export function ReplayViewer({
           max={last}
           value={index}
           onChange={(e) => go(Number(e.target.value))}
-          className="mx-2 w-40 accent-emerald-400"
+          className="mx-2 w-28 shrink-0 accent-emerald-400"
         />
         <span className="w-20 font-mono text-[12px] text-white/60 tabular-nums">
           {index}/{last}
         </span>
-        <span className="flex-1 truncate text-[13px] text-white/80">{describe(frame.event, names)}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-white/80">{describe(frame.event, names)}</span>
         {extra}
         {review ? (
           <>
@@ -355,6 +364,14 @@ export function ReplayViewer({
             <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} /> AI 提示
           </label>
         )}
+        {review && (
+          <label
+            className="ml-3 flex items-center gap-1.5 text-[13px]"
+            title="把概率换成 Q 差：每个选项比 AI 首选差多少（AI 的价值估计之差，0 = 首选，越大越亏；不是点数）"
+          >
+            <input type="checkbox" checked={qView} onChange={(e) => setQView(e.target.checked)} /> Q 差
+          </label>
+        )}
       </div>
 
       <div className="flex w-full flex-1" onClick={onStageClick} onWheel={onStageWheel}>
@@ -375,7 +392,12 @@ export function ReplayViewer({
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
-              {hasHints && showHints && <HintPanel hints={hints} chosen={chosenText} title={`${ai} 推荐`} />}
+              {hasHints && showHints && <HintPanel
+                  hints={hints}
+                  chosen={chosenText}
+                  title={`${ai} 推荐`}
+                  value={dec && qView ? (h) => qGap(dec, h.label) : undefined}
+                />}
               {actions.some((a) => a.type !== 'dahai') && <ActionBar key={index} actions={actions} onAction={onAction} />}
               {toast && (
                 <div className="absolute top-[612px] left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1.5 text-[14px] text-white">

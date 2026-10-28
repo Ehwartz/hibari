@@ -306,6 +306,7 @@ def compute_stats(settings: Settings, game_ids: list[str] | None = None) -> dict
     out["stat"]["avg_point"] = round(sum(g.point for g in games) / len(games), 2)
     out["stat"]["total_point"] = round(sum(g.point for g in games), 1)
     out["groups"] = STAT_FIELDS
+    out["review"] = review_breakdown(settings, [g.id for g in games])
     return out
 
 
@@ -328,6 +329,23 @@ _drill_cache: dict[Path, tuple[tuple[float, float], list[dict]]] = {}
 _drills_lock = threading.Lock()
 
 
+def _event_context(events: list[dict], seat: int) -> list[tuple[str, int, bool, bool]]:
+    """Per event: kyoku label, ``seat``'s draw count this kyoku, opponent riichi standing, ``seat`` is dealer."""
+    ctx: list[tuple[str, int, bool, bool]] = []
+    label, turn, riichi, oya = "", 0, False, False
+    for ev in events:
+        t = ev["type"]
+        if t == "start_kyoku":
+            label = f"{_WIND[['E', 'S', 'W', 'N'].index(ev['bakaze'])]}{ev['kyoku']}局 {ev['honba']}本场"
+            turn, riichi, oya = 0, False, ev.get("oya") == seat
+        elif t == "tsumo" and ev["actor"] == seat:
+            turn += 1
+        elif t == "reach_accepted" and ev["actor"] != seat:
+            riichi = True
+        ctx.append((label, turn, riichi, oya))
+    return ctx
+
+
 def _game_drills(path: Path, meta: GameMeta) -> list[dict]:
     """Discard decisions of one reviewed game where the human differed from Mortal."""
     rf = review_file(path)
@@ -337,25 +355,12 @@ def _game_drills(path: Path, meta: GameMeta) -> list[dict]:
         return cached[1]
     review = read_review(path) or {}
     events = read_events(path)
-    seat = meta.human
-    # per event: kyoku label, own turn number, whether an opponent's riichi stands
-    ctx: list[tuple[str, int, bool]] = []
-    label, turn, riichi = "", 0, False
-    for ev in events:
-        t = ev["type"]
-        if t == "start_kyoku":
-            label = f"{_WIND[['E', 'S', 'W', 'N'].index(ev['bakaze'])]}{ev['kyoku']}局 {ev['honba']}本场"
-            turn, riichi = 0, False
-        elif t == "tsumo" and ev["actor"] == seat:
-            turn += 1
-        elif t == "reach_accepted" and ev["actor"] != seat:
-            riichi = True
-        ctx.append((label, turn, riichi))
+    ctx = _event_context(events, meta.human)
     items = []
     for d in review.get("decisions", []):
         if not d.get("discard") or d.get("match") or d["index"] >= len(ctx):
             continue
-        label, turn, riichi = ctx[d["index"]]
+        label, turn, riichi, _ = ctx[d["index"]]
         q = d.get("q", {})
         items.append(
             {
@@ -428,3 +433,70 @@ def grade_drill(settings: Settings, drill_id: str, choice: str) -> dict:
 def reset_drills() -> None:
     with _drills_lock:
         DRILLS_FILE.unlink(missing_ok=True)
+
+
+# -- review breakdown (恶手分类统计) ----------------------------------------------
+
+_CALLS = {"chi_low", "chi_mid", "chi_high", "pon", "kan_select"}
+# (dimension, label of the dimension, classifier(decision, turn, riichi, oya) -> bucket)
+_BREAKDOWN = [
+    (
+        "kind",
+        "决策类型",
+        lambda d, turn, riichi, oya: (
+            ("立直判断" if "reach" in d["probs"] else "打牌")
+            if d.get("discard")
+            else "鸣牌判断" if _CALLS & d["probs"].keys() else "和牌 / 其他"
+        ),
+    ),
+    ("phase", "巡目", lambda d, turn, riichi, oya: "序盘 (1–6 巡)" if turn <= 6 else "中盘 (7–12 巡)" if turn <= 12 else "终盘 (13 巡~)"),
+    ("riichi", "对手立直", lambda d, turn, riichi, oya: "对手立直中" if riichi else "无人立直"),
+    ("oya", "亲 / 子", lambda d, turn, riichi, oya: "亲家" if oya else "子家"),
+]
+_BUCKET_ORDER = ["打牌", "立直判断", "鸣牌判断", "和牌 / 其他", "序盘 (1–6 巡)", "中盘 (7–12 巡)", "终盘 (13 巡~)",
+                 "无人立直", "对手立直中", "子家", "亲家"]
+
+
+def review_breakdown(settings: Settings, game_ids: list[str]) -> dict | None:
+    """Agreement with the AI per situation, over the reviewed games among ``game_ids``.
+
+    Per bucket: decisions, matches, bad moves (AI gave the actual action < 5 %),
+    and the summed q-gap between the AI's choice and yours.
+    """
+    acc: dict[str, dict[str, list[float]]] = {key: {} for key, _, _ in _BREAKDOWN}
+    games = 0
+    for gid in game_ids:
+        path = log_file(settings, gid)
+        review = read_review(path)
+        if not review:
+            continue
+        games += 1
+        ctx = _event_context(read_events(path), int(review.get("human", 0)))
+        for d in review["decisions"]:
+            if d["index"] >= len(ctx):
+                continue
+            _, turn, riichi, oya = ctx[d["index"]]
+            q = d.get("q", {})
+            loss = q.get(d["best"], 0.0) - q.get(d["actual"], 0.0)
+            for key, _, f in _BREAKDOWN:
+                b = acc[key].setdefault(f(d, turn, riichi, oya), [0, 0, 0, 0.0])
+                b[0] += 1
+                b[1] += bool(d["match"])
+                b[2] += d["actual_prob"] < 0.05
+                b[3] += loss
+    if not games:
+        return None
+    return {
+        "games": games,
+        "groups": [
+            {
+                "key": key,
+                "label": label,
+                "rows": [
+                    {"bucket": name, "decisions": n, "matches": m, "bad": bad, "avg_loss": round(loss / n, 4)}
+                    for name, (n, m, bad, loss) in sorted(acc[key].items(), key=lambda kv: _BUCKET_ORDER.index(kv[0]))
+                ],
+            }
+            for key, label, _ in _BREAKDOWN
+        ],
+    }

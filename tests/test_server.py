@@ -129,6 +129,13 @@ def test_logs_and_stats_api(tmp_settings):
         assert client.get("/api/logs").json()["games"][0]["review"]["decisions"] == review["summary"]["decisions"]
         assert client.get(f"/api/logs/{game_id}/review").status_code == 200
 
+        breakdown = client.post("/api/stats", json={}).json()["review"]
+        kinds = {g["key"]: g for g in breakdown["groups"]}
+        assert breakdown["games"] == 1 and set(kinds) == {"kind", "phase", "riichi", "oya"}
+        assert sum(r["decisions"] for r in kinds["phase"]["rows"]) == review["summary"]["decisions"]
+        assert client.get("/api/quiz/wait?mode=chinitsu&seed=1").json()["waits"]
+        assert client.get("/api/quiz/score?seed=1").json()["answer"]["han"] >= 1
+
         # drills: the discard decisions that differ from Mortal (this player always tsumogiris)
         drills = client.get("/api/drills").json()
         mismatches = [d for d in review["decisions"] if d["discard"] and not d["match"]]

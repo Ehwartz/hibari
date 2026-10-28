@@ -152,6 +152,45 @@ export type StatValues = Record<string, number | null>
 export interface StatsResponse {
   games: GameMeta[]
   stat: StatValues | null
+  review: ReviewBreakdown | null // agreement with the AI per situation (reviewed games only)
+}
+
+export interface ReviewBreakdown {
+  games: number
+  groups: {
+    key: string
+    label: string
+    rows: { bucket: string; decisions: number; matches: number; bad: number; avg_loss: number }[]
+  }[]
+}
+
+/** 听牌练习: a 13-tile tenpai hand; forms = ways to split hand + wait into groups. */
+export interface WaitQuiz {
+  mode: 'mixed' | 'chinitsu'
+  hand: string[]
+  waits: string[]
+  forms: Record<string, string[][][]>
+}
+
+/** 点数计算: a winning hand with its situation and the answer. */
+export interface ScoreQuiz {
+  hand: string[] // concealed tiles without the winning tile
+  win: string
+  melds: { type: 'pon' | 'chi'; tiles: string[]; called: number }[]
+  tsumo: boolean
+  riichi: boolean
+  oya: boolean
+  bakaze: string
+  jikaze: string
+  dora_markers: string[]
+  answer: {
+    han: number
+    fu: number
+    yaku: [string, number][]
+    fu_details: { fu: number; reason: string }[]
+    pay: { ron?: number; all?: number; ko?: number; oya?: number }
+    total: number
+  }
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -188,6 +227,8 @@ export const api = {
     ),
   cancelBatch: () => fetch('/api/batch/cancel', { method: 'POST' }).then((r) => json<BatchStatus>(r)),
   deleteLog: (id: string) => fetch(`/api/logs/${id}`, { method: 'DELETE' }).then((r) => json<{ deleted: string }>(r)),
+  waitQuiz: (mode: WaitQuiz['mode']) => fetch(`/api/quiz/wait?mode=${mode}`).then((r) => json<WaitQuiz>(r)),
+  scoreQuiz: () => fetch('/api/quiz/score').then((r) => json<ScoreQuiz>(r)),
   drills: () => fetch('/api/drills').then((r) => json<DrillList>(r)),
   answerDrill: (id: string, choice: string) =>
     fetch('/api/drills/answer', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ id, choice }) }).then((r) =>

@@ -478,6 +478,52 @@ hand, so it is the same during play and in review.
   tile, the top 3, what you played in the game, and a link to
   `#/replay/<id>?frame=<index>` (Replay now also reads `?frame` after the
   hash).
+- Practice tabs (练习 page header): 何切练习 `#/drill`, 听牌练习
+  `#/drill/wait`, 点数计算 `#/drill/score`.
+
+### Generated quizzes (听牌 / 点数)
+
+- `backend/analysis/quiz.py`, `GET /api/quiz/wait?mode=mixed|chinitsu`,
+  `GET /api/quiz/score`. Both are stateless and take an optional `seed`.
+  The client grades the answer, and the session tally is not stored.
+- A complete hand (4 groups + a pair, at most 4 copies of a kind) is
+  drawn at random.
+  - Wait quiz: one tile is removed and the waits are computed with
+    `Agari.is_agari`. Kinds held 4× are not counted as waits. Multi-sided
+    waits are preferred (≥ 3 for chinitsu, ≥ 2 otherwise). `forms` holds
+    `HandDivider` splits for the explanation.
+  - Score quiz: 0–2 groups become open pon / chi. Some fives are made red,
+    and a suit's red five is forced when all four fives of that suit are in
+    the hand. The quiz also randomizes riichi (closed hands only),
+    tsumo / ron, dealer, round wind and one dora indicator. Scoring uses the
+    engine's `_OPTIONS`. No-yaku hands and yakuman are re-drawn. The answer
+    has han, fu, yaku, `fu_details` and the payment
+    (ron / all / ko + oya). Fu is only graded below mangan.
+
+### Review breakdown and trends (数据 page)
+
+- `storage.review_breakdown`, returned as `review` by `POST /api/stats`
+  for the selected games that have a review, groups every reviewed
+  decision four ways:
+  - decision kind: 打牌 / 立直判断 / 鸣牌判断 / 和牌·其他
+  - phase by your draw count: 1–6 / 7–12 / 13+
+  - opponent riichi standing or not
+  - dealer or not
+  Per bucket: decisions, matches, bad moves and the mean q-gap.
+  `_event_context` (shared with drills) provides the per-event kyoku,
+  turn, riichi and dealer info.
+- Trend charts (agreement and bad-move rate per game, with a 5-game moving
+  average) are drawn on the client from `GameMeta.review`. They are two
+  charts, not a dual axis.
+
+### Q-gap view
+
+- The review stores Mortal's q per legal action. The q-gap is
+  q(best) − q(option), so 0 is the AI's choice. The replay has a 「Q 差」
+  toggle that shows q-gaps instead of probabilities on the tiles and in
+  the hint panel. Drill answers show the q-gap of your choice and of the
+  game move. It is Mortal's value estimate, not points, so the UI says so.
+
 - Partial-autoplay games stay in the pool. Their AI-made decisions are not
   marked in the log, but at `auto_temp` 0 they match the review and so
   never become questions.
@@ -491,7 +537,7 @@ hand, so it is the same during play and in review.
 | M2 | Human vs 3 bots in the browser (WebSocket + React table) | ✅ done 2026-10-27 |
 | M3 | Persist games, replay viewer | ✅ done 2026-10-27 (log folder + list / replay / delete) |
 | M4 | Mortal review | ✅ done 2026-10-28 (review + replay annotations + deal-in risk) |
-| M5 | Stats dashboard, training features | ✅ done 2026-10-28 (stats dashboard + 何切 discard drills) |
+| M5 | Stats dashboard, training features | ✅ done 2026-10-28 (stats dashboard, 何切 drills, wait / score quizzes, review breakdown + trends, Q-gap view) |
 | M6 | Desktop packaging | — |
 
 ## 10. Decision log
