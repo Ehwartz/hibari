@@ -829,6 +829,28 @@ out of the bundle.
   together with the app's sources. The weights are not covered by the
   license and should not be redistributed publicly.
 
+## 10c. Training new Mortal models (train_mortal/)
+
+`train_mortal/` continues Akagi's `mortal.pth` with Mortal's own online
+training: GRP self-play logs, then GRP, then server + self-play client(s)
++ trainer. The student plays 1v3 against frozen baselines. The style comes
+from `[env] pts`; Akagi's model was trained with `[3, 1.5, 0, -4.5]`
+(Tenhou ratio, avoid-4th).
+
+- `make_config.py` writes the config (style, pilot or full scale, device).
+- `prepare.py` turns `mortal.pth` into `baseline.pth` and `trainee.pth`.
+  Akagi's file is a complete training checkpoint, but it holds numpy
+  scalars that Mortal's `weights_only=True` loads reject, so they are
+  converted to plain numbers. With AMP it also gets a fresh scaler state.
+- `pilot.py` runs the whole pipeline end to end with timings.
+- `cpu_shim/sitecustomize.py` makes Mortal's CUDA-only calls no-ops when
+  there is no GPU, so the pilot also runs on a CPU.
+
+The Mortal clone, its venv and the runs are git-ignored. The local CPU
+pilot passed: 1v3 self-play ran at about 310 games/hour, and the online
+loop did 3 rounds of play, submit, train and new params.
+See `train_mortal/README.md`.
+
 ## 11. Dev quickstart
 
 `mjbot_mortal/mortal.pth` (131 MB) is not in git — copy it in manually.
