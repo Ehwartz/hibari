@@ -1,7 +1,7 @@
 // Step-through viewer for a recorded game (log replay, and the backend-free UI preview).
 // Frames are full mjai events, optionally with the seat-0 decision (actions / hint / chosen).
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Review, ReviewDecision } from '../lib/api'
 import { computeDanger, tileRisks } from '../lib/danger'
 import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
@@ -182,6 +182,16 @@ export function ReplayViewer({
   // AI numbers as probabilities, or as the q-gap to the AI's choice (how much worse each option is)
   const [qView, setQView] = useState(false)
   const lastWheel = useRef(0)
+  // the header may wrap to two lines on a narrow window: the stage scales to its real height
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [headerH, setHeaderH] = useState(56)
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setHeaderH(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const [playing, setPlaying] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -324,7 +334,13 @@ export function ReplayViewer({
   const btn = 'rounded-md bg-white/10 px-2.5 py-1 text-[13px] hover:bg-white/20 disabled:opacity-30'
   return (
     <div className="flex h-full flex-col items-center" onContextMenu={onStageContextMenu}>
-      <div className="flex h-14 w-full shrink-0 items-center gap-2 overflow-hidden border-b border-white/10 bg-black/40 px-4 text-white whitespace-nowrap [&>*]:shrink-0 [&>span.flex-1]:shrink">
+      {/* two groups: step controls (left) and review / display toggles (right); on a narrow window the
+          right group wraps to a second line instead of being cut off, and the stage scales to the header */}
+      <div
+        ref={headerRef}
+        className="flex min-h-14 w-full shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-white/10 bg-black/40 px-4 py-2 text-white whitespace-nowrap"
+      >
+        <div className="flex min-w-0 grow basis-[720px] items-center gap-2 overflow-hidden [&>*]:shrink-0 [&>span.flex-1]:shrink">
         <a href={backHref} className="mr-1 text-white/60 hover:text-white">←</a>
         <span className="mr-3 font-bold tracking-wide">{title}</span>
         <button className={btn} onClick={() => kyokuStart(-1)} title="上一局">⏮</button>
@@ -364,6 +380,8 @@ export function ReplayViewer({
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px] text-white/80">{describe(frame.event, names)}</span>
         {extra}
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
         {review ? (
           <>
             <span
@@ -417,13 +435,14 @@ export function ReplayViewer({
         >
           进张分析
         </button>
+        </div>
       </div>
 
       {/* your own view at this step (never the open hands) */}
       {showUkeire && <UkeirePanel table={masked[index]} onClose={() => setShowUkeire(false)} />}
 
       <div className="flex w-full flex-1" onClick={onStageClick} onWheel={onStageWheel}>
-      <ScaledStage reserved={56}>
+      <ScaledStage reserved={headerH}>
         {(width) => (
             <Table
           width={width}

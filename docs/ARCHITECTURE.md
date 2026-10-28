@@ -378,7 +378,11 @@ These outputs are committed, so CI needs no rendering step.
   shadow below the face. The setting (`localStorage` `samehl`, on by
   default) is shared by the game page and the replay viewer, which both
   have the toggle and 进张分析 at the right of the header, in the same order.
-  Replay analyses `masked[index]`, your own view at that step.
+  Replay analyses `masked[index]`, your own view at that step. The replay header
+  has two groups, step controls and review/display toggles. On a narrow
+  window (on a 1500 px screen with a reviewed log) the second group wraps
+  to a second line instead of being clipped, and `ScaledStage` gets the
+  header's measured height (ResizeObserver).
 - **进张分析**: `POST /api/ukeire {hand, visible}` (`backend/analysis/ukeire.py`)
   works with the `mahjong` library's shanten (chiitoitsu and kokushi from
   13 tiles). With 3n+2 tiles it returns one option per discard kind; with
