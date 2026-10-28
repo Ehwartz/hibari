@@ -188,6 +188,8 @@ def main() -> None:
     ap.add_argument("--no-avatars", action="store_true", help="don't ship the AI avatars from data/assets")
     ap.add_argument("--allow-no-weights", action="store_true", help="build even if mjbot_mortal/mortal.pth is missing (CI)")
     ap.add_argument("--no-weights", action="store_true", help="leave the weights out even if present")
+    ap.add_argument("--out", type=Path, default=RELEASE,
+                    help="build folder and archive location (default release/; another one leaves a running release/Hibari alone)")
     args = ap.parse_args()
 
     if sys.platform not in TARGETS or (sys.platform == "darwin" and platform.machine() != "arm64"):
@@ -200,8 +202,9 @@ def main() -> None:
     if IS_WIN and not CSC.exists():
         raise SystemExit(f"csc.exe not found: {CSC}")
 
-    RELEASE.mkdir(exist_ok=True)
-    top = RELEASE / "Hibari"  # the folder inside the archive
+    out_dir = args.out.resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    top = out_dir / "Hibari"  # the folder inside the archive
     if top.exists():
         step(f"removing old {top}")
         shutil.rmtree(top)
@@ -288,18 +291,18 @@ exec ./runtime/python/bin/python3 -m scripts.launch
     if args.no_archive:
         return
     if sys.platform == "linux":
-        archive = RELEASE / f"Hibari-{version}-{suffix}.tar.gz"
+        archive = out_dir / f"Hibari-{version}-{suffix}.tar.gz"
         step(f"packing {archive.name}")
         with tarfile.open(archive, "w:gz", compresslevel=6) as tar:
             tar.add(top, arcname=top.name)
     elif sys.platform == "darwin":
-        archive = RELEASE / f"Hibari-{version}-{suffix}.zip"
+        archive = out_dir / f"Hibari-{version}-{suffix}.zip"
         step(f"packing {archive.name}")
         archive.unlink(missing_ok=True)
         # ditto keeps permissions, symlinks and the bundle structure (Finder's own zip format)
         subprocess.run(["ditto", "-c", "-k", "--norsrc", "--noextattr", "--keepParent", str(top), str(archive)], check=True)
     else:
-        archive = RELEASE / f"Hibari-{version}-{suffix}.zip"
+        archive = out_dir / f"Hibari-{version}-{suffix}.zip"
         step(f"packing {archive.name}")
         archive.unlink(missing_ok=True)
         files = sorted(p for p in top.rglob("*") if p.is_file())
