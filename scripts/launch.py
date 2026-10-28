@@ -4,10 +4,12 @@
 2. Starts the backend (which also serves the built UI) on a free port.
 3. Opens Chrome in ``--app`` mode with its own profile, so the window behaves
    like a separate program (own taskbar entry, no address bar / tabs).
+   Without Chrome it uses Edge (Chromium, same flags).
 4. When that window is closed, stops the backend.
 
-Run with ``start.cmd`` (no console), or ``uv run python -m scripts.launch``.
-Output goes to ``data/launcher.log``.
+Run with ``start.cmd`` (no console), ``Hibari.exe`` in the portable release,
+or ``uv run python -m scripts.launch``. Output goes to ``data/launcher.log``;
+failures also show a message box (there is no console).
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import ctypes
 import winreg
 from pathlib import Path
 
@@ -31,19 +34,44 @@ NO_WINDOW = subprocess.CREATE_NO_WINDOW
 log = logging.getLogger("launcher")
 
 
-def find_chrome() -> str:
+# the UI (Tailwind 4) needs Chromium 111+
+MIN_CHROMIUM = 111
+
+
+def _find_exe(app_paths_name: str, *rel: str) -> Path | None:
     for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
         try:
-            with winreg.OpenKey(hive, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe") as k:
+            with winreg.OpenKey(hive, rf"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{app_paths_name}") as k:
                 path = winreg.QueryValue(k, None)
                 if path and Path(path).exists():
-                    return path
+                    return Path(path)
         except OSError:
             pass
     for base in (os.environ.get("PROGRAMFILES"), os.environ.get("PROGRAMFILES(X86)"), os.environ.get("LOCALAPPDATA")):
-        if base and (p := Path(base) / "Google" / "Chrome" / "Application" / "chrome.exe").exists():
-            return str(p)
-    raise FileNotFoundError("Chrome not found")
+        if base and (p := Path(base).joinpath(*rel)).exists():
+            return p
+    return None
+
+
+def browser_version(exe: Path) -> int | None:
+    """Major version of a Chromium browser, from the version folder next to its exe."""
+    majors = [int(d.name.split(".")[0]) for d in exe.parent.iterdir() if d.is_dir() and d.name.split(".")[0].isdigit()]
+    return max(majors) if majors else None
+
+
+def find_browser() -> tuple[str, Path]:
+    """Chrome if installed, otherwise Edge: (name, exe)."""
+    chrome = _find_exe("chrome.exe", "Google", "Chrome", "Application", "chrome.exe")
+    if chrome:
+        return "Chrome", chrome
+    edge = _find_exe("msedge.exe", "Microsoft", "Edge", "Application", "msedge.exe")
+    if edge:
+        return "Edge", edge
+    raise FileNotFoundError("找不到 Chrome 或 Edge。请安装 Google Chrome 后再运行。")
+
+
+def message_box(text: str, title: str = "雲雀 Hibari", error: bool = True) -> None:
+    ctypes.windll.user32.MessageBoxW(None, text, title, 0x10 if error else 0x30)
 
 
 def _newest_mtime(paths: list[Path]) -> float:
@@ -55,6 +83,8 @@ def _newest_mtime(paths: list[Path]) -> float:
 
 
 def ensure_frontend_built() -> None:
+    if not (FRONTEND / "src").exists():  # portable release: dist is prebuilt, no sources / Node
+        return
     built = FRONTEND / "dist" / "index.html"
     sources = [FRONTEND / "src", FRONTEND / "public", FRONTEND / "index.html", FRONTEND / "package.json"]
     if built.exists() and built.stat().st_mtime >= _newest_mtime(sources):
@@ -116,9 +146,17 @@ def main() -> None:
             url = f"http://127.0.0.1:{port}/"
             wait_ready(url + "api/health", server)
             log.info("backend ready at %s", url)
+            name, exe = find_browser()
+            version = browser_version(exe)
+            log.info("browser: %s %s (%s)", name, version, exe)
+            if version is not None and version < MIN_CHROMIUM:
+                message_box(
+                    f"{name} 版本太旧（{version}），界面可能显示不正常。\n请更新 {name}，或安装最新版 Google Chrome。",
+                    error=False,
+                )
             chrome = subprocess.Popen(
                 [
-                    find_chrome(),
+                    str(exe),
                     f"--app={url}",
                     f"--user-data-dir={DATA / 'chrome-app'}",
                     "--window-size=1600,1000",
@@ -134,8 +172,9 @@ def main() -> None:
                 server.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 server.kill()
-    except Exception:
+    except Exception as ex:
         log.exception("launcher failed")
+        message_box(f"启动失败：{ex}\n\n详细信息见 {DATA / 'launcher.log'} 和 server.log")
         raise
 
 

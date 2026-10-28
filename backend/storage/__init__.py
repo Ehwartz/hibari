@@ -30,7 +30,7 @@ _ID = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
 @dataclass
 class Settings:
     player_name: str = "You"
-    log_dir: str = str(DATA / "games")
+    log_dir: str = "data/games"  # relative to the app folder (portable release can be moved)
     default_length: str = "hanchan"  # hanchan | tonpuu
     think_min: float = 1.0  # bots' thinking time per decision, seconds
     think_max: float = 3.0

@@ -538,7 +538,7 @@ hand, so it is the same during play and in review.
 | M3 | Persist games, replay viewer | ✅ done 2026-10-27 (log folder + list / replay / delete) |
 | M4 | Mortal review | ✅ done 2026-10-28 (review + replay annotations + deal-in risk) |
 | M5 | Stats dashboard, training features | ✅ done 2026-10-28 (stats dashboard, 何切 drills, wait / score quizzes, review breakdown + trends, Q-gap view) |
-| M6 | Desktop packaging | — |
+| M6 | Desktop packaging | ✅ done 2026-10-28 (portable zip: `scripts/build_release.py`) |
 
 ## 10. Decision log
 
@@ -615,6 +615,40 @@ hand, so it is the same during play and in review.
 - 2026-10-27 — Edge rules aligned with the arena / Tenhou: minkan dora no
   longer counts for rinshan kaihou; pao uses the whole hand value, and on a
   ron the liable player pays the honba.
+
+## 10b. Portable release (M6)
+
+`python -m uv run python -m scripts.build_release` builds
+`release/Hibari-<version>-win64.zip`, about 261 MB zipped and 623 MB
+unpacked. It downloads nothing: everything comes from the tested dev setup.
+
+- `runtime/python/`: the standalone CPython that `.venv` is based on (from
+  `pyvenv.cfg` `home`), plus `.venv`'s site-packages. Build-only files are
+  left out: `*.lib` (torch alone has about 2.6 GB of them) and
+  `torch/include` and `torch/share`.
+- App files keep the repo layout (`backend/`, `scripts/launch.py`,
+  `frontend/dist/`), so `ROOT`-relative paths work unchanged. `data/` is
+  created on first run and never shipped. The default `log_dir` is now the
+  relative `data/games`, so the folder can be moved.
+- `mjbot_mortal/` has only the runtime files, the py3.12 win64 libriichi,
+  and `mortal.pth`. The build fails if the weights are missing.
+- `Hibari.exe` is `scripts/release/Hibari.cs`, compiled with the .NET
+  Framework `csc.exe` that ships with Windows. It runs
+  `runtime\python\pythonw.exe -m scripts.launch` from its own folder and
+  clears `PYTHON*` / `VIRTUAL_ENV`.
+- Launcher: Chrome if installed, otherwise Edge, in `--app` mode with the
+  same flags. It warns when the browser is older than Chromium 111
+  (Tailwind 4). On failure it shows a message box and logs to
+  `data/launcher.log`. The dev-only frontend rebuild is skipped when
+  `frontend/src` is absent.
+- Licensing: the zip ships AGPL-3.0 `LICENSE` (Mortal's) and
+  `使用说明.txt`. The app's sources are in the zip, so it is
+  source-available. The weights are bundled for personal use, and the
+  readme asks recipients not to redistribute them publicly.
+- Verified by unzipping into a fresh folder whose path has spaces and CJK
+  characters. The checks: `sys.path` stays inside the folder, a batch game
+  plays, a review runs, the quizzes and settings work, `Hibari.exe` opens
+  Chrome, and closing the window stops the backend.
 
 ## 11. Dev quickstart
 

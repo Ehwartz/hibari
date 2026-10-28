@@ -9,3 +9,6 @@ mjbot_mortal/settings.toml
 
 # Model weights (131MB, over GitHub's 100MB limit) — copy in manually
 mjbot_mortal/mortal.pth
+
+# portable build output (scripts/build_release.py)
+release/
