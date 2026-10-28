@@ -628,7 +628,10 @@ unpacked. It downloads nothing: everything comes from the tested dev setup.
   `torch/include` and `torch/share`.
 - App files keep the repo layout (`backend/`, `scripts/launch.py`,
   `frontend/dist/`), so `ROOT`-relative paths work unchanged. `data/` is
-  created on first run and never shipped. The default `log_dir` is now the
+  created on first run. The only thing shipped in it is the AI-A/B/C avatars
+  from the build machine's `data/assets`: just the images plus their
+  `assets` entries in `data/settings.json`. `--no-avatars` skips them. They
+  never enter git, because `data/` is ignored. The default `log_dir` is now the
   relative `data/games`, so the folder can be moved.
 - `mjbot_mortal/` has only the runtime files, the py3.12 win64 libriichi,
   and `mortal.pth`. The build fails if the weights are missing.

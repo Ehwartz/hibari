@@ -11,13 +11,15 @@ Layout (the app keeps the repo layout, so paths in the code stay valid):
       frontend/dist/        prebuilt UI (no Node needed)
       mjbot_mortal/         model.py & co, libriichi for py3.12 win64, mortal.pth
       LICENSE  使用说明.txt
-      data/                 created on first run (logs, settings) — never shipped
+      data/                 created on first run (logs, settings); the release only seeds the
+                            AI avatars from your local data/ (skip with --no-avatars)
 
 Nothing is downloaded: the interpreter and packages are the ones the tests ran with.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -76,9 +78,38 @@ def write_text(path: Path, text: str) -> None:
     path.write_bytes(b"\xef\xbb\xbf" + text.replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8"))
 
 
+AI_AVATARS = ("avatar_ai1", "avatar_ai2", "avatar_ai3")
+
+
+def seed_ai_avatars(out: Path) -> None:
+    """Ship the AI-A/B/C avatars set in this machine's data/ as the release's starting avatars.
+
+    Only the images and their ``assets`` entries go into data/settings.json; every other setting
+    (names, your avatar, folders …) stays at its default.
+    """
+    sys.path.insert(0, str(ROOT))
+    from backend import storage
+
+    assets = {}
+    for name in AI_AVATARS:
+        src = storage.asset_path(name)
+        if src is None:
+            continue
+        dst = out / "data" / "assets" / src.relative_to(storage.ASSET_DIR)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        assets[name] = int(src.stat().st_mtime * 1000)
+    if not assets:
+        step("no AI avatars in data/assets — skipped")
+        return
+    (out / "data" / "settings.json").write_text(json.dumps({"assets": assets}, indent=2), encoding="utf-8")
+    step(f"AI avatars: {', '.join(assets)}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-zip", action="store_true", help="only build release/Hibari/")
+    ap.add_argument("--no-avatars", action="store_true", help="don't ship the AI avatars from data/assets")
     args = ap.parse_args()
 
     version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
@@ -128,6 +159,9 @@ def main() -> None:
     shutil.copy2(weights, bot / "mortal.pth")
     shutil.copy2(ROOT / "mjbot_mortal" / "LICENSE", out / "LICENSE")  # AGPL-3.0 (see 使用说明)
     write_text(out / "使用说明.txt", (ROOT / "scripts" / "release" / "使用说明.txt").read_text(encoding="utf-8").replace("{version}", version))
+
+    if not args.no_avatars:
+        seed_ai_avatars(out)
 
     step("compiling Hibari.exe")
     subprocess.run(
