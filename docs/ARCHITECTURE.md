@@ -286,7 +286,9 @@ class Agent(Protocol):
   played automatically. Right click passes on a call, or tsumogiris on your
   own turn (which also skips riichi). It does nothing when a win is offered.
 - Auto settings (left panel, persisted in localStorage, like Mahjong Soul):
-  自动理牌 (on by default; when off, kept tiles go to the right end), 自动和牌,
+  自动理牌 (on by default; when off, kept tiles go to the right end and the
+  hand can be rearranged by drag & drop; the drawn tile joins after the next
+  discard; the order lives in the client's table state), 自动和牌,
   不吃碰杠 (never skips ron), 自动摸切 (skips riichi / ankan; not when a win
   is offered). A single legal discard, e.g. after riichi, is always played
   automatically. The client keeps hands in arrangement order; sorting is a

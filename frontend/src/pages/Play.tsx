@@ -188,6 +188,16 @@ function usePlaySession(gameId: string) {
     resume()
   }
   const closeModal = () => resume()
+  // manual arrangement of your hand (auto-sort off); kept across draws / discards / calls
+  const reorder = (from: number, to: number) => {
+    const s = r.current
+    const me = s.table.human
+    const hand = [...s.table.seats[me].hand]
+    const [t] = hand.splice(from, 1)
+    hand.splice(to, 0, t)
+    s.table = { ...s.table, seats: s.table.seats.map((x, i) => (i === me ? { ...x, hand } : x)) }
+    setTable(s.table)
+  }
   const toggleAutoplay = (on: boolean) => {
     r.current.ws?.send(JSON.stringify({ type: 'autoplay', on }))
     if (on && r.current.resume && pending) {
@@ -197,12 +207,41 @@ function usePlaySession(gameId: string) {
     }
   }
 
-  return { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal, autoplay, toggleAutoplay }
+  return {
+    table,
+    fx,
+    callouts,
+    pending,
+    modal,
+    status,
+    error,
+    notice,
+    setNotice,
+    act,
+    closeModal,
+    autoplay,
+    toggleAutoplay,
+    reorder,
+  }
 }
 
 export function Play({ gameId }: { gameId: string }) {
-  const { table, fx, callouts, pending, modal, status, error, notice, setNotice, act, closeModal, autoplay, toggleAutoplay } =
-    usePlaySession(gameId)
+  const {
+    table,
+    fx,
+    callouts,
+    pending,
+    modal,
+    status,
+    error,
+    notice,
+    setNotice,
+    act,
+    closeModal,
+    autoplay,
+    toggleAutoplay,
+    reorder,
+  } = usePlaySession(gameId)
   const settings = useAppSettings()
   const [showHints, setShowHints] = useState(() => localStorageGet('hints') !== '0')
   const [auto, setAuto] = useState<AutoSettings>(() => {
@@ -316,6 +355,7 @@ export function Play({ gameId }: { gameId: string }) {
           hover={topHint}
           onDiscard={onDiscard}
           sortHand={auto.autoSort}
+          onReorder={reorder}
           discardFx={fx}
           callouts={callouts}
           avatars={seatAvatars(settings, table.players)}

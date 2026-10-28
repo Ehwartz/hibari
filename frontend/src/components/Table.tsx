@@ -198,6 +198,8 @@ interface Props {
   children?: ReactNode // overlays in stage coordinates (action bar, panels, modals)
   /** Stage width (>= STAGE_W); the table is centred, side panels hug the edges. */
   width?: number
+  /** Manual hand arrangement (used when auto-sort is off). */
+  onReorder?: (from: number, to: number) => void
 }
 
 const rel = (seat: number, me: number) => (seat - me + 4) % 4
@@ -293,6 +295,7 @@ export function Table({
   danger = [],
   children,
   width = STAGE_W,
+  onReorder,
 }: Props) {
   const cx = width / 2
   const [dangerOpen, setDangerOpen] = useState<number | null>(null)
@@ -385,6 +388,7 @@ export function Table({
           hover={hover}
           onDiscard={onDiscard}
           info={tileInfo}
+          onReorder={!sortHand ? onReorder : undefined}
         />
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} />
       </div>

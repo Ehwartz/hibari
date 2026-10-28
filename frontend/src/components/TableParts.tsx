@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { DANGER_SIDES, DANGER_TRACK } from '../lib/danger'
 import type { Meld, RiverTile } from '../lib/table'
 import type { Tile as TileT } from '../lib/tiles'
@@ -105,9 +106,48 @@ interface HandProps {
   hover?: TileT | null
   onDiscard?: (tile: TileT, fromDrawn: boolean) => void
   info?: (tile: TileT, fromDrawn: boolean) => TileInfo | undefined
+  /** Manual arrangement (auto-sort off): drag hand tile `from` so it ends up at index `to`. */
+  onReorder?: (from: number, to: number) => void
 }
 
-export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info }: HandProps) {
+export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info, onReorder }: HandProps) {
+  // drag & drop arrangement: `drag` = index being dragged, `drop` = insertion point (0..n)
+  const [drag, setDrag] = useState<number | null>(null)
+  const [drop, setDrop] = useState<number | null>(null)
+  const sortable = !!onReorder && !leaving
+  const dragProps = (i: number) =>
+    sortable
+      ? {
+          draggable: true,
+          onDragStart: (e: React.DragEvent) => {
+            setDrag(i)
+            e.dataTransfer.effectAllowed = 'move'
+          },
+          onDragOver: (e: React.DragEvent) => {
+            if (drag === null) return
+            e.preventDefault()
+            const box = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            setDrop(e.clientX < box.left + box.width / 2 ? i : i + 1)
+          },
+          onDrop: (e: React.DragEvent) => {
+            e.preventDefault()
+            if (drag !== null && drop !== null) {
+              const to = drop > drag ? drop - 1 : drop
+              if (to !== drag) onReorder!(drag, to)
+            }
+            setDrag(null)
+            setDrop(null)
+          },
+          onDragEnd: () => {
+            setDrag(null)
+            setDrop(null)
+          },
+        }
+      : {}
+  const marker = (at: number) =>
+    drag !== null && drop === at && drop !== drag && drop !== drag + 1 ? (
+      <div className="pointer-events-none absolute top-0 bottom-0 w-[3px] rounded-full bg-amber-300" style={{ left: -3 }} />
+    ) : null
   const decorate = (el: React.ReactElement, t: TileT, fromDrawn: boolean, key: string) => {
     const i = info?.(t, fromDrawn)
     if (!i) return el
@@ -171,7 +211,21 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
   }
   return (
     <div className="flex items-end">
-      <div className="flex items-end gap-[2px]">{hand.map((t, i) => tile(t, `h${i}`, false, i))}</div>
+      <div className="flex items-end gap-[2px]">
+        {hand.map((t, i) =>
+          sortable ? (
+            <div key={`d${i}`} className={`relative ${drag === i ? 'opacity-40' : ''} cursor-grab`} {...dragProps(i)}>
+              {marker(i)}
+              {tile(t, `h${i}`, false, i)}
+              {i === hand.length - 1 && drop === hand.length && drag !== null && drag !== hand.length - 1 && (
+                <div className="pointer-events-none absolute top-0 bottom-0 w-[3px] rounded-full bg-amber-300" style={{ right: -3 }} />
+              )}
+            </div>
+          ) : (
+            tile(t, `h${i}`, false, i)
+          ),
+        )}
+      </div>
       {/* the drawn slot always takes space, so the hand doesn't shift on draw / discard */}
       <div style={{ marginLeft: w * 0.35, minWidth: w }}>{drawn !== null && tile(drawn, 'drawn', true, 'drawn')}</div>
     </div>

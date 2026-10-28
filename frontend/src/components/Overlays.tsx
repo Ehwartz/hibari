@@ -322,7 +322,7 @@ export interface AutoSettings {
 export const DEFAULT_AUTO: AutoSettings = { autoSort: true, autoWin: false, noCalls: false, autoTsumogiri: false }
 
 const AUTO_ITEMS: { key: keyof AutoSettings; label: string; title: string }[] = [
-  { key: 'autoSort', label: '自动理牌', title: '关闭时，留下的摸牌放在手牌最右边，不重新排序' },
+  { key: 'autoSort', label: '自动理牌', title: '关闭后不自动排序：留下的摸牌放在最右边，可以拖动手牌自己整理' },
   { key: 'autoWin', label: '自动和牌', title: '能荣和 / 自摸时自动和牌' },
   { key: 'noCalls', label: '不吃碰杠', title: '别人打牌时自动跳过吃、碰、明杠（不会跳过荣和）' },
   { key: 'autoTsumogiri', label: '自动摸切', title: '每次摸牌后自动打出（不立直、不暗杠；能自摸时不会自动打出）' },
