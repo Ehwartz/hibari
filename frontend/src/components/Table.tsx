@@ -4,7 +4,8 @@ import { type SeatView, type TableState, arrange } from '../lib/table'
 import { KINDS, SEAT_WIND, type Tile as TileT, WIND_NAME, deaka } from '../lib/tiles'
 import { Avatar } from './Avatar'
 import { Tile } from './Tile'
-import { Hand, type Leaving, Melds, River, type TileInfo } from './TableParts'
+import { Hand, type Leaving, Melds, River, type TileInfo, WaitTiles } from './TableParts'
+import type { Wait } from '../lib/waits'
 
 /** Minimum stage width; wider windows get a wider stage (the table stays centred). */
 export const STAGE_W = 1280
@@ -53,6 +54,40 @@ function DangerButton({ d, side, open, onToggle }: CardDanger) {
   )
 }
 
+/** Another player's waits (replay): a button under their avatar that opens a small window below it. */
+export interface SeatWaits {
+  waits: Wait[]
+  noRon: Set<number> // kinds without a yaku: tsumo only (drawn faded)
+  furiten: boolean
+}
+interface CardWaits {
+  w: SeatWaits
+  open: boolean
+  onToggle: () => void
+}
+
+// hangs below the card (absolute), so the avatar doesn't move when a player starts or stops waiting
+function WaitsButton({ w, open, onToggle }: CardWaits) {
+  return (
+    <div className="absolute top-full right-1 left-1 mt-1" data-noadvance>
+      <button
+        onClick={onToggle}
+        title="点击展开这一家听的牌"
+        className={`flex w-full items-center justify-center gap-0.5 rounded-md px-0.5 py-[1px] text-[11px] font-bold whitespace-nowrap ${w.furiten ? 'text-rose-300' : 'text-emerald-300'} ${open ? 'bg-black/80 ring-1 ring-white/30' : 'bg-black/55 hover:bg-black/75'}`}
+      >
+        {w.furiten ? '振听' : '听'} {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <div
+          className={`absolute top-full left-1/2 z-30 mt-1.5 flex -translate-x-1/2 items-end gap-1.5 rounded-lg bg-[#08140f]/95 px-2 py-1.5 shadow-xl ${w.furiten ? 'ring-[1.5px] ring-rose-600' : 'ring-1 ring-emerald-400/55'}`}
+        >
+          <WaitTiles waits={w.waits} w={22} dim={w.noRon} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // The 34-tile risk popover sits in the empty margin on that player's side, never over hands,
 // melds or rivers: 上家 left, 对家 top-right, 下家 right (above the hint box).
 const POPOVER_POS: Record<number, React.CSSProperties> = {
@@ -88,10 +123,10 @@ function DangerPopover({ d, side, pos }: { d: OpponentDanger; side: (typeof DANG
   )
 }
 
-function PlayerCard({ name, avatar, active, oya, self, size, danger }: CardProps & { size: number; danger?: CardDanger }) {
+function PlayerCard({ name, avatar, active, oya, self, size, danger, waits }: CardProps & { size: number; danger?: CardDanger; waits?: CardWaits }) {
   return (
     <div
-      className={`flex flex-col items-center rounded-xl border-2 bg-black/45 p-1 shadow-lg transition ${self ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
+      className={`relative flex flex-col items-center rounded-xl border-2 bg-black/45 p-1 shadow-lg transition ${self ? 'border-amber-300/70' : 'border-white/25'} ${active ? 'ring-2 ring-amber-300/80' : ''}`}
       style={{ width: size + 24 }}
     >
       <div className="relative">
@@ -104,6 +139,7 @@ function PlayerCard({ name, avatar, active, oya, self, size, danger }: CardProps
         {name}
       </div>
       {danger && <DangerButton {...danger} />}
+      {waits && <WaitsButton {...waits} />}
     </div>
   )
 }
@@ -114,13 +150,14 @@ function HandAvatar({
   size,
   place,
   danger,
+  waits,
   ...card
-}: CardProps & { r: number; size: number; place: React.CSSProperties; danger?: CardDanger }) {
+}: CardProps & { r: number; size: number; place: React.CSSProperties; danger?: CardDanger; waits?: CardWaits }) {
   const slot = size + 40
   return (
     <div className="absolute flex items-center justify-center" style={{ ...place, width: slot, height: slot }}>
       <div style={{ transform: `rotate(${90 * r}deg)` }}>
-        <PlayerCard {...card} size={size} danger={danger} />
+        <PlayerCard {...card} size={size} danger={danger} waits={waits} />
       </div>
     </div>
   )
@@ -205,8 +242,12 @@ interface Props {
   deal?: { key: number; start: number } | null
   /** Mark the tiles in all rivers and melds of the same kind as the hand tile under the mouse. */
   sameTileHighlight?: boolean
-  /** Your waiting hand is furiten: a 振听 badge above it. */
+  /** Your waiting hand is furiten: a 振听 badge above it (or the waits box turns red). */
   furiten?: boolean
+  /** Your waits while waiting: a box above the left end of your hand. */
+  ownWaits?: Wait[] | null
+  /** Replay: the other players' waits, per seat (null = not waiting / off). */
+  seatWaits?: (SeatWaits | null)[] | null
   /** 铳牌 per seat: tile kinds in that seat's hand someone else could ron (red tint; open hands only for others). */
   dealIn?: Set<number>[] | null
 }
@@ -311,6 +352,8 @@ export function Table({
   deal,
   sameTileHighlight = false,
   furiten = false,
+  ownWaits = null,
+  seatWaits = null,
   dealIn = null,
 }: Props) {
   const cx = width / 2
@@ -329,6 +372,13 @@ export function Table({
     }
   }
   const openDanger = danger.findIndex((d) => d.seat === dangerOpen)
+  const [waitsOpen, setWaitsOpen] = useState<number[]>([])
+  const waitsFor = (seat: number): CardWaits | undefined => {
+    const w = seatWaits?.[seat]
+    if (!w || !w.waits.length) return undefined
+    const open = waitsOpen.includes(seat)
+    return { w, open, onToggle: () => setWaitsOpen((o) => (open ? o.filter((x) => x !== seat) : [...o, seat])) }
+  }
   const [fx, setFx] = useState<DiscardFx | null>(null)
   useEffect(() => {
     setFx(discardFx ?? null)
@@ -391,14 +441,14 @@ export function Table({
                 style={{ left: 0, top: 326 + tileH(OPP_W), transform: 'translate(-50%, -100%)' }}
               >
                 {/* top player: beside the hand, mirroring yours */}
-                {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={beside(OPP_W)} danger={dangerFor(seat)} {...card(seat)} />}
+                {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={beside(OPP_W)} danger={dangerFor(seat)} waits={waitsFor(seat)} {...card(seat)} />}
                 <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} deal={dealOf(seat)} dealIn={dealIn?.[seat]} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} mark={mark} />
               </div>
             )}
             {/* left / right players: behind the hand, centred on the seat axis (same height on both sides) */}
             {(r === 1 || r === 3) && (
-              <HandAvatar r={r} size={OPP_AVATAR} place={behind(OPP_AVATAR)} danger={dangerFor(seat)} {...card(seat)} />
+              <HandAvatar r={r} size={OPP_AVATAR} place={behind(OPP_AVATAR)} danger={dangerFor(seat)} waits={waitsFor(seat)} {...card(seat)} />
             )}
           </Rotated>
         )
@@ -411,10 +461,22 @@ export function Table({
       >
         <HandAvatar r={0} size={OWN_AVATAR} place={beside(OWN_W)} {...card(me)} />
         <div className="relative">
-        {furiten && (
-          <div className="pointer-events-none absolute bottom-full left-0 mb-9 rounded-full bg-rose-600 px-3.5 py-1 text-[15px] font-bold tracking-[0.25em] text-white shadow-lg ring-2 ring-rose-300/60">
-            振听
+        {ownWaits?.length ? (
+          // your waits; red with 振听 when furiten. Anchored to the hand's left end: melds and draws don't move it
+          <div
+            className={`pointer-events-none absolute bottom-full left-0 mb-9 flex items-end gap-1.5 rounded-lg bg-[#08140f]/80 px-2 py-1.5 shadow-lg ${furiten ? 'ring-[1.5px] ring-rose-600' : 'ring-1 ring-emerald-400/55'}`}
+          >
+            <span className={`self-center text-[13px] font-bold tracking-widest [writing-mode:vertical-rl] ${furiten ? 'text-rose-300' : 'text-emerald-300'}`}>
+              {furiten ? '振听' : '听'}
+            </span>
+            <WaitTiles waits={ownWaits} />
           </div>
+        ) : (
+          furiten && (
+            <div className="pointer-events-none absolute bottom-full left-0 mb-9 rounded-full bg-rose-600 px-3.5 py-1 text-[15px] font-bold tracking-[0.25em] text-white shadow-lg ring-2 ring-rose-300/60">
+              振听
+            </div>
+          )
         )}
         <Hand
           {...handOf(me)}

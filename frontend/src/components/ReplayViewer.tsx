@@ -8,8 +8,8 @@ import { computeDanger, tileRisks } from '../lib/danger'
 import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { WIND_NAME, kind, tileName } from '../lib/tiles'
-import { isFuriten, useWaits } from '../lib/waits'
-import { useDealIn } from '../lib/dealin'
+import { furitenAfter, isFuriten, useWaits } from '../lib/waits'
+import { useRonWaits } from '../lib/dealin'
 import { AidMenu } from './AidMenu'
 import { RYUKYOKU_NAME } from '../lib/labels'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
@@ -35,6 +35,26 @@ const CALL_HINT: Record<string, { type: Hint['type']; name: string }> = {
 export function qGap(d: ReviewDecision, label: string): string {
   const gap = (d.q[d.best] ?? 0) - (d.q[label] ?? d.q[d.best] ?? 0)
   return gap < 0.005 ? '0' : `−${gap.toFixed(2)}`
+}
+
+/** An on/off switch kept in localStorage (on unless turned off). */
+function useStoredSwitch(key: string): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(key) !== '0'
+    } catch {
+      return true
+    }
+  })
+  const set = (v: boolean) => {
+    setOn(v)
+    try {
+      localStorage.setItem(key, v ? '1' : '0')
+    } catch {
+      // storage blocked: only this page
+    }
+  }
+  return [on, set]
 }
 
 /** Human-readable name of an AI (Mortal-style) action label. */
@@ -167,22 +187,9 @@ export function ReplayViewer({
   const [showHints, setShowHints] = useState(true)
   const [showTsumogiri, setShowTsumogiri] = useState(() => new URLSearchParams(location.search).has('review'))
   const [aids, setAid] = useAids() // shared with the game page
-  // 铳牌 (replay only): tiles someone else could ron, in your hand and in open hands
-  const [showDealIn, setShowDealIn] = useState(() => {
-    try {
-      return localStorage.getItem('dealin') !== '0'
-    } catch {
-      return true
-    }
-  })
-  const toggleDealIn = (on: boolean) => {
-    setShowDealIn(on)
-    try {
-      localStorage.setItem('dealin', on ? '1' : '0')
-    } catch {
-      // storage blocked: only this page
-    }
-  }
+  // replay only: 铳牌 (tiles someone else could ron, in your hand and in open hands) and 别家听牌
+  const [showDealIn, toggleDealIn] = useStoredSwitch('dealin')
+  const [showOtherWaits, toggleOtherWaits] = useStoredSwitch('otherwaits')
   const [showUkeire, setShowUkeire] = useState(false)
   // AI numbers as probabilities, or as the q-gap to the AI's choice (how much worse each option is)
   const [qView, setQView] = useState(false)
@@ -231,7 +238,7 @@ export function ReplayViewer({
   const danger = useMemo(() => (aids.danger ? computeDanger(table, me) : []), [aids.danger, table, me])
   const waits = useWaits(table, me, aids.waits || aids.furiten)
   const furiten = aids.furiten && !!waits?.hand && isFuriten(table, me, waits.hand)
-  const dealIn = useDealIn(open[index], showDealIn)
+  const ron = useRonWaits(open[index], showDealIn || showOtherWaits)
 
   // sounds when stepping forward one event (click, wheel, →, auto-play); not on jumps or going back
   const prevIndex = useRef(index)
@@ -315,6 +322,7 @@ export function ReplayViewer({
     if (!annotate && !danger.length && !w) return undefined
     return {
       waits: w,
+      waitsFuriten: !!w && aids.furiten && furitenAfter(table, me, tile, w),
       risks: danger.length ? tileRisks(danger, tile) : undefined,
       prob: annotate ? (dec!.probs[tile] ?? 0) : undefined,
       text: annotate && qView && tile in dec!.q ? qGap(dec!, tile) : undefined,
@@ -415,6 +423,7 @@ export function ReplayViewer({
           setAid={setAid}
           extra={[
             { label: '铳牌', on: showDealIn, set: toggleDealIn },
+            { label: '别家听牌', on: showOtherWaits, set: toggleOtherWaits },
             { label: '明牌', on: openHands, set: setOpenHands },
             { label: '摸切明暗', on: showTsumogiri, set: setShowTsumogiri },
           ]}
@@ -464,7 +473,9 @@ export function ReplayViewer({
               tileInfo={tileInfo}
               sameTileHighlight={aids.sameTile}
               furiten={furiten}
-              dealIn={dealIn}
+              dealIn={showDealIn ? ron?.dealIn : null}
+              ownWaits={aids.waits ? (waits?.hand ?? null) : null}
+              seatWaits={showOtherWaits && ron ? ron.seats.map((w, i) => (i === me ? null : w)) : null}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >

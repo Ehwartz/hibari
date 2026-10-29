@@ -75,3 +75,10 @@ export function isFuriten(table: TableState, me: number, waits: { tile: Tile }[]
   const onOffer = table.turn === null && table.lastDiscard ? table.discardSeq - 1 : -1
   return table.seats.some((s, i) => i !== me && s.river.some((r) => r.seq > since && r.seq !== onOffer && want.has(kind(r.pai))))
 }
+
+/** Discarding `discard` leaves you tenpai on `waits`: is that hand furiten at once (舍张: a wait is in your
+ * river, the discard included)? */
+export function furitenAfter(table: TableState, me: number, discard: Tile, waits: Wait[]): boolean {
+  const river = new Set([...table.seats[me].river.map((r) => kind(r.pai)), kind(discard)])
+  return waits.some((w) => river.has(kind(w.tile)))
+}

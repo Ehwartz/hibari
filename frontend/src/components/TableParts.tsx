@@ -92,6 +92,21 @@ export interface TileInfo {
   actual?: boolean // the tile actually discarded: its label reads 「你 …」
   risks?: number[] // deal-in risk vs 上家 / 对家 / 下家 (0..1)
   waits?: Wait[] // discarding this tile leaves the hand tenpai on these (听牌提示)
+  waitsFuriten?: boolean // ... and that hand is furiten at once (a wait is in your river)
+}
+
+/** Wait tiles with the copies left under each (0 in red); `dim`: kinds that can't be ronned (no yaku). */
+export function WaitTiles({ waits, w = 26, dim }: { waits: Wait[]; w?: number; dim?: Set<number> }) {
+  return (
+    <>
+      {waits.map((x) => (
+        <div key={x.tile} className={`flex flex-col items-center gap-0.5 ${dim?.has(kind(x.tile)) ? 'opacity-40' : ''}`}>
+          <Tile tile={x.tile} w={w} />
+          <span className={`font-mono text-[12px] leading-none font-bold tabular-nums ${x.left ? 'text-white' : 'text-rose-400'}`}>{x.left}</span>
+        </div>
+      ))}
+    </>
+  )
 }
 
 /** Risk at which a danger bar is full. */
@@ -171,13 +186,13 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         {i.waits && (
           <>
             {/* 听牌提示: the tile has a green edge (Tile `wait`); the waits show while the mouse is on it */}
-            <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-7 hidden -translate-x-1/2 gap-2 rounded-lg bg-[#08140f]/95 px-2.5 py-2 shadow-xl ring-1 ring-emerald-400/50 group-hover:flex">
-              {i.waits.map((x) => (
-                <div key={x.tile} className="flex flex-col items-center gap-0.5">
-                  <Tile tile={x.tile} w={26} />
-                  <span className={`font-mono text-[12px] font-bold tabular-nums ${x.left ? 'text-white' : 'text-rose-400'}`}>{x.left}</span>
-                </div>
-              ))}
+            <div
+              className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-7 hidden -translate-x-1/2 items-end gap-2 rounded-lg bg-[#08140f]/95 px-2.5 py-2 shadow-xl group-hover:flex ${i.waitsFuriten ? 'ring-[1.5px] ring-rose-600' : 'ring-1 ring-emerald-400/50'}`}
+            >
+              <WaitTiles waits={i.waits} />
+              {i.waitsFuriten && (
+                <span className="self-center rounded-md bg-rose-600 py-0.5 pr-1.5 pl-2 text-[12px] font-bold tracking-[0.15em] whitespace-nowrap text-white">振听</span>
+              )}
             </div>
           </>
         )}

@@ -398,8 +398,8 @@ These outputs are committed, so CI needs no rendering step.
   These are one set of settings in `localStorage` (`samehl`, `waits`,
   `furiten`, `danger`), shared by the game page and the replay viewer. Each
   header has 「AI 提示」, the 辅助 button (with the count of switches on) and
-  进张分析. The replay adds its own 铳牌 (`localStorage` `dealin`), 明牌 and
-  摸切明暗 below a divider in the same menu.
+  进张分析. The replay adds its own 铳牌 (`localStorage` `dealin`), 别家听牌
+  (`otherwaits`), 明牌 and 摸切明暗 below a divider in the same menu.
 - **Marks on a tile** are drawn inside `Tile`, so they lift with it on
   mouse-over and cover the face plus the edge (the box-shadow thickness):
   - `mark`: same-tile highlight, blue tint;
@@ -416,15 +416,27 @@ These outputs are committed, so CI needs no rendering step.
     waits. `TileInfo.waits` gives the tile a green edge, and hovering shows
     the wait tiles with the copies left (0 in red). In a game this applies only
     to discardable tiles; in a replay after riichi, only to the drawn tile.
+    `furitenAfter` adds a red 振听 tag to that window when a resulting wait is
+    already in your river, or is the tile being discarded.
   - With 3n+1 tiles, `isFuriten` checks three cases:
     - a wait in your own river (舍张);
     - a wait let pass since your last discard (同巡);
     - a wait let pass since your riichi (立直后).
   - The newest discard is not counted while it can still be ronned
-    (`turn === null` until the next draw). Then `Table` shows a red 振听 badge
-    above your hand.
-- **铳牌** (replay, `lib/dealin.ts`, `backend/analysis/ron_waits.py`): it works
-  on the open table, since it needs every hand.
+    (`turn === null` until the next draw).
+  - While waiting, `Table` (`ownWaits`) shows a box above the left end of
+    your hand, with 「听」 and the wait tiles with the copies left. It turns red
+    with 「振听」 when furiten. Without 听牌提示, only a red 振听 badge is
+    shown. The box is anchored to the hand's left end, so melds and draws don't
+    move it.
+- **铳牌 and 别家听牌** (replay, `lib/dealin.ts` `useRonWaits`,
+  `backend/analysis/ron_waits.py`): they work on the open table, since they
+  need every hand.
+  - 别家听牌: each waiting AI gets a 「听」 button (「振听」 in red) hanging below
+    its avatar card. It opens a small window with the wait tiles and the copies
+    left, as that player sees them. Tiles without a yaku are faded, since they
+    can only be won by tsumo. The button is absolute, so the avatar doesn't
+    move.
   - One `POST /api/ron_waits` call sends each seat's concealed tiles, melds,
     riichi and seat wind. It returns, per seat, `waits` (every tile that
     completes the hand) and `ron` (those with a yaku, scored by the `mahjong`

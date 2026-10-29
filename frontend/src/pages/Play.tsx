@@ -25,7 +25,7 @@ import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { WIND_NAME, kind } from '../lib/tiles'
-import { isFuriten, useWaits } from '../lib/waits'
+import { furitenAfter, isFuriten, useWaits } from '../lib/waits'
 import { UkeirePanel } from '../components/UkeirePanel'
 import { type SoundSettings, playClack, playVoice, preloadVoices, voiceFor } from '../lib/sound'
 
@@ -470,6 +470,7 @@ export function Play({ gameId }: { gameId: string }) {
           onReorder={reorder}
           sameTileHighlight={aids.sameTile}
           furiten={furiten}
+          ownWaits={aids.waits ? (waits?.hand ?? null) : null}
           deal={intro ? { key: intro.key, start: DEAL_START_MS } : null}
           discardFx={fx}
           callouts={callouts}
@@ -478,7 +479,11 @@ export function Play({ gameId }: { gameId: string }) {
           tileInfo={(t) => {
             const w = aids.waits && discardable?.has(t) ? waits?.byDiscard.get(kind(t)) : undefined
             if (!danger.length && !w) return undefined
-            return { risks: danger.length ? tileRisks(danger, t) : undefined, waits: w }
+            return {
+              risks: danger.length ? tileRisks(danger, t) : undefined,
+              waits: w,
+              waitsFuriten: !!w && aids.furiten && furitenAfter(table, table.human, t, w),
+            }
           }}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
