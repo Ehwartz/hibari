@@ -9,6 +9,7 @@ import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
 import { WIND_NAME, kind, tileName } from '../lib/tiles'
 import { isFuriten, useWaits } from '../lib/waits'
+import { useDealIn } from '../lib/dealin'
 import { AidMenu } from './AidMenu'
 import { RYUKYOKU_NAME } from '../lib/labels'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
@@ -41,10 +42,13 @@ export function labelName(label: string): string {
   return CALL_HINT[label]?.name ?? `打 ${tileName(label)}`
 }
 
+/** The AI's top three options, plus what you did when it is not among them. */
 export function reviewHints(d: ReviewDecision): Hint[] {
-  return Object.entries(d.probs)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
+  const ranked = Object.entries(d.probs).sort((a, b) => b[1] - a[1])
+  const shown = ranked.slice(0, 3)
+  const yours = ranked.find(([label]) => label === d.actual)
+  if (yours && !shown.includes(yours)) shown.push(yours)
+  return shown
     .map(([label, prob]) =>
       CALL_HINT[label]
         ? { type: CALL_HINT[label].type, label, tiles: [], prob }
@@ -163,6 +167,22 @@ export function ReplayViewer({
   const [showHints, setShowHints] = useState(true)
   const [showTsumogiri, setShowTsumogiri] = useState(() => new URLSearchParams(location.search).has('review'))
   const [aids, setAid] = useAids() // shared with the game page
+  // 铳牌 (replay only): tiles someone else could ron, in your hand and in open hands
+  const [showDealIn, setShowDealIn] = useState(() => {
+    try {
+      return localStorage.getItem('dealin') !== '0'
+    } catch {
+      return true
+    }
+  })
+  const toggleDealIn = (on: boolean) => {
+    setShowDealIn(on)
+    try {
+      localStorage.setItem('dealin', on ? '1' : '0')
+    } catch {
+      // storage blocked: only this page
+    }
+  }
   const [showUkeire, setShowUkeire] = useState(false)
   // AI numbers as probabilities, or as the q-gap to the AI's choice (how much worse each option is)
   const [qView, setQView] = useState(false)
@@ -211,6 +231,7 @@ export function ReplayViewer({
   const danger = useMemo(() => (aids.danger ? computeDanger(table, me) : []), [aids.danger, table, me])
   const waits = useWaits(table, me, aids.waits || aids.furiten)
   const furiten = aids.furiten && !!waits?.hand && isFuriten(table, me, waits.hand)
+  const dealIn = useDealIn(open[index], showDealIn)
 
   // sounds when stepping forward one event (click, wheel, →, auto-play); not on jumps or going back
   const prevIndex = useRef(index)
@@ -284,11 +305,8 @@ export function ReplayViewer({
   const topHint = showHints && !dec && frame.hint?.[0]?.type === 'dahai' ? frame.hint[0].tiles[0] : null
   const t = frame.event.type
   const showResult = (t === 'hora' || t === 'ryukyoku' || t === 'end_kyoku') && (table.horas.length > 0 || !!table.ryukyoku)
-  const chosenText = dec
-    ? `你：${labelName(dec.actual)} ${dec.match ? '✓' : qView ? `(${qGap(dec, dec.actual)})` : `(${Math.round(dec.actual_prob * 100)}%)`}`
-    : frame.chosen
-      ? `${ai} 实际：${actionLabel(frame.chosen)}`
-      : undefined
+  // with a review, what you did is tagged 「你」 in the hint list instead
+  const chosenText = !dec && frame.chosen ? `${ai} 实际：${actionLabel(frame.chosen)}` : undefined
 
   const tileInfo = (tile: string, fromDrawn: boolean) => {
     const annotate = dec?.discard && showHints
@@ -396,6 +414,7 @@ export function ReplayViewer({
           aids={aids}
           setAid={setAid}
           extra={[
+            { label: '铳牌', on: showDealIn, set: toggleDealIn },
             { label: '明牌', on: openHands, set: setOpenHands },
             { label: '摸切明暗', on: showTsumogiri, set: setShowTsumogiri },
           ]}
@@ -445,12 +464,14 @@ export function ReplayViewer({
               tileInfo={tileInfo}
               sameTileHighlight={aids.sameTile}
               furiten={furiten}
+              dealIn={dealIn}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
               {hasHints && showHints && <HintPanel
                   hints={hints}
                   chosen={chosenText}
+                  actual={dec?.actual}
                   title={`${ai} 推荐`}
                   value={dec && qView ? (h) => qGap(dec, h.label) : undefined}
                 />}

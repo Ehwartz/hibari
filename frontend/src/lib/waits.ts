@@ -66,7 +66,7 @@ export function useWaits(table: TableState, me: number, enabled: boolean): Waits
 /** Furiten of a waiting hand: a wait in your own river (舍张), a wait let pass since your last discard
  * (同巡, also when there was no yaku to ron with), or since your riichi (立直后). The newest discard
  * counts only once it has been let pass: until the next draw (`turn` is null) you may still ron it. */
-export function isFuriten(table: TableState, me: number, waits: Wait[]): boolean {
+export function isFuriten(table: TableState, me: number, waits: { tile: Tile }[]): boolean {
   const want = new Set(waits.map((w) => kind(w.tile)))
   const seat = table.seats[me]
   if (seat.river.some((r) => want.has(kind(r.pai)))) return true

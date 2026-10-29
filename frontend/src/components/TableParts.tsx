@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { DANGER_SIDES, DANGER_TRACK } from '../lib/danger'
 import type { Meld, RiverTile } from '../lib/table'
-import type { Tile as TileT } from '../lib/tiles'
+import { type Tile as TileT, kind } from '../lib/tiles'
 import type { Wait } from '../lib/waits'
 import { Tile } from './Tile'
 
@@ -89,7 +89,7 @@ export interface TileInfo {
   prob?: number // Mortal's probability of discarding this tile
   text?: string // label shown instead of the probability (e.g. the q-gap)
   best?: boolean // Mortal's top choice
-  actual?: boolean // the tile actually discarded
+  actual?: boolean // the tile actually discarded: its label reads 「你 …」
   risks?: number[] // deal-in risk vs 上家 / 对家 / 下家 (0..1)
   waits?: Wait[] // discarding this tile leaves the hand tenpai on these (听牌提示)
 }
@@ -118,9 +118,11 @@ interface HandProps {
   deal?: { key: number; delay: (i: number) => number }
   /** The tile under the mouse (null when it leaves the hand). */
   onHoverTile?: (t: TileT | null) => void
+  /** 铳牌: tile kinds someone else could ron (red tint). */
+  dealIn?: Set<number>
 }
 
-export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info, onReorder, deal, onHoverTile }: HandProps) {
+export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDiscard, info, onReorder, deal, onHoverTile, dealIn }: HandProps) {
   // drag & drop arrangement: `drag` = index being dragged, `drop` = insertion point (0..n)
   const [drag, setDrag] = useState<number | null>(null)
   const [drop, setDrop] = useState<number | null>(null)
@@ -158,8 +160,7 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
     drag !== null && drop === at && drop !== drag && drop !== drag + 1 ? (
       <div className="pointer-events-none absolute top-0 bottom-0 w-[3px] rounded-full bg-amber-300" style={{ left: -3 }} />
     ) : null
-  const decorate = (el: React.ReactElement, t: TileT, fromDrawn: boolean, key: string) => {
-    const i = info?.(t, fromDrawn)
+  const decorate = (el: React.ReactElement, i: TileInfo | undefined, key: string) => {
     if (!i) return el
     const title = i.risks
       ? DANGER_SIDES.map((s, j) => `${s.label} ${(i.risks![j] * 100).toFixed(1)}%`).join('  ')
@@ -169,8 +170,7 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         {el}
         {i.waits && (
           <>
-            {/* 听牌提示: a dot on the tile; the waits show while the mouse is on it */}
-            <div className="pointer-events-none absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-[#0f3b2c]" />
+            {/* 听牌提示: the tile has a green edge (Tile `wait`); the waits show while the mouse is on it */}
             <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-7 hidden -translate-x-1/2 gap-2 rounded-lg bg-[#08140f]/95 px-2.5 py-2 shadow-xl ring-1 ring-emerald-400/50 group-hover:flex">
               {i.waits.map((x) => (
                 <div key={x.tile} className="flex flex-col items-center gap-0.5">
@@ -183,16 +183,11 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         )}
         {i.prob !== undefined && (
           <div
-            className={`pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1 font-mono text-[11px] whitespace-nowrap tabular-nums ${i.best ? 'bg-amber-400 font-bold text-black' : 'bg-black/65 text-white/85'}`}
+            className={`pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1 font-mono text-[11px] whitespace-nowrap tabular-nums ${i.best ? 'bg-amber-400 font-bold text-black' : i.actual ? 'bg-white font-bold text-black' : 'bg-black/65 text-white/85'}`}
           >
+            {i.actual && '你 '}
             {i.text ?? `${Math.round(i.prob * 100)}%`}
           </div>
-        )}
-        {i.actual && (
-          <div
-            className="pointer-events-none absolute top-0 right-0 left-0 rounded-[7px] ring-[3px] ring-rose-500"
-            style={{ height: Math.round((w * 4) / 3) }}
-          />
         )}
         {i.risks && (
           <div className="absolute top-full right-0 left-0 mt-1 flex flex-col gap-[2px] rounded-sm p-[2px]" style={{ background: DANGER_TRACK }}>
@@ -208,6 +203,9 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
       </div>
     )
   }
+  // two copies of the tile you discarded from the hand: tag only one (the rightmost) 「你」
+  let lastActual = -1
+  if (info && !hidden) hand.forEach((t, j) => info(t, false)?.actual && (lastActual = j))
   const tile = (t: TileT, key: string, fromDrawn: boolean, slot: number | 'drawn') => {
     const can = discardable?.has(t)
     if (leaving && leaving.from === slot) {
@@ -217,6 +215,8 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         </div>
       )
     }
+    let i = hidden ? undefined : info?.(t, fromDrawn)
+    if (i?.actual && slot !== 'drawn' && slot !== lastActual) i = { ...i, actual: false }
     return decorate(
       <Tile
         key={key}
@@ -225,11 +225,12 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         back={hidden}
         dim={discardable !== undefined && !can}
         highlight={hover === t}
+        deal={!hidden && t !== '?' && !!dealIn?.has(kind(t))}
+        wait={!!i?.waits}
         hoverable={!hidden && onDiscard !== undefined}
         onClick={can && onDiscard ? () => onDiscard(t, fromDrawn, slot === 'drawn' ? undefined : slot) : undefined}
       />,
-      t,
-      fromDrawn,
+      i,
       key,
     )
   }

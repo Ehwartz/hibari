@@ -38,3 +38,25 @@ def test_open_hand():
     # 7 tiles left after two calls: 11p 234s 56m -> tenpai on 4m/7m
     (opt,) = analyze(["1p", "1p", "2s", "3s", "4s", "5m", "6m"], NONE)["options"]
     assert opt["shanten"] == 0 and {t["tile"] for t in opt["tiles"]} == {"4m", "7m"}
+
+
+def test_ron_waits_need_a_yaku():
+    from backend.analysis.ron_waits import ron_waits
+
+    closed = ["2m", "3m", "4p", "5p", "6p", "7s", "8s", "9s", "3s", "3s", "6m", "7m", "8m"]
+    assert ron_waits(closed, [], False, "S", "E") == {"waits": ["1m", "4m"], "ron": ["1m", "4m"]}  # pinfu
+    open_hand = ["2m", "3m", "4p", "5p", "6p", "7s", "8s", "9s", "3s", "3s"]
+    assert ron_waits(open_hand, [{"type": "pon", "tiles": ["9m", "9m", "9m"]}], False, "S", "E") == {"waits": ["1m", "4m"], "ron": []}  # no yaku
+    assert ron_waits(open_hand, [{"type": "pon", "tiles": ["P", "P", "P"]}], False, "S", "E")["ron"] == ["1m", "4m"]  # haku
+    assert ron_waits(closed[:-1] + ["9p"], [], False, "S", "E") == {"waits": [], "ron": []}  # not tenpai
+
+
+def test_ron_waits_api():
+    from fastapi.testclient import TestClient
+
+    from backend.server.app import app
+
+    hand = ["2m", "3m", "4p", "5p", "6p", "7s", "8s", "9s", "3s", "3s", "6m", "7m", "8m"]
+    r = TestClient(app).post("/api/ron_waits", json={"bakaze": "E", "seats": [{"hand": hand, "wind": "E"}, {"hand": [], "wind": "S"}]})
+    assert r.status_code == 200
+    assert r.json() == {"seats": [{"waits": ["1m", "4m"], "ron": ["1m", "4m"]}, {"waits": [], "ron": []}]}

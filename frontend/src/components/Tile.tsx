@@ -11,6 +11,10 @@ interface Props {
   highlight?: boolean
   /** Same-kind mark (the tile under the mouse in your hand): a blue tint. */
   mark?: boolean
+  /** 铳牌 (replay): someone else could ron this tile; a red tint like `mark`. */
+  deal?: boolean
+  /** 听牌提示: discarding this tile leaves the hand tenpai; a green edge. */
+  wait?: boolean
   raised?: boolean
   /** Lift on mouse-over even when not clickable (own hand). */
   hoverable?: boolean
@@ -24,7 +28,7 @@ const FACE_SCALE = 0.86
 const FACE_SIZE = `${FACE_SCALE * 100}%`
 const FACE_INSET = `${((1 - FACE_SCALE) / 2) * 100}%`
 
-export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, hoverable, onClick, title }: Props) {
+export function Tile({ tile, w, back, sideways, dim, highlight, mark, deal, wait, raised, hoverable, onClick, title }: Props) {
   const h = Math.round((w * 4) / 3)
   const hidden = back || tile === '?'
   const face = hidden ? null : faceUrl(tile)
@@ -37,7 +41,9 @@ export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, ho
         height: h,
         borderRadius: w * 0.12,
         background: hidden ? 'var(--tile-back)' : 'var(--tile-face)',
-        boxShadow: `0 ${depth}px 0 ${hidden ? 'var(--tile-back-edge)' : 'var(--tile-edge)'}, 0 ${depth + 2}px ${depth * 2}px rgba(0,0,0,.35)`,
+        boxShadow: wait
+          ? `0 ${depth}px 0 #10b981, 0 ${depth + 1}px ${depth * 2.5}px rgba(52,211,153,.6)`
+          : `0 ${depth}px 0 ${hidden ? 'var(--tile-back-edge)' : 'var(--tile-edge)'}, 0 ${depth + 2}px ${depth * 2}px rgba(0,0,0,.35)`,
       }}
     >
       {face && (
@@ -66,12 +72,16 @@ export function Tile({ tile, w, back, sideways, dim, highlight, mark, raised, ho
       {dim && <div className="absolute inset-0 bg-black/45" />}
     </div>
   )
-  // the same-kind mark covers the face and the tile's edge below it (the box-shadow "thickness")
-  const markEl = mark && (
-    <div
-      className="pointer-events-none absolute bg-sky-400/30 ring-2 ring-sky-400 ring-inset"
-      style={{ left: 0, top: 0, width: w, height: h + depth, borderRadius: w * 0.12 }}
-    />
+  // tints cover the face and the tile's edge below it (the box-shadow "thickness"); being inside the tile,
+  // they lift with it on mouse-over
+  const tint = (cls: string) => (
+    <div className={`pointer-events-none absolute ring-2 ring-inset ${cls}`} style={{ left: 0, top: 0, width: w, height: h + depth, borderRadius: w * 0.12 }} />
+  )
+  const markEl = (
+    <>
+      {deal && tint('bg-rose-500/30 ring-rose-500')}
+      {mark && tint('bg-sky-400/30 ring-sky-400')}
+    </>
   )
   return (
     <div

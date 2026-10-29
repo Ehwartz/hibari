@@ -157,6 +157,14 @@ export interface UkeireResult {
   options: { discard: string | null; shanten: number; tiles: { tile: string; left: number }[]; total: number }[]
 }
 
+/** A seat for /api/ron_waits: concealed tiles, melds with all their tiles, riichi, seat wind (E S W N). */
+export interface RonSeat {
+  hand: string[]
+  melds: { type: string; tiles: string[] }[]
+  riichi: boolean
+  wind: string
+}
+
 export type StatValues = Record<string, number | null>
 
 export interface StatsResponse {
@@ -242,6 +250,10 @@ export const api = {
   ukeire: (hand: string[], visible: number[]) =>
     fetch('/api/ukeire', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ hand, visible }) }).then((r) =>
       json<UkeireResult>(r),
+    ),
+  ronWaits: (bakaze: string, seats: RonSeat[]) =>
+    fetch('/api/ron_waits', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ bakaze, seats }) }).then((r) =>
+      json<{ seats: { waits: string[]; ron: string[] }[] }>(r),
     ),
   drills: () => fetch('/api/drills').then((r) => json<DrillList>(r)),
   answerDrill: (id: string, choice: string) =>

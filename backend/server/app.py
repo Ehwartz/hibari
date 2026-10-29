@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend import mortal, storage
-from backend.analysis import quiz, ukeire
+from backend.analysis import quiz, ron_waits, ukeire
 from backend.analysis.review import review_game
 from backend.engine.rules import Rules
 from backend.server import batch
@@ -313,6 +313,27 @@ async def ukeire_api(q: UkeireQuery) -> dict:
     try:
         return ukeire.analyze(q.hand, q.visible)
     except (ValueError, KeyError) as ex:
+        raise HTTPException(422, str(ex)) from None
+
+
+class RonSeat(BaseModel):
+    hand: list[str] = Field(max_length=14)  # concealed tiles; anything but 3n+1 gives no waits
+    melds: list[dict] = []  # {"type": chi / pon / daiminkan / ankan / kakan, "tiles": [...all tiles]}
+    riichi: bool = False
+    wind: str  # seat wind, E S W N
+
+
+class RonQuery(BaseModel):
+    bakaze: str
+    seats: list[RonSeat] = Field(max_length=4)
+
+
+@app.post("/api/ron_waits")
+async def ron_waits_api(q: RonQuery) -> dict:
+    """Per seat, its waits and the ones it could ron (with a yaku; furiten is up to the client)."""
+    try:
+        return {"seats": [ron_waits.ron_waits(s.hand, s.melds, s.riichi, s.wind, q.bakaze) for s in q.seats]}
+    except (ValueError, KeyError, IndexError) as ex:
         raise HTTPException(422, str(ex)) from None
 
 

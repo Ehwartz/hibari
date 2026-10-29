@@ -207,6 +207,8 @@ interface Props {
   sameTileHighlight?: boolean
   /** Your waiting hand is furiten: a 振听 badge above it. */
   furiten?: boolean
+  /** 铳牌 per seat: tile kinds in that seat's hand someone else could ron (red tint; open hands only for others). */
+  dealIn?: Set<number>[] | null
 }
 
 const rel = (seat: number, me: number) => (seat - me + 4) % 4
@@ -309,6 +311,7 @@ export function Table({
   deal,
   sameTileHighlight = false,
   furiten = false,
+  dealIn = null,
 }: Props) {
   const cx = width / 2
   // same-kind marks: the hand tile under the mouse (red fives count as fives)
@@ -389,7 +392,7 @@ export function Table({
               >
                 {/* top player: beside the hand, mirroring yours */}
                 {r === 2 && <HandAvatar r={r} size={OPP_AVATAR} place={beside(OPP_W)} danger={dangerFor(seat)} {...card(seat)} />}
-                <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} deal={dealOf(seat)} />
+                <Hand {...handOf(seat)} w={OPP_W} hidden={!openHands} deal={dealOf(seat)} dealIn={dealIn?.[seat]} />
                 <Melds melds={s.melds} actor={seat} w={OPP_MELD_W} mark={mark} />
               </div>
             )}
@@ -423,6 +426,7 @@ export function Table({
           onReorder={!sortHand ? onReorder : undefined}
           deal={dealOf(me)}
           onHoverTile={sameTileHighlight ? setHoverTile : undefined}
+          dealIn={dealIn?.[me]}
         />
         </div>
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} mark={mark} />

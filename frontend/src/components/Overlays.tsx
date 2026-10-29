@@ -87,10 +87,13 @@ export function HintPanel({
   chosen,
   title = 'AI 推荐',
   value,
+  actual,
 }: {
   hints: Hint[] | null
   chosen?: string
   title?: string
+  /** Review: the label of what you did; its row gets a 「你」 tag. */
+  actual?: string
   /** Number shown per hint (default: the probability). */
   value?: (h: Hint) => string
 }) {
@@ -115,6 +118,9 @@ export function HintPanel({
                     <Tile key={j} tile={t} w={20} />
                   ))}
                 </div>
+                {actual !== undefined && h.label === actual && (
+                  <span className="rounded bg-white px-1 text-[11px] leading-[16px] font-bold text-black">你</span>
+                )}
                 <span className="ml-auto font-mono text-[12px] text-white/80 tabular-nums">
                   {value ? value(h) : `${(h.prob * 100).toFixed(1)}%`}
                 </span>

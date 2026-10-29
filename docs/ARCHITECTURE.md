@@ -398,14 +398,22 @@ These outputs are committed, so CI needs no rendering step.
   These are one set of settings in `localStorage` (`samehl`, `waits`,
   `furiten`, `danger`), shared by the game page and the replay viewer. Each
   header has 「AI 提示」, the 辅助 button (with the count of switches on) and
-  进张分析. The replay adds its own 明牌 and 摸切明暗 below a divider in the same
-  menu.
+  进张分析. The replay adds its own 铳牌 (`localStorage` `dealin`), 明牌 and
+  摸切明暗 below a divider in the same menu.
+- **Marks on a tile** are drawn inside `Tile`, so they lift with it on
+  mouse-over and cover the face plus the edge (the box-shadow thickness):
+  - `mark`: same-tile highlight, blue tint;
+  - `deal`: 铳牌, red tint;
+  - `wait`: 听牌提示, green edge;
+  - `highlight`: AI hint, gold.
+  Each colour has one meaning: gold is the AI, blue the same tile, green
+  tenpai, red deal-in, white you.
 - **听牌提示 / 振听** (`lib/waits.ts`): `useWaits` asks `/api/ukeire` for your
   concealed hand with nothing counted as visible. This way a wait stays a
   wait even when all copies are out, which furiten needs. `left` is counted
   on the client.
   - With 3n+2 tiles, every discard that leaves the hand tenpai gets its
-    waits. `TileInfo.waits` draws a green dot on the tile, and hovering shows
+    waits. `TileInfo.waits` gives the tile a green edge, and hovering shows
     the wait tiles with the copies left (0 in red). In a game this applies only
     to discardable tiles; in a replay after riichi, only to the drawn tile.
   - With 3n+1 tiles, `isFuriten` checks three cases:
@@ -415,6 +423,15 @@ These outputs are committed, so CI needs no rendering step.
   - The newest discard is not counted while it can still be ronned
     (`turn === null` until the next draw). Then `Table` shows a red 振听 badge
     above your hand.
+- **铳牌** (replay, `lib/dealin.ts`, `backend/analysis/ron_waits.py`): it works
+  on the open table, since it needs every hand.
+  - One `POST /api/ron_waits` call sends each seat's concealed tiles, melds,
+    riichi and seat wind. It returns, per seat, `waits` (every tile that
+    completes the hand) and `ron` (those with a yaku, scored by the `mahjong`
+    library as a ron with riichi and the winds; situational yaku are left out).
+  - A seat is a threat when it is not furiten (`isFuriten` on all its waits).
+  - Tiles of its `ron` kinds in any other hand get the red tint: yours always,
+    the others' when 明牌 is on.
 - Quitting a game arms a 3 s fallback redirect home in case the server's
   answer is lost. It is cleared when the answer arrives or the page
   unmounts, and it only redirects while the game page is still shown.
@@ -579,9 +596,13 @@ and `GET /api/logs/{id}/review`.
 - Self-check test: when greedy Mortal itself plays the reviewed seat,
   agreement must be 100 %. This catches any misalignment of decision points
   or labels.
-- Replay UI: Mortal's probability above each tile (best in gold), a red
-  ring on the tile actually discarded, a top-3 panel with your choice, the
-  agreement rate, a 下一处不一致 button. Left click = next step, wheel =
+- Replay UI:
+  - Mortal's probability above each tile, with the best one in gold.
+  - The tile you actually discarded has the label 「你 12%」 (white, or gold
+    when it is also the best). With two copies, only one is tagged.
+  - A top-3 panel. Your choice, a call or a pass included, is tagged 「你」
+    and added as a fourth row when it is not in the top 3.
+  - The agreement rate and a 下一处不一致 button. Left click = next step, wheel =
   step forward / back.
 
 ### Deal-in risk (铳率)
