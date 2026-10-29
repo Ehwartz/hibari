@@ -220,7 +220,35 @@ not depend on the style.
 - With one client each, every run gets about half the games of the first run, so expect about
   4,000 steps/h per run.
 
-Results: _to be filled in._
+### Results
+
+Both runs stopped at about 23:38 CST at about +26,000 / +25,000 steps (about 4,300 steps/h each).
+`ctl.sh` then powered the machine off: the `sh -c` fix works. There were no client crashes with
+the per-client `log_dir`. Each run got only two tests: the third (at 120,000) was not reached.
+
+| Run | Test at 100,000 | Test at 110,000 | Training games, last 50 rounds (about 40,000 games) |
+|---|---|---|---|
+| `ctl_a` avoid4, lr 1e-5 | 2.511 | 2.542 | 2.523 |
+| `ctl_b` balance, lr 3e-6 | 2.539 | 2.500 | 2.515 |
+
+Reading it together with the first run (2.502, 2.496, then 2.627):
+
+- **No test of any run is better than the baseline** beyond noise (±0.025). Seven tests average
+  about 2.52.
+- **Neither variable explains it.**
+  - With the original reward (`ctl_a`), the trainee is not better.
+  - With a 3× lower learning rate (`ctl_b`), it is not better either.
+  - The first run's drift to 2.627 came only after about 50,000 steps, which these short runs
+    don't reach.
+- The training games are a much larger sample (SE about 0.006) and are slightly worse than 2.5.
+  This fits: they are played with Boltzmann exploration on.
+- `best.pth` is the maximum of a few noisy tests, so it is biased upward. It is not evidence of a
+  better model.
+
+Conclusion: continuing Akagi's model with 1v3 online RL against a frozen copy of itself gives no
+measurable gain at this scale (tens of thousands of steps, a day of a 5090). The model is already
+converged for what this setup can teach it. More GPU hours on the same recipe are not a good use of
+money. See section 10 for what to do instead.
 
 ## 10. Next steps
 
@@ -238,6 +266,13 @@ Results: _to be filled in._
    selection in Hibari is a possible follow-up.
 
 ## 11. TODO
+
+> **On hold since 2026-10-30.** The control experiment (section 9) showed that this recipe does not
+> improve on the starting model. The style plan below would spend 1–2 days per style on the same
+> recipe, so it waits until the open question is answered: does `pts` change the style at all,
+> even without a gain in strength? A test for that is to compare the 1st / 4th place rates of a
+> `top` and an `avoid4` run, not their average rank. Done in the meantime: GRP is shared
+> (`--grp-from`), and every client has its own `log_dir`.
 
 Training plan:
 
