@@ -444,6 +444,18 @@ These outputs are committed, so CI needs no rendering step.
   - A seat is a threat when it is not furiten (`isFuriten` on all its waits).
   - Tiles of its `ron` kinds in any other hand get the red tint: yours always,
     the others' when 明牌 is on.
+- **点差** (`lib/points.ts`, `GapPanel` in `Table`): while the mouse is on the
+  centre panel, the other players' scores turn into the gap to yours (red:
+  ahead of you, green: behind you). A window below lists, for each player
+  ahead of you, the smallest hand that overtakes them in three ways:
+  - 直击: ron off them; they pay, so the gap closes by twice the ron;
+  - 出和: ron off someone else;
+  - 自摸: tsumo; they pay their share.
+  Honba (300 per ron, 100 per payer on tsumo) and riichi deposits count. On
+  equal points, the seat closer to the first dealer ranks higher, as the
+  engine ranks. Hands are listed up to 4 han by fu (no kiriage mangan), then
+  the limit hands. On equal points, the lower fu is shown, with 25 fu last.
+  If even a yakuman is not enough, it says 役满也不够.
 - Quitting a game arms a 3 s fallback redirect home in case the server's
   answer is lost. It is cleared when the answer arrives or the page
   unmounts, and it only redirects while the game page is still shown.

@@ -6,6 +6,7 @@ import { Avatar } from './Avatar'
 import { Tile } from './Tile'
 import { Hand, type Leaving, Melds, River, type TileInfo, WaitTiles } from './TableParts'
 import type { Wait } from '../lib/waits'
+import { type WinWay, comebacks } from '../lib/points'
 
 /** Minimum stage width; wider windows get a wider stage (the table stays centred). */
 export const STAGE_W = 1280
@@ -266,12 +267,58 @@ function Rotated({ r, cx, children }: { r: number; cx: number; children: ReactNo
   )
 }
 
+const REL_NAME = ['', '下家', '对家', '上家']
+const WAY_NAME: [WinWay, string][] = [
+  ['direct', '直击'],
+  ['other', '出和'],
+  ['tsumo', '自摸'],
+]
+
+/** 点差 (while the mouse is on the centre panel): what it takes to overtake each player ahead of you. */
+function GapPanel({ table, me, cx }: { table: TableState; me: number; cx: number }) {
+  const rows = comebacks(table.scores, me, table.oya, table.honba, table.kyotaku).sort((a, b) => rel(a.seat, me) - rel(b.seat, me))
+  return (
+    <div
+      className="pointer-events-none absolute z-30 w-[300px] rounded-xl bg-black/90 px-3 py-2.5 text-[12.5px] text-white shadow-2xl ring-1 ring-white/15"
+      style={{ left: cx - 150, top: CY + 118 }}
+    >
+      {rows.map((r) => (
+        <div key={r.seat} className="border-b border-white/10 py-1.5 last:border-0">
+          <div className="flex items-baseline gap-2">
+            <span className="text-white/55">{REL_NAME[rel(r.seat, me)]}</span>
+            <span className="truncate">{table.names[r.seat]}</span>
+            <span className={`ml-auto font-mono font-bold tabular-nums ${r.need ? 'text-rose-300' : 'text-emerald-300'}`}>
+              {r.need ? `领先你 ${-r.gap}` : r.gap ? `落后你 ${r.gap}` : '同分'}
+            </span>
+          </div>
+          {r.need && (
+            <div className="mt-1 grid grid-cols-3 gap-1 text-center">
+              {WAY_NAME.map(([way, name]) => (
+                <div key={way} className="rounded bg-white/5 px-1 py-0.5">
+                  <div className="text-[11px] text-white/45">{name}</div>
+                  <div className={r.need![way] ? 'font-bold' : 'text-white/40'}>{r.need![way] ?? '役满也不够'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="mt-1 text-[10.5px] leading-snug text-white/40">逆转所需的最小和牌，已算入本场和供托；同分时座位靠前（起家方向）者在上。</div>
+    </div>
+  )
+}
+
 function CenterPanel({ table, me, cx }: { table: TableState; me: number; cx: number }) {
   const round = `${WIND_NAME[table.bakaze]}${table.kyoku}局`
+  // mouse on the panel: the others' scores become the gap to yours, and the 点差 panel opens below
+  const [gaps, setGaps] = useState(false)
   return (
+    <>
     <div
       className="absolute rounded-xl border border-white/10 bg-black/45 shadow-inner"
       style={{ left: cx - 108, top: CY - 108, width: 216, height: 216 }}
+      onMouseEnter={() => setGaps(true)}
+      onMouseLeave={() => setGaps(false)}
     >
       {[0, 1, 2, 3].map((seat) => {
         const r = rel(seat, me)
@@ -292,7 +339,14 @@ function CenterPanel({ table, me, cx }: { table: TableState; me: number; cx: num
               >
                 {wind}
               </span>
-              <span className="tabular-nums">{table.scores[seat]}</span>
+              {gaps && seat !== me ? (
+                <span className={`tabular-nums ${table.scores[seat] > table.scores[me] ? 'text-rose-300' : 'text-emerald-300'}`}>
+                  {table.scores[seat] - table.scores[me] > 0 ? '+' : ''}
+                  {table.scores[seat] - table.scores[me]}
+                </span>
+              ) : (
+                <span className="tabular-nums">{table.scores[seat]}</span>
+              )}
             </div>
             {isTurn && <div className="absolute rounded-full bg-amber-300/80" style={{ left: -60, top: 102, width: 120, height: 3 }} />}
             {table.seats[seat].riichiAccepted && (
@@ -315,6 +369,8 @@ function CenterPanel({ table, me, cx }: { table: TableState; me: number; cx: num
         <div className="mt-1.5 text-[13px] text-emerald-200/90">余 {table.tilesLeft}</div>
       </div>
     </div>
+    {gaps && table.started && <GapPanel table={table} me={me} cx={cx} />}
+    </>
   )
 }
 
