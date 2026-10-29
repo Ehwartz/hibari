@@ -200,6 +200,28 @@ Problems found in the run:
   the other was about to read. Fixed: each client gets its own `[train_play.clientN]` profile
   (`TRAIN_PLAY_PROFILE`, a Mortal feature) with its own `log_dir`.
 
+### Control experiment (started 2026-10-29 17:39 CST)
+
+Two runs side by side, each changing one thing from the first run. Each has 1 client, starts again
+from Akagi's checkpoint, and reuses `runs/balance/grp.pth`. GRP predicts ranks only, so it does
+not depend on the style.
+
+| Run | pts | lr | Question |
+|---|---|---|---|
+| `ctl_a` | avoid4 (same as the starting model) | 1e-5 (same as the first run) | was the reward change the cause? |
+| `ctl_b` | balance (same as the first run) | 3e-6 | was the learning rate the cause? |
+
+- Both test every 10,000 steps (2,000 games), stop at 23:39 CST, and then `ctl.sh` powers the
+  machine off.
+- Note: the learning rate of the first run was a constant 1e-5. The scheduler state comes from the
+  config, because prepare.py starts the online phase without the offline optimizer and scheduler.
+- New `overnight.py` options for this: `--name`, `--lr`, `--test-every`, `--grp-from`. Several runs
+  can share the machine with different `--name` and `--port`.
+- With one client each, every run gets about half the games of the first run, so expect about
+  4,000 steps/h per run.
+
+Results: _to be filled in._
+
 ## 10. Next steps
 
 1. Read `overnight.log`: did every stage complete, how many trainee steps were reached?
