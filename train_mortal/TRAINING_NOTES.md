@@ -4,7 +4,24 @@ What was done to train new Mortal models (different play styles) starting from t
 that ships with Akagi, how it was done, what broke along the way and how it was fixed, and the
 measured numbers. `README.md` in this folder is the short how-to; this file is the record.
 
-Last updated: 2026-10-29.
+Last updated: 2026-10-30.
+
+## Summary (status 2026-10-30)
+
+- **The pipeline works.** On a rented RTX 5090 (AutoDL) it runs Mortal's online training from
+  Akagi's checkpoint end to end: 1v3 self-play → GRP → online training. It runs unattended,
+  restarts crashed processes, and powers the machine off at the end.
+- **No gain in strength.** Three runs got +57,600, +26,000 and +25,000 steps. Seven tests against
+  the baseline (2,000 games each) gave nothing better than the baseline beyond noise. The longest
+  run got worse after about 50,000 steps (avg rank 2.627). A control experiment ruled out the two
+  obvious suspects: the change of reward, and the learning rate. Section 10 explains why this recipe
+  cannot improve a converged model.
+- **`pts` does change the style**, in the expected direction:
+  - balance points give more 1st + 4th (51.7 % against 48.6 % for avoid4 points);
+  - each model scores better under its own points.
+  - But the shift is small (a few percentage points) and costs some strength.
+- **Status: training paused.** Nothing trained here is better than Akagi's model for Hibari.
+  Section 10 lists the options.
 
 ## 1. Goal
 
@@ -85,8 +102,14 @@ every interface the training code needs (`arena.OneVsThree`, `dataset.Grp`, `Gam
 | `overnight.py` | unattended run: GRP logs → GRP → online training until a deadline; restarts crashed processes; can power the machine off at the end |
 | `setup_remote.sh` | one-time environment setup on a Linux GPU box (uv, Python 3.12, PyTorch 2.8 cu128, Rust, libriichi build, check) |
 | `mortal_shim/sitecustomize.py` | runtime fixes, see section 4 |
+| `control.sh` | the control experiment of section 9: two `overnight.py` runs side by side, power-off after both |
+| `rank_shape.py` | rank shape (1st..4th rates over time, share of 1st + 4th, score under each style's points) from the client logs |
 
 The Mortal clone (`Mortal/`), the venv and `runs/` are git-ignored; so is `remote/` (login info).
+`runs_remote/` (also ignored) holds what was downloaded from the GPU box on 2026-10-30: per run
+`config.toml`, `overnight.log`, `logs/`, `tensorboard/`, `grp_tensorboard/`, the shared
+`runs/balance/grp.pth` (1.4 MB), and the top-level `*.out` / `*.log` files. The model checkpoints
+(125 MB each) and the game logs stayed on the box in `/root/autodl-tmp/train_mortal/runs/`.
 
 ## 6. Local pilot (Windows, CPU)
 
@@ -288,27 +311,57 @@ the style without the drift seen in the first run.
 
 ## 10. Next steps
 
-1. Read `overnight.log`: did every stage complete, how many trainee steps were reached?
-2. Evaluate: `one_vs_three.py` with the challenger = `runs/balance/trainee.pth` and the champion =
-   `baseline.pth`, a few thousand games. Compare average rank and the rates of 1st and 4th place
-   with the baseline's own numbers. For `balance` we expect fewer avoid-4th habits: more 1st,
-   somewhat more 4th.
-3. If the shift is in the expected direction, continue training (`overnight.py` resumes in place)
-   and then train `top` the same way. If not, revisit `pts`, the exploration settings or the
-   amount of data before spending more.
-4. To use a trained model in Hibari, copy the `mjbot_mortal` folder, replace `mortal.pth` with the
-   trained checkpoint, and point Settings → AI 程序 at the new folder. The loader reads `mortal`,
-   `current_dqn` and `config` from the file, all present in our checkpoints. Per-AI model
-   selection in Hibari is a possible follow-up.
+### Why the online phase does not improve this model
+
+How the update works, from `train.py` and `reward_calculator.py`:
+
+- Every decision of the trainee in a kyoku gets the same target: the kyoku's reward, i.e. the
+  change of GRP-expected rank points from that kyoku to the next (`gamma = 1`).
+- The Q value of the chosen action is regressed onto that target (MSE).
+- An auxiliary head predicts the next rank. CQL is off in the online phase.
+
+Why that gives no measurable gain here:
+
+1. **The signal is tiny against the noise.** A kyoku's result is mostly luck. One decision moves
+   it very little, and all decisions of the kyoku share one target. Tens of thousands of steps are
+   far too few to find better moves for a model that is already strong.
+2. **Almost no exploration.** Boltzmann ε = 0.005 at temperature 0.05. The trainee plays what it
+   already plays, so its data contains nothing new to learn.
+3. **The model is already converged.** It was trained offline on a large set of human logs, which
+   covers the situations and choices that self-play produces.
+4. **A frozen opponent invites overfitting.** The trainee can learn to exploit one fixed opponent
+   rather than get stronger. This fits the drift after about 50,000 steps.
+
+### Options
+
+| Option | Cost | Expected result |
+|---|---|---|
+| **Style models**: more extreme `pts` (e.g. top `[6, 1, -1, -6]` or `[8, 0, -2, -6]`, and avoid4 mirrored), lr 3e-6, about 6 h each, checked with `rank_shape.py` | about 6 h of a 5090 per style | AI opponents with visibly different priorities, slightly weaker than the original |
+| **Difficulty levels without training**: sample the bot's actions with a temperature in Hibari | no GPU | strong / medium / weak opponents for practice |
+| **Real strength gains**: more exploration, a league of past trainee versions as opponents, or offline training on a large high-rank log set | research project, many GPU days, plus a log set we don't have | uncertain |
+
+For Hibari, the first two options are useful and affordable; the third is not worth it for a
+practice tool.
+
+### Using a trained model in Hibari
+
+Copy the `mjbot_mortal` folder, replace `mortal.pth` with the trained checkpoint, and point
+Settings → AI 程序 at the new folder. The loader reads `mortal`, `current_dqn` and `config` from
+the file, all present in our checkpoints. Per-AI model selection in Hibari is a possible follow-up.
+The checkpoints are on the GPU box in `/root/autodl-tmp/train_mortal/runs/<run>/` (`trainee.pth`
+and `best.pth`). They were not downloaded, since none is better than the original.
 
 ## 11. TODO
 
 > **On hold since 2026-10-30.** The control experiment (section 9) showed that this recipe does not
-> improve on the starting model. The style plan below would spend 1–2 days per style on the same
-> recipe, so it waits until the open question is answered: does `pts` change the style at all,
-> even without a gain in strength? A test for that is to compare the 1st / 4th place rates of a
-> `top` and an `avoid4` run, not their average rank. Done in the meantime: GRP is shared
-> (`--grp-from`), and every client has its own `log_dir`.
+> improve on the starting model. The style analysis showed that `pts` does change the style, but
+> only a little at this budget. The plan below (1–2 days per style with the original `pts`) is
+> replaced by the shorter style-model option in section 10, if styles are wanted at all.
+>
+> Done in the meantime:
+> - GRP is shared (`--grp-from`);
+> - every client has its own `log_dir`;
+> - `rank_shape.py` measures the style.
 
 Training plan:
 
