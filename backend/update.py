@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import ssl
 import stat
 import subprocess
 import sys
@@ -36,6 +37,19 @@ LATEST = os.environ.get("HIBARI_UPDATE_API") or f"https://api.github.com/repos/{
 UPDATE = DATA / "update"
 STAGED = UPDATE / "staged"
 RESTART_FLAG = UPDATE / "restart.json"
+
+
+def _tls() -> ssl.SSLContext:
+    """certifi's CA bundle plus the system's: the Windows store may lack a root until Windows itself fetches it
+    (seen as CERTIFICATE_VERIFY_FAILED from the packaged Python)."""
+    ctx = ssl.create_default_context()
+    try:
+        import certifi
+
+        ctx.load_verify_locations(certifi.where())
+    except (ImportError, OSError):
+        pass
+    return ctx
 
 
 def long_path(p: Path) -> Path:
@@ -110,7 +124,7 @@ def check() -> dict:
         log = _git("log", "--format=%s", "-n", "20", "HEAD..@{u}").splitlines() if behind else []
         return {"mode": "git", "current": current_version(), "newer": behind > 0, "behind": behind, "notes": "\n".join(log)}
     req = urllib.request.Request(LATEST, headers={"Accept": "application/vnd.github+json", "User-Agent": "Hibari"})
-    with urllib.request.urlopen(req, timeout=20) as r:
+    with urllib.request.urlopen(req, timeout=20, context=_tls()) as r:
         rel = json.load(r)
     latest = rel["tag_name"].lstrip("v")
     asset = next((a for a in rel.get("assets", []) if a["name"].endswith(_asset_suffix())), None)
@@ -152,7 +166,7 @@ def _download(asset: dict, version: str) -> None:
         UPDATE.mkdir(parents=True, exist_ok=True)
         part = UPDATE / (asset["name"] + ".part")
         req = urllib.request.Request(asset["url"], headers={"User-Agent": "Hibari"})
-        with urllib.request.urlopen(req, timeout=60) as r, open(part, "wb") as f:
+        with urllib.request.urlopen(req, timeout=60, context=_tls()) as r, open(part, "wb") as f:
             total = int(r.headers.get("Content-Length") or asset["size"])
             done = 0
             while chunk := r.read(1 << 20):
