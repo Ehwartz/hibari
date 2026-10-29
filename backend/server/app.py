@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from backend import mortal, storage
+from backend import mortal, storage, update
 from backend.analysis import quiz, ron_waits, ukeire
 from backend.analysis.review import review_game
 from backend.engine.rules import Rules
@@ -298,6 +298,40 @@ async def answer_drill(a: DrillAnswer) -> dict:
 async def reset_drills() -> dict:
     storage.reset_drills()
     return {"ok": True}
+
+
+# -- updates (设置 → 更新) ----------------------------------------------------------------
+
+
+@app.get("/api/update")
+async def update_status() -> dict:
+    return update.status()
+
+
+@app.post("/api/update/check")
+async def update_check() -> dict:
+    try:
+        return await asyncio.to_thread(update.check)
+    except Exception as ex:  # network, GitHub, git
+        raise HTTPException(502, f"检测失败：{ex}") from None
+
+
+@app.post("/api/update/download")
+async def update_download() -> dict:
+    try:
+        info = await asyncio.to_thread(update.check)
+        if update.mode() == "git":
+            out = await asyncio.to_thread(update.pull)
+            return {**update.status(), "pulled": out}
+        update.download(info)
+        return update.status()
+    except Exception as ex:
+        raise HTTPException(502, f"更新失败：{ex}") from None
+
+
+@app.post("/api/update/restart")
+async def update_restart() -> dict:
+    return update.request_restart()
 
 
 # -- ukeire (进张分析) -------------------------------------------------------------------

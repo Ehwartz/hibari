@@ -227,7 +227,33 @@ async function json<T>(res: Response): Promise<T> {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
+/** 设置 → 更新 (backend/update.py). */
+export interface UpdateStatus {
+  mode: 'git' | 'release'
+  current: string
+  phase: 'idle' | 'downloading' | 'unpacking' | 'ready' | 'error'
+  version?: string // the version being downloaded / ready
+  done?: number
+  total?: number
+  error?: string
+  pulled?: string // git: output of the pull
+}
+
+export interface UpdateCheck {
+  mode: 'git' | 'release'
+  current: string
+  newer: boolean
+  notes: string
+  latest?: string
+  asset?: { name: string; size: number; url: string } | null
+  behind?: number
+}
+
 export const api = {
+  updateStatus: () => fetch('/api/update').then((r) => json<UpdateStatus>(r)),
+  updateCheck: () => fetch('/api/update/check', { method: 'POST' }).then((r) => json<UpdateCheck>(r)),
+  updateDownload: () => fetch('/api/update/download', { method: 'POST' }).then((r) => json<UpdateStatus>(r)),
+  updateRestart: () => fetch('/api/update/restart', { method: 'POST' }).then((r) => json<{ apply: boolean; launcher: boolean }>(r)),
   settings: () => fetch('/api/settings').then((r) => json<Settings>(r)),
   saveSettings: (s: Settings) =>
     fetch('/api/settings', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(s) }).then((r) => json<Settings>(r)),

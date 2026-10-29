@@ -13,7 +13,7 @@ The app folder keeps the repo layout, so paths in the code stay valid:
 
     runtime/python/   standalone CPython 3.12 (the one .venv is based on) + .venv's site-packages
     backend/ scripts/ frontend/dist/  mjbot_mortal/ (libriichi for this OS, mortal.pth if present)
-    LICENSE  使用说明.txt
+    LICENSE  使用说明.txt  VERSION (for 设置 → 更新)
     data/             only the AI avatars from this machine's data/ (seed for the first run)
 
 Without mortal.pth (CI) pass --allow-no-weights; scripts/add_weights.py adds the weights, the preset
@@ -234,7 +234,7 @@ def main() -> None:
     step("copying the app")
     copy_tree(ROOT / "backend", app / "backend")
     (app / "scripts").mkdir()
-    for name in ("__init__.py", "launch.py"):
+    for name in ("__init__.py", "launch.py", "updater.py"):
         shutil.copy2(ROOT / "scripts" / name, app / "scripts" / name)
     copy_tree(ROOT / "frontend" / "dist", app / "frontend" / "dist")
     bot = app / "mjbot_mortal"
@@ -252,6 +252,7 @@ def main() -> None:
     else:
         step("no mortal.pth — package built without weights (add them with scripts/add_weights.py)")
     shutil.copy2(ROOT / "LICENSE", app / "LICENSE")
+    (app / "VERSION").write_text(version + "\n", encoding="utf-8")  # read by backend/update.py (设置 → 更新)
     readme = (ROOT / "scripts" / "release" / "使用说明.txt").read_text(encoding="utf-8").replace("{version}", version)
     write_text(top / "使用说明.txt", readme)
 

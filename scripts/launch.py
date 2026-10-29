@@ -8,6 +8,10 @@
    the default browser (then the backend runs until the launcher is stopped).
 4. When that window is closed, stops the backend. On macOS the browser keeps
    running after its last window closes: quit it (Cmd+Q) to stop Hibari.
+5. 设置 → 更新 → 重启 (``backend/update.py`` writes ``data/update/restart.json``):
+   stops the window and the backend, then starts Hibari again. With a
+   downloaded package it first hands over to ``scripts/updater.py``, run from a
+   copy of the Python runtime so that no file being replaced is in use.
 
 Windows: ``start.cmd`` (no console) or ``Hibari.exe`` in the portable release.
 macOS: ``start.command``; Linux: ``start.sh``. Or ``uv run python -m scripts.launch``.
@@ -15,6 +19,7 @@ Output goes to ``data/launcher.log``; failures also show a message box.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -193,6 +198,62 @@ def seed_data() -> None:
         shutil.copytree(seed, DATA)
 
 
+def calm_profile() -> None:
+    """The app window is ended with a kill on restart: mark the profile as closed cleanly, so Chrome
+    doesn't offer to restore the session."""
+    prefs = DATA / "chrome-app" / "Default" / "Preferences"
+    try:
+        data = json.loads(prefs.read_text(encoding="utf-8"))
+        data.setdefault("profile", {}).update(exit_type="Normal", exited_cleanly=True)
+        prefs.write_text(json.dumps(data), encoding="utf-8")
+    except (OSError, ValueError):
+        pass
+
+
+def wait_or_restart(proc: subprocess.Popen) -> dict | None:
+    """Wait for ``proc`` to end; a restart request (from 设置 → 更新) ends the wait early."""
+    from backend.update import RESTART_FLAG
+
+    while proc.poll() is None:
+        if RESTART_FLAG.exists():
+            try:
+                req = json.loads(RESTART_FLAG.read_text(encoding="utf-8"))
+            except ValueError:
+                req = {}
+            RESTART_FLAG.unlink(missing_ok=True)
+            log.info("restart requested: %s", req)
+            return req
+        time.sleep(0.5)
+    return None
+
+
+def restart(req: dict) -> None:
+    """Start Hibari again (detached), through the updater when a package is staged."""
+    from backend import update
+
+    detached = (
+        {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
+        if IS_WIN
+        else {"start_new_session": True}
+    )
+    if not req.get("apply"):
+        subprocess.Popen([sys.executable, "-m", "scripts.launch"], cwd=ROOT, close_fds=True, **detached)
+        return
+    # a copy of the interpreter and its standard library (no site-packages): the updater replaces runtime/
+    runner = update.UPDATE / "runner"
+    shutil.rmtree(runner, ignore_errors=True)
+    skip = shutil.ignore_patterns("site-packages", "__pycache__", "test", "tests", "idlelib", "tkinter", "turtledemo")
+    shutil.copytree(Path(sys.base_prefix), runner, ignore=skip, symlinks=True)
+    py = runner / ("pythonw.exe" if IS_WIN else f"bin/python{sys.version_info.major}.{sys.version_info.minor}")
+    script = update.UPDATE / "updater.py"
+    shutil.copy2(ROOT / "scripts" / "updater.py", script)
+    old, new = update.app_root_for_update()
+    cmd = [str(py), "-I", str(script), str(os.getpid()), str(old), str(new), str(update.UPDATE / "updater.log"), "--",
+           *update.relaunch_command()]
+    log.info("handing over to the updater: %s", cmd)
+    subprocess.Popen(cmd, cwd=update.UPDATE, close_fds=True, **detached)
+
+
 def check_weights() -> None:
     from backend import mortal
 
@@ -209,6 +270,11 @@ def check_weights() -> None:
 def main() -> None:
     seed_data()
     DATA.mkdir(parents=True, exist_ok=True)
+    from backend.update import RESTART_FLAG
+
+    RESTART_FLAG.unlink(missing_ok=True)  # a request left over from a run that ended otherwise
+    shutil.rmtree(RESTART_FLAG.parent / "runner", ignore_errors=True)  # the updater's interpreter, done with
+    calm_profile()
     logging.basicConfig(
         filename=DATA / "launcher.log",
         level=logging.INFO,
@@ -225,6 +291,7 @@ def main() -> None:
         server = subprocess.Popen(
             [str(python), "-m", "uvicorn", "backend.server.app:app", "--port", str(port)],
             cwd=ROOT,
+            env={**os.environ, "HIBARI_LAUNCHER": "1"},  # the update page may offer a restart
             stdout=server_log,
             stderr=subprocess.STDOUT,
             creationflags=NO_WINDOW,
@@ -243,7 +310,11 @@ def main() -> None:
                     "界面在 Chromium 内核浏览器里效果最好。结束时关闭启动 Hibari 的终端窗口即可。",
                     error=False,
                 )
-                server.wait()
+                req = wait_or_restart(server)
+                if req is not None:
+                    server.terminate()
+                    server.wait(timeout=10)
+                    restart(req)
                 return
             name, exe = found
             version = browser_version(exe)
@@ -263,8 +334,19 @@ def main() -> None:
                     "--no-default-browser-check",
                 ]
             )
-            chrome.wait()  # own profile: returns when the app window is closed
-            log.info("window closed")
+            # own profile: returns when the app window is closed, or on a restart request
+            req = wait_or_restart(chrome)
+            if req is None:
+                log.info("window closed")
+            else:
+                chrome.terminate()
+                server.terminate()
+                for p in (chrome, server):
+                    try:
+                        p.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        p.kill()
+                restart(req)
         finally:
             server.terminate()
             try:

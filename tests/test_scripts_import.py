@@ -4,6 +4,6 @@ import importlib
 import pytest
 
 
-@pytest.mark.parametrize("name", ["scripts.launch", "scripts.build_release", "scripts.add_weights", "scripts.smoke_release"])
+@pytest.mark.parametrize("name", ["scripts.launch", "scripts.build_release", "scripts.add_weights", "scripts.smoke_release", "scripts.updater"])
 def test_script_imports(name):
     importlib.import_module(name)

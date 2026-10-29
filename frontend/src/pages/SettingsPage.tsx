@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Card, ErrorBox, Shell } from '../components/Shell'
+import { UpdateCard } from '../components/UpdateCard'
 import { type AssetName, type Settings, api, assetUrl } from '../lib/api'
 import { BACKGROUNDS, FELTS, avatarUrl, setSettingsCache } from '../lib/appearance'
 import { scaledImage, squareAvatar } from '../lib/image'
@@ -413,6 +414,7 @@ export function SettingsPage() {
       </Card>
 
       <SoundCard settings={settings} set={set} />
+      <UpdateCard />
 
       <Card className="mt-5 max-w-[640px]">
         <div className="text-[15px] font-semibold">外观</div>

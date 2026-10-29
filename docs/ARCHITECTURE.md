@@ -894,6 +894,49 @@ out of the bundle.
   together with the app's sources. The weights are not covered by the
   license and should not be redistributed publicly.
 
+### Updates (设置 → 更新)
+
+`backend/update.py`, `scripts/updater.py`, `components/UpdateCard.tsx`, and
+the restart loop in `scripts/launch.py`.
+
+- **Version**: a package carries `VERSION`, written by `build_release`. A
+  checkout reads `pyproject.toml`.
+- **Release install**:
+  - **Check**: 检测更新 reads the latest GitHub release
+    (`HIBARI_UPDATE_API` overrides the URL for tests) and compares versions
+    numerically.
+  - **Download**: 下载更新 fetches this platform's asset into `DATA/update`
+    in a background thread; the page polls the progress. It is unpacked to
+    `DATA/update/staged`. A zip keeps its Unix modes and symlinks, for macOS
+    and Linux. On Windows, the extended-length `\\?\` form is used, because
+    the runtime's deepest package paths pass 260 characters.
+  - **Restart**: 重启并更新 writes `DATA/update/restart.json`. The launcher
+    started the backend with `HIBARI_LAUNCHER=1` and polls for that file every
+    0.5 s instead of blocking on the window. On a request it ends the window
+    and the backend, then hands over to the updater.
+  - **Updater**: it runs from a copy of the interpreter and its standard
+    library (`DATA/update/runner`), so no file of the app is in use. It waits
+    for the launcher to exit, then merges the new root into the installed one:
+    - `data` is skipped;
+    - `runtime`, `backend`, `scripts` and `frontend` are replaced as a whole;
+    - everything else is merged file by file, so `mortal.pth` and the preset
+      avatars stay.
+    Every move is journalled and undone on failure. Then it starts Hibari again
+    (`Hibari.exe`, `open -n Hibari.app`, `start.sh`). On macOS the whole bundle
+    is the root.
+  - **Clean-up**: the next launch removes `runner` and marks the Chrome profile
+    as cleanly closed, since the window was killed.
+- **Source checkout** (`.git` present): 检测更新 fetches and counts the
+  commits behind upstream. 拉取更新 runs `git pull --ff-only`. 重启 restarts
+  the launcher, which rebuilds the UI when the sources are newer. After a
+  dependency change, `uv sync` is still manual.
+- **Tests**: `tests/test_update.py` covers the merge, the undo, and the updater
+  end to end in a subprocess. The whole flow was also run once on a built
+  Windows package: check, download, unpack, hand-over, install and relaunch
+  against a local fake release, keeping data, `mortal.pth` and preset avatars.
+- **Bootstrap**: packages up to v0.1.3 don't have this feature, so the first
+  update to a version with it is done by hand.
+
 ## 10c. Training new Mortal models (train_mortal/)
 
 `train_mortal/` continues Akagi's `mortal.pth` with Mortal's own online
