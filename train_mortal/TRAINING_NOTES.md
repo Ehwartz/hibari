@@ -159,7 +159,46 @@ Outputs in `/root/autodl-tmp/train_mortal/runs/balance/`:
 - `trainee.pth`: the training state, continued in place;
 - `tensorboard/`: training curves.
 
-Results: _to be filled in after the run._
+### Results
+
+Timeline (CST):
+
+| Phase | Time | Result |
+|---|---|---|
+| GRP logs, 24,000 games | 06:33 → 07:22 (49 min) | about 29k games/h, faster than the 1.3 h estimate |
+| GRP training | 07:22 → 07:52 | 63,000 steps |
+| Online training, 2 clients | 07:52 → 14:31 | trainee step 90,000 → 147,600 (+57,600, about 8,700 steps/h) |
+
+Test results (2,000 games 1v3 against the baseline every 20,000 steps; equal strength is rank 2.5;
+`pt` uses the balance points):
+
+| Time | Avg rank | Avg pt | |
+|---|---|---|---|
+| 09:08 | 2.502 | +0.23 | saved as `best.pth` |
+| 11:25 | 2.496 | +0.45 | saved as `best.pth` (about step 120,000) |
+| 13:42 | 2.627 | −9.9 | worse |
+
+- With 2,000 games the standard error of the average rank is about 0.025. So the first two tests
+  are equal to the baseline, and the last one is clearly worse (about 5 standard errors).
+- The training self-play (with Boltzmann exploration) averaged about 2.55 over the last 50 rounds.
+- The final `trainee.pth` (step 147,600) is not tested; it should not be assumed better than
+  `best.pth`.
+- The run gave no measurable gain. It also drifted to worse after about 6 h. Likely causes, not yet
+  separated:
+  - a learning rate too high for continuing an already converged model;
+  - the new reward scale (balance points instead of the avoid-4th points the model was trained
+    with);
+  - the trainee learning to exploit the frozen baseline rather than getting stronger.
+
+Problems found in the run:
+
+- **Auto power-off did not happen.** AutoDL's `/usr/bin/shutdown` is a shell script without a
+  shebang, so `subprocess.run(["shutdown", ...])` fails with `Exec format error`. The instance
+  stayed on (and billed) after 14:31. Fixed: `overnight.py` now runs it through `sh -c`.
+- **Clients crashed twice** (09:39, 14:07; both restarted by `overnight.py`). Both clients shared
+  `train_play/log_dir`, and a client wipes that folder at the start of each round, deleting files
+  the other was about to read. Fixed: each client gets its own `[train_play.clientN]` profile
+  (`TRAIN_PLAY_PROFILE`, a Mortal feature) with its own `log_dir`.
 
 ## 10. Next steps
 

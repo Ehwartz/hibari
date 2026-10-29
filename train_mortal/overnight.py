@@ -50,14 +50,26 @@ def main() -> None:
 
     def start(name: str, script: str) -> subprocess.Popen:
         out = open(work / "logs" / f"{name}.log", "a", encoding="utf-8")
-        return subprocess.Popen([sys.executable, script], cwd=MORTAL, env=env, stdout=out, stderr=subprocess.STDOUT,
+        # each client its own train_play profile (log_dir): a client wipes its log_dir at the start of a round
+        penv = {**env, "TRAIN_PLAY_PROFILE": name} if name.startswith("client") else env
+        return subprocess.Popen([sys.executable, script], cwd=MORTAL, env=penv, stdout=out, stderr=subprocess.STDOUT,
                                 start_new_session=True)
 
     def trainee_steps() -> int:
         return torch.load(work / "trainee.pth", map_location="cpu", weights_only=True)["steps"]
 
     make_config.SCALES["full"].update(games_1v3=args.grp_games)
-    (work / "config.toml").write_text(make_config.config_text(work, args.style, "full", "cuda:0", True, args.port), encoding="utf-8")
+    cfg = make_config.config_text(work, args.style, "full", "cuda:0", True, args.port)
+    default = cfg.split("[train_play.default]
+", 1)[1].split("
+
+", 1)[0]
+    for i in range(1, args.clients + 1):
+        cfg += f"
+[train_play.client{i}]
+" + default.replace("train_play'", f"train_play_{i}'") + "
+"
+    (work / "config.toml").write_text(cfg, encoding="utf-8")
     subprocess.run([sys.executable, str(HERE / "prepare.py"), "--work", str(work), "--amp"], check=True)
     log(f"start: style {args.style} pts {make_config.STYLES[args.style]}, deadline {time.strftime('%H:%M', time.localtime(deadline))}")
 
@@ -115,7 +127,8 @@ def main() -> None:
         if args.shutdown:
             log("powering off")
             logf.close()
-            subprocess.run(["shutdown", "-h", "now"])
+            # AutoDL's /usr/bin/shutdown is a shell script without a shebang: exec fails, so go through sh
+            subprocess.run(["sh", "-c", "shutdown -h now"])
 
 
 if __name__ == "__main__":
