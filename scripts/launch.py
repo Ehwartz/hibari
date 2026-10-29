@@ -329,7 +329,8 @@ def main() -> None:
                     str(exe),
                     f"--app={url}",
                     f"--user-data-dir={DATA / 'chrome-app'}",
-                    "--window-size=1600,1000",
+                    # fill the screen; macOS ignores --start-maximized, so a fixed size there
+                    "--window-size=1600,1000" if IS_MAC else "--start-maximized",
                     "--no-first-run",
                     "--no-default-browser-check",
                 ]
