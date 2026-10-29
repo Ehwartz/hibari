@@ -934,7 +934,7 @@ the restart loop in `scripts/launch.py`.
   end to end in a subprocess. The whole flow was also run once on a built
   Windows package: check, download, unpack, hand-over, install and relaunch
   against a local fake release, keeping data, `mortal.pth` and preset avatars.
-- **Bootstrap**: packages up to v0.1.3 don't have this feature, so the first
+- **Bootstrap**: packages up to v0.1.3 don't have this feature (it ships from v0.2.0), so the first
   update to a version with it is done by hand.
 
 ## 10c. Training new Mortal models (train_mortal/)
