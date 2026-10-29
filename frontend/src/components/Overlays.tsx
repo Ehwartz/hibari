@@ -289,11 +289,14 @@ export function EndModal({
   settings,
   onClose,
   actions,
+  extra,
 }: {
   table: TableState
   settings: Settings | null
   onClose?: () => void
   actions?: React.ReactNode
+  /** Below the ranking (the game page: the review summary). */
+  extra?: React.ReactNode
 }) {
   const scores = table.finalScores ?? table.scores
   const order = [0, 1, 2, 3].sort((a, b) => scores[b] - scores[a] || a - b)
@@ -320,6 +323,7 @@ export function EndModal({
           )
         })}
       </div>
+      {extra}
       {(onClose || actions) && (
         <div className="mt-6 flex justify-end gap-3">
           {actions}

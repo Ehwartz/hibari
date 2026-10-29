@@ -13,6 +13,7 @@ Action labels follow Mortal's action space: tiles ``1m``..``C`` and red fives
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from typing import Any
 
 from backend import mortal
@@ -71,12 +72,15 @@ def actual_action(events: list[dict], i: int, seat: int) -> dict:
     return {"type": "none"}
 
 
-def review_game(events: list[dict]) -> dict[str, Any]:
+def review_game(events: list[dict], progress: Callable[[int, int], None] | None = None) -> dict[str, Any]:
+    """``progress(done, total)`` is called after each event (the end-of-game summary shows it)."""
     start = events[0]
     seat = int(start.get("human", 0))
     bot = MortalAgent(seat)
     decisions = []
     for i, ev in enumerate(events):
+        if progress:
+            progress(i + 1, len(events))
         out = bot.react(mask_event(ev, seat))
         if not out or not out.get("meta") or "q_values" not in out["meta"]:
             continue

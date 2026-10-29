@@ -444,6 +444,16 @@ These outputs are committed, so CI needs no rendering step.
   - A seat is a threat when it is not furiten (`isFuriten` on all its waits).
   - Tiles of its `ron` kinds in any other hand get the red tint: yours always,
     the others' when 明牌 is on.
+- **End-of-game review summary** (`GameSummary` in the game's `EndModal`):
+  - **When it runs**: after the server reports the log `saved`, it shows an
+    existing review, or runs one when `Settings.auto_review` is on (default).
+    When it is off, an 「AI 复盘」 button is shown instead.
+  - **Progress**: `review_game` takes a `progress(done, total)` callback. The
+    server keeps it per game while the review runs, and the page polls
+    `GET /api/logs/{id}/review/progress` for a progress bar.
+  - **Result**: agreement, bad moves, and the five mismatches with the largest
+    Q gap. Each row (kyoku, 巡, your choice → the AI's) links to
+    `#/replay/<id>?frame=<index>`.
 - **点差** (`lib/points.ts`, `GapPanel` in `Table`): while the mouse is on the
   centre panel, the other players' scores turn into the gap to yours (red:
   ahead of you, green: behind you). A window below lists, for each player

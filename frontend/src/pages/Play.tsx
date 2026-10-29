@@ -16,6 +16,7 @@ import {
   ResultModal,
 } from '../components/Overlays'
 import { AidMenu } from '../components/AidMenu'
+import { GameSummary } from '../components/GameSummary'
 import { useAids } from '../lib/aids'
 import { computeDanger, tileRisks } from '../lib/danger'
 import { ScaledStage } from '../components/Stage'
@@ -75,6 +76,7 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [intro, setIntro] = useState<Intro | null>(null)
+  const [saved, setSaved] = useState(false) // the log is on disk: the end-of-game review can run
 
   const r = useRef({
     table: initialTable(),
@@ -108,6 +110,7 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
     }
     if (m.type === 'saved') {
       setNotice(`牌谱已保存：${m.path}`)
+      setSaved(true)
       return
     }
     if (m.type === 'autoplay') {
@@ -295,6 +298,7 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
     reorder,
     intro,
     quit,
+    saved,
   }
 }
 
@@ -320,6 +324,7 @@ export function Play({ gameId }: { gameId: string }) {
     reorder,
     intro,
     quit,
+    saved,
   } = usePlaySession(gameId, sound)
   const [confirmQuit, setConfirmQuit] = useState(false)
   const gameOver = modal === 'end' || !!table.finalScores
@@ -507,6 +512,7 @@ export function Play({ gameId }: { gameId: string }) {
             <EndModal
               table={table}
               settings={settings}
+              extra={<GameSummary gameId={gameId} saved={saved} auto={settings?.auto_review ?? true} />}
               actions={
                 <>
                   <a href={`#/replay/${gameId}`} className="rounded-full bg-white/10 px-5 py-2 font-bold hover:bg-white/20">

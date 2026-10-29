@@ -30,6 +30,7 @@ class Settings:
     player_name: str = "You"
     log_dir: str = "data/games"  # relative: to the folder holding data/ (the app folder by default)
     default_length: str = "hanchan"  # hanchan | tonpuu
+    auto_review: bool = True  # review a finished game right away (终局画面的复盘摘要)
     think_min: float = 1.0  # bots' thinking time per decision, seconds
     think_max: float = 3.0
     # sampling temperature of Mortal-A/B/C (0 = always the top action)

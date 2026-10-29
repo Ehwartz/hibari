@@ -263,14 +263,28 @@ async def get_review(game_id: str) -> dict:
     return review
 
 
+# reviews running now: game id -> (events done, events in the game)
+_review_progress: dict[str, tuple[int, int]] = {}
+
+
 @app.post("/api/logs/{game_id}/review")
 async def run_review(game_id: str) -> dict:
-    """Run (or re-run) the Mortal review of a saved game; takes a few seconds."""
+    """Run (or re-run) the Mortal review of a saved game; takes a few seconds (progress: GET …/review/progress)."""
     path = _log_path(game_id)
     events = storage.read_events(path)
-    review = await asyncio.to_thread(review_game, events)
+    _review_progress[game_id] = (0, len(events))
+    try:
+        review = await asyncio.to_thread(review_game, events, lambda done, total: _review_progress.__setitem__(game_id, (done, total)))
+    finally:
+        _review_progress.pop(game_id, None)
     storage.save_review(path, review)
     return review
+
+
+@app.get("/api/logs/{game_id}/review/progress")
+async def review_progress(game_id: str) -> dict:
+    done, total = _review_progress.get(game_id, (0, 0))
+    return {"running": game_id in _review_progress, "done": done, "total": total}
 
 
 # -- discard drills (何切练习) ------------------------------------------------------

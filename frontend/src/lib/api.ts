@@ -34,6 +34,7 @@ export interface Settings {
   log_dir: string
   log_dir_resolved?: string
   default_length: 'hanchan' | 'tonpuu'
+  auto_review: boolean // review a finished game right away (终局画面)
   think_min: number
   think_max: number
   bot_temps: number[] // the three bots' sampling temperature
@@ -263,6 +264,8 @@ export const api = {
     const r = await fetch(`/api/logs/${id}/review`)
     return r.status === 404 ? null : json<Review>(r)
   },
+  reviewProgress: (id: string) =>
+    fetch(`/api/logs/${id}/review/progress`).then((r) => json<{ running: boolean; done: number; total: number }>(r)),
   runReview: (id: string) => fetch(`/api/logs/${id}/review`, { method: 'POST' }).then((r) => json<Review>(r)),
   batch: () => fetch('/api/batch').then((r) => json<BatchStatus>(r)),
   startBatch: (length: 'hanchan' | 'tonpuu', count: number) =>
