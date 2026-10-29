@@ -80,6 +80,7 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
     gen: 0, // bumped on every (re)connect; stale handlers stop
     resume: null as (() => void) | null,
     fxKey: 0,
+    discardSlot: undefined as number | undefined, // hand index of the tile the player clicked
     ws: null as WebSocket | null,
     autoplay: false,
     quitting: false, // the player left: no reconnect
@@ -135,9 +136,14 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
         pai: ev.pai,
         tsumogiri: ev.tsumogiri,
         prev: before,
-        // opponents' hands are in no particular order: a hand discard comes from a random slot
-        slot: Math.floor(Math.random() * Math.max(1, before.hand.length)),
+        // the player's own discard leaves from the copy they clicked; opponents' hands are in no
+        // particular order, so a hand discard comes from a random slot
+        slot:
+          ev.actor === s.table.human && s.discardSlot !== undefined
+            ? s.discardSlot
+            : Math.floor(Math.random() * Math.max(1, before.hand.length)),
       })
+      if (ev.actor === s.table.human) s.discardSlot = undefined
     }
     if (m.actions) {
       setPending({ actions: m.actions, hint: m.hint })
@@ -231,7 +237,9 @@ function usePlaySession(gameId: string, sound: React.RefObject<SoundSettings>) {
     }
   }, [gameId, pump])
 
-  const act = (a: Action) => {
+  /** `slot`: for a discard, the hand index the player clicked (the animation leaves from that copy). */
+  const act = (a: Action, slot?: number) => {
+    r.current.discardSlot = slot
     r.current.ws?.send(JSON.stringify({ type: 'action', action: a }))
     setPending(null)
     resume()
@@ -363,9 +371,9 @@ export function Play({ gameId }: { gameId: string }) {
   const hint = pending?.hint ?? null
   const topHint = showHints && hint?.[0]?.type === 'dahai' ? hint[0].tiles[0] : null
 
-  const onDiscard = (pai: string, fromDrawn: boolean) => {
+  const onDiscard = (pai: string, fromDrawn: boolean, slot?: number) => {
     const a = discards.find((d) => d.pai === pai && d.tsumogiri === fromDrawn) ?? discards.find((d) => d.pai === pai)
-    if (a) act(a)
+    if (a) act(a, slot)
   }
 
   // Right click = the "default" move: pass on a call, or tsumogiri (which also skips riichi).

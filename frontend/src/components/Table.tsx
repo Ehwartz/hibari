@@ -164,13 +164,14 @@ export interface DiscardFx {
   pai: TileT
   tsumogiri: boolean
   prev: SeatView // the actor's seat before the discard
-  /** Hidden hands: slot to animate from. Opponents' hands are not kept in any order, so this is random. */
+  /** Slot to animate from: the copy the player clicked; for hidden hands a random one (opponents' hands are
+   * not kept in any order). Used only when it holds the discarded tile, or when the hand is hidden. */
   slot?: number
 }
 
 function leavingSlot(fx: DiscardFx, hand: TileT[]): Leaving {
   if (fx.tsumogiri && fx.prev.drawn !== null) return { from: 'drawn', key: fx.key }
-  const i = hand.indexOf(fx.pai)
+  const i = fx.slot !== undefined && hand[fx.slot] === fx.pai ? fx.slot : hand.indexOf(fx.pai)
   const n = Math.max(1, hand.length)
   return { from: i >= 0 ? i : (fx.slot ?? fx.key * 7) % n, key: fx.key }
 }
@@ -182,7 +183,7 @@ interface Props {
   openHands?: boolean
   discardable?: Set<TileT>
   hover?: TileT | null
-  onDiscard?: (tile: TileT, fromDrawn: boolean) => void
+  onDiscard?: (tile: TileT, fromDrawn: boolean, slot?: number) => void
   /** Review mode: show tsumogiri (dark) vs tedashi (light) in the rivers. */
   showTsumogiri?: boolean
   /** Auto-sort the own hand (otherwise kept tiles stay at the right end). */

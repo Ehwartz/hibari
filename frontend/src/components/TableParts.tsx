@@ -107,7 +107,8 @@ interface HandProps {
   /** Tiles that may be discarded now; undefined = not discarding. */
   discardable?: Set<TileT>
   hover?: TileT | null
-  onDiscard?: (tile: TileT, fromDrawn: boolean) => void
+  /** `slot`: the clicked hand index (undefined for the drawn tile), so the animation leaves from that copy. */
+  onDiscard?: (tile: TileT, fromDrawn: boolean, slot?: number) => void
   info?: (tile: TileT, fromDrawn: boolean) => TileInfo | undefined
   /** Manual arrangement (auto-sort off): drag hand tile `from` so it ends up at index `to`. */
   onReorder?: (from: number, to: number) => void
@@ -209,7 +210,7 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
         dim={discardable !== undefined && !can}
         highlight={hover === t}
         hoverable={!hidden && onDiscard !== undefined}
-        onClick={can && onDiscard ? () => onDiscard(t, fromDrawn) : undefined}
+        onClick={can && onDiscard ? () => onDiscard(t, fromDrawn, slot === 'drawn' ? undefined : slot) : undefined}
       />,
       t,
       fromDrawn,
