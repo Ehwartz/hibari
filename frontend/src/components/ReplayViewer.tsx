@@ -3,10 +3,13 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Review, ReviewDecision } from '../lib/api'
+import { useAids } from '../lib/aids'
 import { computeDanger, tileRisks } from '../lib/danger'
 import { type Action, type Hint, type MjaiEvent, maskEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
-import { WIND_NAME, tileName } from '../lib/tiles'
+import { WIND_NAME, kind, tileName } from '../lib/tiles'
+import { isFuriten, useWaits } from '../lib/waits'
+import { AidMenu } from './AidMenu'
 import { RYUKYOKU_NAME } from '../lib/labels'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
 import { ActionBar, EndModal, HintPanel, ResultModal } from './Overlays'
@@ -31,15 +34,6 @@ const CALL_HINT: Record<string, { type: Hint['type']; name: string }> = {
 export function qGap(d: ReviewDecision, label: string): string {
   const gap = (d.q[d.best] ?? 0) - (d.q[label] ?? d.q[d.best] ?? 0)
   return gap < 0.005 ? '0' : `−${gap.toFixed(2)}`
-}
-
-/** The 同牌高亮 preference, shared with the game page (on unless turned off). */
-function loadSameTile(): boolean {
-  try {
-    return localStorage.getItem('samehl') !== '0'
-  } catch {
-    return true
-  }
 }
 
 /** Human-readable name of an AI (Mortal-style) action label. */
@@ -168,17 +162,8 @@ export function ReplayViewer({
   const [openHands, setOpenHands] = useState(defaultOpen)
   const [showHints, setShowHints] = useState(true)
   const [showTsumogiri, setShowTsumogiri] = useState(() => new URLSearchParams(location.search).has('review'))
-  const [showDanger, setShowDanger] = useState(true)
-  const [sameTile, setSameTile] = useState(loadSameTile)
+  const [aids, setAid] = useAids() // shared with the game page
   const [showUkeire, setShowUkeire] = useState(false)
-  const toggleSameTile = (on: boolean) => {
-    setSameTile(on)
-    try {
-      localStorage.setItem('samehl', on ? '1' : '0')
-    } catch {
-      /* private mode */
-    }
-  }
   // AI numbers as probabilities, or as the q-gap to the AI's choice (how much worse each option is)
   const [qView, setQView] = useState(false)
   const lastWheel = useRef(0)
@@ -223,7 +208,9 @@ export function ReplayViewer({
     }
     return null
   }, [dec, index, frames, last, me])
-  const danger = useMemo(() => (showDanger ? computeDanger(table, me) : []), [showDanger, table, me])
+  const danger = useMemo(() => (aids.danger ? computeDanger(table, me) : []), [aids.danger, table, me])
+  const waits = useWaits(table, me, aids.waits || aids.furiten)
+  const furiten = aids.furiten && !!waits?.hand && isFuriten(table, me, waits.hand)
 
   // sounds when stepping forward one event (click, wheel, →, auto-play); not on jumps or going back
   const prevIndex = useRef(index)
@@ -305,8 +292,11 @@ export function ReplayViewer({
 
   const tileInfo = (tile: string, fromDrawn: boolean) => {
     const annotate = dec?.discard && showHints
-    if (!annotate && !danger.length) return undefined
+    // after riichi only the drawn tile can go
+    const w = aids.waits && (fromDrawn || !table.seats[me].riichiAccepted) ? waits?.byDiscard.get(kind(tile)) : undefined
+    if (!annotate && !danger.length && !w) return undefined
     return {
+      waits: w,
       risks: danger.length ? tileRisks(danger, tile) : undefined,
       prob: annotate ? (dec!.probs[tile] ?? 0) : undefined,
       text: annotate && qView && tile in dec!.q ? qGap(dec!, tile) : undefined,
@@ -387,12 +377,6 @@ export function ReplayViewer({
             </button>
           )
         )}
-        <label className="ml-2 flex items-center gap-1.5 text-[13px]">
-          <input type="checkbox" checked={openHands} onChange={(e) => setOpenHands(e.target.checked)} /> 明牌
-        </label>
-        <label className="ml-3 flex items-center gap-1.5 text-[13px]" title="复盘用：牌河里摸切的牌变暗，手切的牌保持明亮">
-          <input type="checkbox" checked={showTsumogiri} onChange={(e) => setShowTsumogiri(e.target.checked)} /> 摸切明暗
-        </label>
         {review && (
           <label
             className="ml-3 flex items-center gap-1.5 text-[13px]"
@@ -401,19 +385,21 @@ export function ReplayViewer({
             <input type="checkbox" checked={qView} onChange={(e) => setQView(e.target.checked)} /> Q 差
           </label>
         )}
-        {/* same toggles, same order as the game page */}
+        {/* same controls, same order as the game page; 明牌 / 摸切明暗 only exist here */}
         <span className="ml-2 h-5 w-px bg-white/15" />
-        <label className="ml-2 flex items-center gap-1.5 text-[13px]" title="根据牌河、副露、立直估算每张牌对三家的放铳率">
-          <input type="checkbox" checked={showDanger} onChange={(e) => setShowDanger(e.target.checked)} /> 铳率
-        </label>
         {hasHints && (
-          <label className="ml-3 flex items-center gap-1.5 text-[13px]">
+          <label className="ml-2 flex items-center gap-1.5 text-[13px]">
             <input type="checkbox" checked={showHints} onChange={(e) => setShowHints(e.target.checked)} /> AI 提示
           </label>
         )}
-        <label className="ml-3 flex items-center gap-1.5 text-[13px]" title="鼠标停在手牌上时，牌河和副露中相同的牌会高亮">
-          <input type="checkbox" checked={sameTile} onChange={(e) => toggleSameTile(e.target.checked)} /> 同牌高亮
-        </label>
+        <AidMenu
+          aids={aids}
+          setAid={setAid}
+          extra={[
+            { label: '明牌', on: openHands, set: setOpenHands },
+            { label: '摸切明暗', on: showTsumogiri, set: setShowTsumogiri },
+          ]}
+        />
         <button
           onClick={() => setShowUkeire((v) => !v)}
           title="每种打法的向听数和进张（扣除这一步你能看到的牌）"
@@ -457,7 +443,8 @@ export function ReplayViewer({
               avatars={seatAvatars(settings, table.players)}
               danger={danger}
               tileInfo={tileInfo}
-              sameTileHighlight={sameTile}
+              sameTileHighlight={aids.sameTile}
+              furiten={furiten}
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >

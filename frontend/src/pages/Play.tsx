@@ -15,6 +15,8 @@ import {
   HintPanel,
   ResultModal,
 } from '../components/Overlays'
+import { AidMenu } from '../components/AidMenu'
+import { useAids } from '../lib/aids'
 import { computeDanger, tileRisks } from '../lib/danger'
 import { ScaledStage } from '../components/Stage'
 import { type Callout, DEAL_STEP_MS, type DiscardFx, Table, calloutFor } from '../components/Table'
@@ -22,7 +24,8 @@ import { type ServerMsg, wsUrl } from '../lib/api'
 import { seatAvatars, useAppSettings } from '../lib/appearance'
 import type { Action, Hint, MjaiEvent } from '../lib/mjai'
 import { type TableState, applyEvent, initialTable } from '../lib/table'
-import { WIND_NAME } from '../lib/tiles'
+import { WIND_NAME, kind } from '../lib/tiles'
+import { isFuriten, useWaits } from '../lib/waits'
 import { UkeirePanel } from '../components/UkeirePanel'
 import { type SoundSettings, playClack, playVoice, preloadVoices, voiceFor } from '../lib/sound'
 
@@ -328,14 +331,11 @@ export function Play({ gameId }: { gameId: string }) {
       return DEFAULT_AUTO
     }
   })
-  const [showDanger, setShowDanger] = useState(() => localStorageGet('danger') === '1')
-  const [sameTile, setSameTile] = useState(() => localStorageGet('samehl') !== '0')
+  const [aids, setAid] = useAids()
   const [showUkeire, setShowUkeire] = useState(false)
-  const toggleDanger = (v: boolean) => {
-    setShowDanger(v)
-    localStorageSet('danger', v ? '1' : '0')
-  }
-  const danger = useMemo(() => (showDanger ? computeDanger(table, table.human) : []), [showDanger, table])
+  const danger = useMemo(() => (aids.danger ? computeDanger(table, table.human) : []), [aids.danger, table])
+  const waits = useWaits(table, table.human, aids.waits || aids.furiten)
+  const furiten = aids.furiten && !!waits?.hand && isFuriten(table, table.human, waits.hand)
   const changeAuto = (v: AutoSettings) => {
     setAuto(v)
     localStorageSet('auto', JSON.stringify(v))
@@ -415,23 +415,10 @@ export function Play({ gameId }: { gameId: string }) {
           {autoplay ? 'AI 代打中 · 点击接管' : 'AI 代打'}
         </button>
         <span className="text-white/40">右键：摸切 / 跳过</span>
-        <label className="ml-3 flex items-center gap-1.5" title="根据牌河、副露、立直估算每张牌对三家的放铳率">
-          <input type="checkbox" checked={showDanger} onChange={(e) => toggleDanger(e.target.checked)} /> 铳率
-        </label>
         <label className="ml-3 flex items-center gap-1.5">
           <input type="checkbox" checked={showHints} onChange={(e) => toggleHints(e.target.checked)} /> AI 提示
         </label>
-        <label className="ml-3 flex items-center gap-1.5" title="鼠标停在手牌上时，牌河和副露中相同的牌会高亮">
-          <input
-            type="checkbox"
-            checked={sameTile}
-            onChange={(e) => {
-              setSameTile(e.target.checked)
-              localStorageSet('samehl', e.target.checked ? '1' : '0')
-            }}
-          />{' '}
-          同牌高亮
-        </label>
+        <AidMenu aids={aids} setAid={setAid} />
         <button
           onClick={() => setShowUkeire((v) => !v)}
           title="每种打法的向听数和进张（扣除可见的牌）"
@@ -481,13 +468,18 @@ export function Play({ gameId }: { gameId: string }) {
           onDiscard={onDiscard}
           sortHand={auto.autoSort}
           onReorder={reorder}
-          sameTileHighlight={sameTile}
+          sameTileHighlight={aids.sameTile}
+          furiten={furiten}
           deal={intro ? { key: intro.key, start: DEAL_START_MS } : null}
           discardFx={fx}
           callouts={callouts}
           avatars={seatAvatars(settings, table.players)}
           danger={danger}
-          tileInfo={danger.length ? (t) => ({ risks: tileRisks(danger, t) }) : undefined}
+          tileInfo={(t) => {
+            const w = aids.waits && discardable?.has(t) ? waits?.byDiscard.get(kind(t)) : undefined
+            if (!danger.length && !w) return undefined
+            return { risks: danger.length ? tileRisks(danger, t) : undefined, waits: w }
+          }}
         >
           <AutoPanel value={auto} onChange={changeAuto} />
           {intro && (

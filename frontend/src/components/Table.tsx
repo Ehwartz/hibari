@@ -205,6 +205,8 @@ interface Props {
   deal?: { key: number; start: number } | null
   /** Mark the tiles in all rivers and melds of the same kind as the hand tile under the mouse. */
   sameTileHighlight?: boolean
+  /** Your waiting hand is furiten: a 振听 badge above it. */
+  furiten?: boolean
 }
 
 const rel = (seat: number, me: number) => (seat - me + 4) % 4
@@ -306,6 +308,7 @@ export function Table({
   onReorder,
   deal,
   sameTileHighlight = false,
+  furiten = false,
 }: Props) {
   const cx = width / 2
   // same-kind marks: the hand tile under the mouse (red fives count as fives)
@@ -404,6 +407,12 @@ export function Table({
         style={{ left: cx, top: CY + 330 + tileH(OWN_W), transform: 'translate(-50%, -100%)' }}
       >
         <HandAvatar r={0} size={OWN_AVATAR} place={beside(OWN_W)} {...card(me)} />
+        <div className="relative">
+        {furiten && (
+          <div className="pointer-events-none absolute bottom-full left-0 mb-9 rounded-full bg-rose-600 px-3.5 py-1 text-[15px] font-bold tracking-[0.25em] text-white shadow-lg ring-2 ring-rose-300/60">
+            振听
+          </div>
+        )}
         <Hand
           {...handOf(me)}
           w={OWN_W}
@@ -415,6 +424,7 @@ export function Table({
           deal={dealOf(me)}
           onHoverTile={sameTileHighlight ? setHoverTile : undefined}
         />
+        </div>
         <Melds melds={table.seats[me].melds} actor={me} w={OWN_MELD_W} mark={mark} />
       </div>
       {callouts.map((c) => (

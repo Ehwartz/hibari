@@ -376,8 +376,7 @@ These outputs are committed, so CI needs no rendering step.
   melds with a blue tint (`Tile mark`), distinct from the gold hint
   highlight. The mark also covers the tile's edge, which is drawn as a box
   shadow below the face. The setting (`localStorage` `samehl`, on by
-  default) is shared by the game page and the replay viewer, which both
-  have the toggle and 进张分析 at the right of the header, in the same order.
+  default) is shared by the game page and the replay viewer (see 辅助 menu below).
   Replay analyses `masked[index]`, your own view at that step. The replay header
   has two fixed rows. The first holds the step controls and the kyoku
   select, with the review info and display toggles at the right; it wraps
@@ -395,6 +394,27 @@ These outputs are committed, so CI needs no rendering step.
   centered, scrollable window sorted by shanten and then total acceptance.
   It recomputes whenever your hand or the visible tiles change, and closes
   with Esc or a click outside.
+- **辅助 menu** (`AidMenu`, `lib/aids.ts`): 同牌高亮, 听牌提示, 振听提示 and 铳率.
+  These are one set of settings in `localStorage` (`samehl`, `waits`,
+  `furiten`, `danger`), shared by the game page and the replay viewer. Each
+  header has 「AI 提示」, the 辅助 button (with the count of switches on) and
+  进张分析. The replay adds its own 明牌 and 摸切明暗 below a divider in the same
+  menu.
+- **听牌提示 / 振听** (`lib/waits.ts`): `useWaits` asks `/api/ukeire` for your
+  concealed hand with nothing counted as visible. This way a wait stays a
+  wait even when all copies are out, which furiten needs. `left` is counted
+  on the client.
+  - With 3n+2 tiles, every discard that leaves the hand tenpai gets its
+    waits. `TileInfo.waits` draws a green dot on the tile, and hovering shows
+    the wait tiles with the copies left (0 in red). In a game this applies only
+    to discardable tiles; in a replay after riichi, only to the drawn tile.
+  - With 3n+1 tiles, `isFuriten` checks three cases:
+    - a wait in your own river (舍张);
+    - a wait let pass since your last discard (同巡);
+    - a wait let pass since your riichi (立直后).
+  - The newest discard is not counted while it can still be ronned
+    (`turn === null` until the next draw). Then `Table` shows a red 振听 badge
+    above your hand.
 - Quitting a game arms a 3 s fallback redirect home in case the server's
   answer is lost. It is cleared when the answer arrives or the page
   unmounts, and it only redirects while the game page is still shown.

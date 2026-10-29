@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { DANGER_SIDES, DANGER_TRACK } from '../lib/danger'
 import type { Meld, RiverTile } from '../lib/table'
 import type { Tile as TileT } from '../lib/tiles'
+import type { Wait } from '../lib/waits'
 import { Tile } from './Tile'
 
 interface RiverProps {
@@ -90,6 +91,7 @@ export interface TileInfo {
   best?: boolean // Mortal's top choice
   actual?: boolean // the tile actually discarded
   risks?: number[] // deal-in risk vs 上家 / 对家 / 下家 (0..1)
+  waits?: Wait[] // discarding this tile leaves the hand tenpai on these (听牌提示)
 }
 
 /** Risk at which a danger bar is full. */
@@ -163,8 +165,22 @@ export function Hand({ hand, drawn, w, hidden, leaving, discardable, hover, onDi
       ? DANGER_SIDES.map((s, j) => `${s.label} ${(i.risks![j] * 100).toFixed(1)}%`).join('  ')
       : undefined
     return (
-      <div key={key} className="relative" title={title}>
+      <div key={key} className="group relative" title={title}>
         {el}
+        {i.waits && (
+          <>
+            {/* 听牌提示: a dot on the tile; the waits show while the mouse is on it */}
+            <div className="pointer-events-none absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-[#0f3b2c]" />
+            <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-7 hidden -translate-x-1/2 gap-2 rounded-lg bg-[#08140f]/95 px-2.5 py-2 shadow-xl ring-1 ring-emerald-400/50 group-hover:flex">
+              {i.waits.map((x) => (
+                <div key={x.tile} className="flex flex-col items-center gap-0.5">
+                  <Tile tile={x.tile} w={26} />
+                  <span className={`font-mono text-[12px] font-bold tabular-nums ${x.left ? 'text-white' : 'text-rose-400'}`}>{x.left}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
         {i.prob !== undefined && (
           <div
             className={`pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1 font-mono text-[11px] whitespace-nowrap tabular-nums ${i.best ? 'bg-amber-400 font-bold text-black' : 'bg-black/65 text-white/85'}`}
