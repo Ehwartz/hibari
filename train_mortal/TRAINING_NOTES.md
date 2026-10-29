@@ -250,6 +250,42 @@ measurable gain at this scale (tens of thousands of steps, a day of a 5090). The
 converged for what this setup can teach it. More GPU hours on the same recipe are not a good use of
 money. See section 10 for what to do instead.
 
+### Does `pts` change the style? (analysis, 2026-10-30)
+
+The question here is not strength. It is whether `pts` changes how the trainee plays.
+
+- **Data**: each client logs the trainee's rank counts after every round of 800 games
+  (`trainee rankings: [n1 n2 n3 n4]`). There are about 185,000 games for `balance` and about 84,000
+  each for `ctl_a` and `ctl_b`.
+- **Why it works**: the games are played in all four seat rotations of each seed. A trainee equal
+  to the baseline therefore sits at 25 % per rank, and this is visible in the first rounds of every
+  run. A style shows up as a different shape: more 1st and 4th (risky), or more 2nd and 3rd (safe).
+- **Caveats**: these are training games with Boltzmann exploration on. Rotations of one seed are
+  correlated. ±0.26 % is the naive standard error per 28,000 games.
+
+Rates over the last 4 h of each control run:
+
+| Run | 1st + 4th | 1st − 4th | Score with avoid4 pts | Score with balance pts |
+|---|---|---|---|---|
+| `ctl_a` (avoid4 pts) | 48.6 % | −1.0 % | **−0.018** | −0.031 |
+| `ctl_b` (balance pts) | 51.7 % | −1.0 % | −0.059 | **−0.024** |
+
+- **Yes: `pts` moves the style, in the expected direction.**
+  - The balance-trained model takes more extreme results (1st + 4th 3.1 points higher, about
+    8 standard errors).
+  - The avoid4-trained model moves to the middle ranks (2nd + 3rd 51.4 %).
+- **Each model scores better than the other under its own points.** Neither beats the baseline
+  under any points: both are slightly weaker overall, as the tests showed.
+- **The effect is small**: a few percentage points after about 25,000 steps. A player in Hibari
+  will barely notice it.
+- **The first `balance` run does not show the shape clearly.** Its later hours are dominated by the
+  loss of strength (1st falls to 21 %, 4th rises to 28 %).
+
+Takeaway: style training works in principle, but it costs strength, and the shift is small at this
+budget. To make it visible, use more extreme `pts`, for example a "top" style such as
+`[6, 1, -1, -6]` or `[8, 0, -2, -6]`. Also pair it with a lower learning rate, so that it changes
+the style without the drift seen in the first run.
+
 ## 10. Next steps
 
 1. Read `overnight.log`: did every stage complete, how many trainee steps were reached?
