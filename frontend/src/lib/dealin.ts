@@ -28,7 +28,8 @@ export interface RonInfo {
 /** Null while off or loading. */
 export function useRonWaits(table: TableState, enabled: boolean): RonInfo | null {
   const seats: RonSeat[] = table.seats.map((s, i) => ({
-    hand: [...s.hand, ...(s.drawn ? [s.drawn] : [])],
+    // after riichi the waits are fixed: while holding a draw, they are the waits of the hand without it
+    hand: s.riichiAccepted ? s.hand : [...s.hand, ...(s.drawn ? [s.drawn] : [])],
     melds: s.melds.map((m) => ({ type: m.type, tiles: meldTiles(m) })),
     riichi: s.riichiAccepted,
     wind: WINDS[(i - table.oya + 4) % 4],
