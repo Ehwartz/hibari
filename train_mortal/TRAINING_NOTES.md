@@ -474,3 +474,46 @@ API, as kanachan does, which its terms don't allow.
   - Fetch the yearly index zip there with `curl`/`wget`, or upload it, since it is small.
   - Hugging Face (`hf-mirror.com`) and GitHub may need AutoDL's academic proxy
     (`source /etc/network_turbo`).
+
+## 13. A public checkpoint to compare with: `Yuchen1457/mortal-582500` (checked 2026-10-30)
+
+[Hugging Face page](https://huggingface.co/Yuchen1457/mortal-582500). Tagged AGPL-3.0, not gated;
+SHA-256 matches the manifest. The pickle refers only to `OrderedDict` and torch tensor rebuilds, so it
+loads with `weights_only=True`.
+
+- **Compatible**: Mortal v4, 192 channels × 40 blocks, four-player, same keys and shapes as
+  `mortal.pth`.
+  - It ran in Mortal's `one_vs_three.py` against Akagi's model on a CPU without changes.
+  - It loaded through Hibari's `mjbot_mortal` code (bot folder pointed at a copy) and reviewed a real
+    game in 3.4 s.
+- **Not a fine-tune of Akagi's weights**: per-layer cosine median 0.29, relative difference 3.9, no
+  identical tensors. Compare section 12's expectation for a fine-tune: cosine near 1.
+- **Its checkpoint config says**:
+  - offline training (`online = false`, CQL 3), continued from a `mortal_298k.pth`, on three GPUs;
+  - `train-2024-filtered-40000`: 40,000 games from 2024, under a folder named `akagi-data`;
+  - `pts = [6, 4, 2, 0]`: evenly spaced, so a balance style;
+  - `best_perf` is still the initial 4.0 / −135: it was never tested during training.
+- **Strength is unproven**. The card says this exact checkpoint has no large head-to-head test. Its
+  earlier figures are for a different 20k checkpoint and only 80–256 games per side.
+- **Provenance is open**. The origin of `mortal_298k.pth` and the source of the 2024 logs are not
+  stated, and the permission claim on the card can't be verified. Treat it like `mortal.pth`:
+  fine for private use, no redistribution until that is clear.
+
+### Comparing it with Akagi's model
+
+Use `one_vs_three.py` with challenger / champion set to the two checkpoints, in both directions.
+
+- **Sample**: the standard error of the average rank is about 1.12 / √N. Eight games gave 1.75 and
+  2.875 in two runs, and 40 games gave 2.425; none of that says anything. 20,000 games per direction
+  give about ±0.008, enough to see a 0.02 difference.
+- **Speed measured here**: about 10 s per hanchan on one local core (peak memory 560 MB), 5 s with 8
+  threads.
+- **No-GPU mode can run it** (0.5 core, 2 GB), at an estimated 20–30 s per hanchan. That is too slow
+  and, per game, more expensive than a GPU:
+
+  | | Games per hour | Cost per 1,000 games | 20,000 games |
+  |---|---|---|---|
+  | No-GPU, 0.1 RMB/h | 120–180 (estimate) | 0.6–0.8 RMB | 110–170 h, 11–17 RMB |
+  | 5090 at 3 RMB/h (example price) | 29,000 (measured, section 9) | 0.1 RMB | 41 min, 2 RMB |
+
+  So run the match in a GPU session.
