@@ -462,12 +462,12 @@ API, as kanachan does, which its terms don't allow.
 
 ### Running it cheaply on AutoDL
 
-- **Without a GPU**: AutoDL's no-GPU mode (about 0.1 RMB/h, very little CPU and memory) is enough
-  for downloading, which is network-bound and single-session by rule. The data disk
-  (`/root/autodl-tmp`) is the same in both modes, so the download can run for weeks without a GPU
-  and stay there.
-- **Converting**: mjlog → mjai is CPU work. It is slow on the minimal CPU but needs no GPU; run it
-  there too, or in the first hours of a GPU session (25 vCPU).
+- **Without a GPU**: AutoDL's no-GPU mode costs 0.1 RMB/h but gives only **0.5 CPU core and 2 GB
+  of memory**. That is enough for one job: downloading, which is network-bound and single-session
+  by rule (houou-logs keeps its state in SQLite). The data disk (`/root/autodl-tmp`) is the same in
+  both modes, so the download can run for weeks without a GPU and stay there.
+- **Converting**: mjlog → mjai, and anything else that is CPU-heavy, is impractical on half a core.
+  Do it in the first hour of a GPU session, with 25 vCPU and parallel processes.
 - **With the GPU**: only the 1v3 self-play, GRP training and Mortal training need the GPU mode.
 - **Download straight on the box**: houou-logs runs on the remote machine itself, so nothing goes
   through the local PC.
