@@ -395,3 +395,82 @@ Hibari side:
 
 - [ ] **Per-AI model selection** in Settings: AI-A / B / C each pick a bot folder (e.g. top /
   balance / avoid4), so the three opponents play different styles.
+
+## 12. Training without Akagi's weights: data and cost (researched 2026-10-30)
+
+Akagi's `mortal.pth` has no clear license, and everything trained from it is a derivative. This
+includes a fine-tune, and also a fresh network distilled from logs it generated: the student copies
+the teacher's behaviour, so a decision-agreement test exposes it. A model free of that would need
+its own data. This section records what exists.
+
+### No ready-made dataset fits
+
+| Dataset | What it is | Usable for Mortal? |
+|---|---|---|
+| [mitsutani/mahjonglm-dataset](https://huggingface.co/datasets/mitsutani/mahjonglm-dataset) | Tenhou 2011–2024, 97 GB, pre-tokenized for a language model, gated | Not mjai (it would need a reverse conversion), and its card says Tenhou's source-data terms still apply |
+| [pjura/mahjong_board_states](https://huggingface.co/datasets/pjura/mahjong_board_states) | Tenhou 2009–2019, about 650 M single "state → discard" rows, tagged CC-BY-4.0 | No: no full games, calls, riichi or scores. The CC tag on Tenhou-derived data is doubtful anyway |
+| [TanyaoDojo](https://huggingface.co/Twu31/TanyaoDojo) | Models trained on Tenhou houou logs | No data: per Tenhou's terms only a builder script ships, for logs you download yourself (a useful reference) |
+| IEEE DataPort, Botzone (IJCAI) | Chinese Official Mahjong | Other rules |
+
+Mortal's author publishes neither data nor weights. Mahjong Soul logs can only be scraped from its
+API, as kanachan does, which its terms don't allow.
+
+### Tenhou houou logs: the realistic source
+
+- **What's available**: `https://tenhou.net/sc/raw/` has yearly zips for 2006–2025, 400–600 MB each.
+  - They hold the game index (time, players, room, log id), not the games themselves. Houou
+    (`scc`) runs from 2009.
+  - Each game's mjlog XML is fetched separately by its id.
+  - kanachan counts about 17 M houou rounds for 2009–2019, roughly 1.5 M rounds or 100–150 k
+    games a year, sanma included.
+- **Tool**: [houou-logs](https://github.com/Apricot-S/houou-logs) (MIT, Python).
+  - Workflow: import a yearly index zip → download with filters (`--players 4 --length h`) →
+    validate → export XML.
+  - The zips have to be fetched by hand, since the tool's own fetch gets a 404.
+- **Conversion**: Mortal reads mjai. `convlog`, the converter in Mortal's author's
+  mjai-reviewer (Rust), turns Tenhou logs into mjai; [jansou](https://pypi.org/project/jansou/)
+  (Python) also handles mjlog, Tenhou JSON and mjai.
+- **Download rules** (on the raw page):
+  - one session at a time;
+  - at least 20 minutes between index checks;
+  - fetch the `.log.gz` files;
+  - violators get banned.
+
+  With one request per game and a single session, one year of four-player houou takes on the
+  order of a day or more. Several years (several hundred thousand to a million games) take one
+  to a few weeks.
+- **Terms** (on the raw page):
+  - no use to develop or run products that compete with Tenhou;
+  - no use for services that don't need Tenhou games (free or paid);
+  - no service that lets anyone download Tenhou logs;
+  - for other general mahjong use, contact `support@c-egg.com`.
+
+  Private research use of a model fits; shipping a model trained on these logs inside Hibari, which
+  needs no Tenhou games, likely doesn't. Before any release, ask C-EGG for permission. The logs
+  themselves must never be shared.
+
+### Cost estimate for an offline run from scratch
+
+- **Compute**: the network is 10.8 M parameters. Akagi's run was 90 k steps × batch 2560, about
+  230 M decisions.
+  - On one 5090 the GPU part is hours, and decoding logs on the CPU is the bottleneck. Expect half
+    a day to two days per offline run.
+  - With GRP, online fine-tuning and a few reruns: 3–7 GPU-days, i.e. the hourly price × 72–170 h.
+- **Data**: one to a few weeks of downloading, which needs no GPU (see below).
+- **Expected strength**: offline only gives roughly strong-human level. Matching Akagi is not
+  guaranteed.
+
+### Running it cheaply on AutoDL
+
+- **Without a GPU**: AutoDL's no-GPU mode (about 0.1 RMB/h, very little CPU and memory) is enough
+  for downloading, which is network-bound and single-session by rule. The data disk
+  (`/root/autodl-tmp`) is the same in both modes, so the download can run for weeks without a GPU
+  and stay there.
+- **Converting**: mjlog → mjai is CPU work. It is slow on the minimal CPU but needs no GPU; run it
+  there too, or in the first hours of a GPU session (25 vCPU).
+- **With the GPU**: only the 1v3 self-play, GRP training and Mortal training need the GPU mode.
+- **Download straight on the box**: houou-logs runs on the remote machine itself, so nothing goes
+  through the local PC.
+  - Fetch the yearly index zip there with `curl`/`wget`, or upload it, since it is small.
+  - Hugging Face (`hf-mirror.com`) and GitHub may need AutoDL's academic proxy
+    (`source /etc/network_turbo`).
