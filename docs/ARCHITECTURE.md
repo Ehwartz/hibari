@@ -444,16 +444,25 @@ These outputs are committed, so CI needs no rendering step.
   - A seat is a threat when it is not furiten (`isFuriten` on all its waits).
   - Tiles of its `ron` kinds in any other hand get the red tint: yours always,
     the others' when 明牌 is on.
-- **End-of-game review summary** (`GameSummary` in the game's `EndModal`):
-  - **When it runs**: after the server reports the log `saved`, it shows an
-    existing review, or runs one when `Settings.auto_review` is on (default).
-    When it is off, an 「AI 复盘」 button is shown instead.
+- **Review summary** (`ReviewDrawer`, `ReviewTicks`):
+  - **Starting a review**: the game's end screen no longer reviews by itself.
+    Its 「AI 复盘」 button (active once the log is `saved`) opens
+    `#/replay/<id>?autoreview`. The replay then runs the review unless one
+    exists, and opens the summary.
   - **Progress**: `review_game` takes a `progress(done, total)` callback. The
-    server keeps it per game while the review runs, and the page polls
-    `GET /api/logs/{id}/review/progress` for a progress bar.
-  - **Result**: agreement, bad moves, and the five mismatches with the largest
-    Q gap. Each row (kyoku, 巡, your choice → the AI's) links to
-    `#/replay/<id>?frame=<index>`.
+    server keeps it per game, and the replay polls
+    `GET /api/logs/{id}/review/progress` for the progress in its header.
+  - **复盘摘要**: a drawer on the right of the table, opened by the
+    「复盘摘要 · 一致率」 header button or when a review finishes on the page.
+    - It shows agreement, bad moves (your choice under 5 %) and the number of
+      differences.
+    - Every decision where you differed from the AI is listed by Q loss, in
+      order, or bad moves only. Each row shows kyoku, 巡, your choice and the
+      AI's; it jumps to that step, and the current step's row is highlighted
+      and kept in view.
+    - Wheel and right click inside the drawer don't step the replay.
+  - **Progress bar**: marks every difference (red: bad move, amber: other); a
+    mark jumps there.
 - **点差** (`lib/points.ts`, `GapPanel` in `Table`): while the mouse is on the
   centre panel, the other players' scores turn into the gap to yours (red:
   ahead of you, green: behind you). A window below lists, for each player

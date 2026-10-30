@@ -16,7 +16,6 @@ import {
   ResultModal,
 } from '../components/Overlays'
 import { AidMenu } from '../components/AidMenu'
-import { GameSummary } from '../components/GameSummary'
 import { useAids } from '../lib/aids'
 import { computeDanger, tileRisks } from '../lib/danger'
 import { ScaledStage } from '../components/Stage'
@@ -512,9 +511,16 @@ export function Play({ gameId }: { gameId: string }) {
             <EndModal
               table={table}
               settings={settings}
-              extra={<GameSummary gameId={gameId} saved={saved} auto={settings?.auto_review ?? true} />}
               actions={
                 <>
+                  {/* the review runs in the replay, which then opens its 复盘摘要 */}
+                  <a
+                    href={saved ? `#/replay/${gameId}?autoreview` : undefined}
+                    className={`rounded-full px-5 py-2 font-bold ${saved ? 'bg-amber-500 text-black hover:bg-amber-400' : 'cursor-wait bg-white/10 text-white/40'}`}
+                    title={saved ? '在牌谱回放里复盘，完成后显示复盘摘要' : '保存牌谱中…'}
+                  >
+                    AI 复盘
+                  </a>
                   <a href={`#/replay/${gameId}`} className="rounded-full bg-white/10 px-5 py-2 font-bold hover:bg-white/20">
                     查看牌谱
                   </a>

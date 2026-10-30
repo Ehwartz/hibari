@@ -8,6 +8,10 @@ export function Replay({ gameId }: { gameId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [review, setReview] = useState<Review | null>(null)
   const [reviewing, setReviewing] = useState(false)
+  const [progress, setProgress] = useState<[number, number] | null>(null)
+  const [ranHere, setRanHere] = useState(false) // a review run on this page: show its summary
+  // from 终局 → AI 复盘: run the review now (unless there is one) and open the summary when done
+  const fromEnd = new URLSearchParams(location.hash.split('?')[1] ?? location.search).has('autoreview')
 
   useEffect(() => {
     api
@@ -16,14 +20,26 @@ export function Replay({ gameId }: { gameId: string }) {
       .catch((e) => setError(`读取牌谱失败：${e.message}`))
     api
       .review(gameId)
-      .then(setReview)
+      .then((r) => {
+        setReview(r)
+        if (!r && fromEnd) runReview()
+      })
       .catch(() => setReview(null))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId])
 
+  useEffect(() => {
+    if (!reviewing) return
+    const t = setInterval(() => api.reviewProgress(gameId).then((p) => p.running && setProgress([p.done, p.total])).catch(() => {}), 400)
+    return () => clearInterval(t)
+  }, [reviewing, gameId])
+
   const runReview = async () => {
+    setProgress(null)
     setReviewing(true)
     try {
       setReview(await api.runReview(gameId))
+      setRanHere(true)
     } catch (e) {
       setError(`复盘失败：${e instanceof Error ? e.message : e}`)
     } finally {
@@ -51,6 +67,8 @@ export function Replay({ gameId }: { gameId: string }) {
       review={review}
       onRunReview={runReview}
       reviewing={reviewing}
+      reviewProgress={progress}
+      openSummary={fromEnd || ranHere}
     />
   )
 }

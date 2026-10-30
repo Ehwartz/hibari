@@ -16,6 +16,7 @@ import { seatAvatars, useAppSettings } from '../lib/appearance'
 import { ActionBar, EndModal, HintPanel, ResultModal } from './Overlays'
 import { playClack, playVoice, voiceFor } from '../lib/sound'
 import { UkeirePanel } from './UkeirePanel'
+import { ReviewDrawer, ReviewTicks } from './ReviewDrawer'
 import { ScaledStage } from './Stage'
 import { type DiscardFx, Table, calloutFor } from './Table'
 
@@ -165,6 +166,10 @@ interface Props {
   review?: Review | null
   onRunReview?: () => void
   reviewing?: boolean
+  /** While reviewing: events done / total. */
+  reviewProgress?: [number, number] | null
+  /** Open the 复盘摘要 drawer as soon as the review is there (after 终局 → AI 复盘). */
+  openSummary?: boolean
 }
 
 export function ReplayViewer({
@@ -177,6 +182,8 @@ export function ReplayViewer({
   review,
   onRunReview,
   reviewing,
+  reviewProgress,
+  openSummary = false,
 }: Props) {
   const masked = useMemo(() => buildStates(frames, false), [frames])
   const open = useMemo(() => buildStates(frames, true), [frames])
@@ -191,6 +198,11 @@ export function ReplayViewer({
   const [showDealIn, toggleDealIn] = useStoredSwitch('dealin')
   const [showOtherWaits, toggleOtherWaits] = useStoredSwitch('otherwaits')
   const [showUkeire, setShowUkeire] = useState(false)
+  // 复盘摘要: a drawer on the right of the table; opens by itself once a review requested from 终局 is done
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  useEffect(() => {
+    if (review && openSummary) setSummaryOpen(true)
+  }, [review, openSummary])
   // AI numbers as probabilities, or as the q-gap to the AI's choice (how much worse each option is)
   const [qView, setQView] = useState(false)
   const lastWheel = useRef(0)
@@ -386,20 +398,29 @@ export function ReplayViewer({
         <div className="ml-auto flex shrink-0 items-center gap-2">
         {review ? (
           <>
-            <span
-              className="rounded-md bg-emerald-700/50 px-2 py-1 text-[12px]"
-              title={`${ai} 一致 ${review.summary.matches}/${review.summary.decisions}，恶手（实际选择 < 5%）${review.summary.bad} 处`}
+            <button
+              onClick={() => setSummaryOpen((o) => !o)}
+              className={`rounded-md px-2 py-1 text-[12px] ${summaryOpen ? 'bg-emerald-600 ring-1 ring-emerald-300' : 'bg-emerald-700/50 hover:bg-emerald-700/80'}`}
+              title={`${ai} 一致 ${review.summary.matches}/${review.summary.decisions}，恶手（实际选择 < 5%）${review.summary.bad} 处。点击展开复盘摘要`}
             >
-              一致率 {review.summary.rate === null ? '—' : `${(review.summary.rate * 100).toFixed(1)}%`}
-            </span>
+              复盘摘要 · 一致率 {review.summary.rate === null ? '—' : `${(review.summary.rate * 100).toFixed(1)}%`} {summaryOpen ? '▴' : '▾'}
+            </button>
             <button className={btn} onClick={nextMismatch}>
               下一处不一致
             </button>
           </>
         ) : (
           onRunReview && (
-            <button className={`${btn} bg-emerald-700/70 hover:bg-emerald-600`} onClick={onRunReview} disabled={reviewing}>
-              {reviewing ? `${ai} 复盘中…` : `${ai} 复盘`}
+            <button className={`${btn} min-w-[150px] bg-emerald-700/70 hover:bg-emerald-600`} onClick={onRunReview} disabled={reviewing}>
+              {reviewing ? `${ai} 复盘中…${reviewProgress?.[1] ? ` ${reviewProgress[0]} / ${reviewProgress[1]}` : ''}` : `${ai} 复盘`}
+              {reviewing && (
+                <span className="mt-0.5 block h-[3px] overflow-hidden rounded bg-white/15">
+                  <span
+                    className="block h-full rounded bg-emerald-300 transition-[width]"
+                    style={{ width: reviewProgress?.[1] ? `${(reviewProgress[0] / reviewProgress[1]) * 100}%` : '3%' }}
+                  />
+                </span>
+              )}
             </button>
           )
         )}
@@ -438,14 +459,17 @@ export function ReplayViewer({
         </div>
       </div>
       <div className="flex h-8 items-center gap-3 border-t border-white/5 bg-black/20 px-4">
-        <input
-          type="range"
-          min={0}
-          max={last}
-          value={index}
-          onChange={(e) => go(Number(e.target.value))}
-          className="min-w-0 flex-1 accent-emerald-400"
-        />
+        <div className="relative flex min-w-0 flex-1 items-center">
+          <input
+            type="range"
+            min={0}
+            max={last}
+            value={index}
+            onChange={(e) => go(Number(e.target.value))}
+            className="w-full accent-emerald-400"
+          />
+          {review && <ReviewTicks review={review} last={last} onJump={go} />}
+        </div>
         <span className="w-[72px] shrink-0 text-right font-mono text-[12px] text-white/60 tabular-nums">
           {index}/{last}
         </span>
@@ -479,6 +503,15 @@ export function ReplayViewer({
               callouts={[calloutFor(ev, index)].filter((c) => c !== null)}
               onDiscard={(pai) => onAction(discards.find((a) => a.type === 'dahai' && a.pai === pai)!)}
             >
+              {summaryOpen && review && (
+                <ReviewDrawer
+                  review={review}
+                  events={frames.map((f) => f.event)}
+                  index={index}
+                  onJump={go}
+                  onClose={() => setSummaryOpen(false)}
+                />
+              )}
               {hasHints && showHints && <HintPanel
                   hints={hints}
                   chosen={chosenText}

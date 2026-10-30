@@ -236,12 +236,6 @@ export function SettingsPage() {
           ))}
         </div>
 
-        <label className="mt-5 flex items-center gap-2 text-[13px] text-white/70">
-          <input type="checkbox" checked={settings.auto_review ?? true} onChange={(e) => set('auto_review', e.target.checked)} />
-          对局结束后自动复盘
-          <span className="text-[12px] text-white/45">（终局画面显示一致率、恶手和损失最大的几手；需要几秒）</span>
-        </label>
-
         <div className="mt-5 text-[13px] text-white/70">AI 思考时间（每次行动在此范围内随机，秒）</div>
         <div className="mt-1.5 flex items-center gap-2">
           <input

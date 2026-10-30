@@ -34,7 +34,6 @@ export interface Settings {
   log_dir: string
   log_dir_resolved?: string
   default_length: 'hanchan' | 'tonpuu'
-  auto_review: boolean // review a finished game right away (终局画面)
   think_min: number
   think_max: number
   bot_temps: number[] // the three bots' sampling temperature
