@@ -22,6 +22,9 @@ Last updated: 2026-10-30.
   - But the shift is small (a few percentage points) and costs some strength.
 - **Status: training paused.** Nothing trained here is better than Akagi's model for Hibari.
   Section 10 lists the options.
+- **A public checkpoint beats Akagi's model by a small margin.** `mortal-582500` averaged 2.475
+  against three Akagi models, and Akagi's 2.538 against three of it, over 20,000 games each way
+  (section 13).
 
 ## 1. Goal
 
@@ -493,8 +496,9 @@ loads with `weights_only=True`.
   - `train-2024-filtered-40000`: 40,000 games from 2024, under a folder named `akagi-data`;
   - `pts = [6, 4, 2, 0]`: evenly spaced, so a balance style;
   - `best_perf` is still the initial 4.0 / −135: it was never tested during training.
-- **Strength is unproven**. The card says this exact checkpoint has no large head-to-head test. Its
-  earlier figures are for a different 20k checkpoint and only 80–256 games per side.
+- **The card gives no strength figures for this checkpoint**: no large head-to-head test, and its
+  earlier figures are for a different 20k checkpoint and only 80–256 games per side. The match below
+  fills that gap.
 - **Provenance is open**. The origin of `mortal_298k.pth` and the source of the 2024 logs are not
   stated, and the permission claim on the card can't be verified. Treat it like `mortal.pth`:
   fine for private use, no redistribution until that is clear.
@@ -517,3 +521,32 @@ Use `one_vs_three.py` with challenger / champion set to the two checkpoints, in 
   | 5090 at 3 RMB/h (example price) | 29,000 (measured, section 9) | 0.1 RMB | 41 min, 2 RMB |
 
   So run the match in a GPU session.
+
+### Result (2026-10-30)
+
+`compare.py`, 20,000 hanchans per direction, RTX 4090 (about 22,600 games/h, 1 h 46 min, about
+4 RMB). 2.5 means equal strength.
+
+| Challenger (one seat) | Opponents (three seats) | 1st | 2nd | 3rd | 4th | Avg rank |
+|---|---|---|---|---|---|---|
+| Akagi | 582500 | 23.45 % | 24.87 % | 26.16 % | 25.53 % | 2.5377 ± 0.0078 |
+| 582500 | Akagi | 26.15 % | 25.01 % | 24.00 % | 24.83 % | 2.4752 ± 0.0080 |
+
+Centered score per game (0 = equal):
+
+| Challenger | avoid4 | balance | top |
+|---|---|---|---|
+| Akagi | −0.072 | −0.075 | −0.088 |
+| 582500 | +0.042 | +0.050 | +0.057 |
+
+- **582500 is slightly stronger than Akagi's model in this test.** Both directions agree. Averaged,
+  it gains 0.031 ± 0.006 rank in 1v3, more than five standard errors (treating games as independent).
+- **The gap is small.** It is the same order as the 0.02 this sample was sized to detect, and well
+  below what separates a good player from a weak one.
+- **The gain is mostly more 1st places.** As challenger it takes 1st 26.15 % of the time and Akagi's
+  model 23.45 %; the 4th-place rates differ by 0.7 points. It also leads under avoid4 points, so it is
+  better across the board here, not only under its own `pts`.
+- **What this does not show**: it compares only these two models with each other. It says nothing
+  about strength against humans or other AIs, and small head-to-head edges need not carry over.
+- **Use**: 582500 is a reasonable private alternative for Hibari. Provenance is unchanged: no
+  redistribution.
