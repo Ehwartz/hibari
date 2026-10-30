@@ -548,5 +548,7 @@ Centered score per game (0 = equal):
   better across the board here, not only under its own `pts`.
 - **What this does not show**: it compares only these two models with each other. It says nothing
   about strength against humans or other AIs, and small head-to-head edges need not carry over.
-- **Use**: 582500 is a reasonable private alternative for Hibari. Provenance is unchanged: no
-  redistribution.
+- **Use**: 582500 is now the `mortal.pth` in the local checkout and install; Akagi's model is kept
+  next to it as `mortal_akagi.pth`. So `prepare.py` and `scripts/add_weights.py` default to 582500
+  now: pass `--weights ../mjbot_mortal/mortal_akagi.pth` to `prepare.py` to start from Akagi's model.
+  Provenance is unchanged: the README links to the model card, the weights are not redistributed.

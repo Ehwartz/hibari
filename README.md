@@ -13,6 +13,14 @@ Hibari 是一款日本麻将（四人立直麻将）训练软件。玩家与三�
 mjbot_mortal/mortal.pth
 ```
 
+可以使用 Hugging Face 上公开的第三方权重
+[Yuchen1457/mortal-582500](https://huggingface.co/Yuchen1457/mortal-582500)：下载
+`mortal_582500.pth`，改名为 `mortal.pth` 后放到上述位置。
+
+- SHA-256：`738e0d6e3c0ce9671629554ad39abd147d2ffbac676e80b194c83f2acc0fea20`
+- 该权重由第三方发布，模型卡标注 AGPL-3.0。本项目不分发它，也未核实其训练数据来源与授权，
+  使用前请自行阅读模型卡并判断。
+
 缺少该文件时 AI 无法加载，对局与复盘功能均不可用。也可以在「设置 → AI 程序」中
 将 bot 路径指向其他 Akagi 格式的 Mortal 目录（须包含 `model.py` 与权重文件），
 重启程序后生效。
