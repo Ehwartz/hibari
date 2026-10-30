@@ -31,8 +31,18 @@ else
 fi
 
 echo "==> uv + Python 3.12 venv"
-command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
+if ! command -v uv >/dev/null 2>&1; then
+  if [ -n "${UV_DEFAULT_INDEX:-}" ]; then
+    # astral.sh's installer fetches from GitHub, which can hang here: the image's pip + a mirror
+    PIP=$(command -v pip3 || command -v pip || echo /root/miniconda3/bin/pip)
+    "$PIP" install -q uv -i "$UV_DEFAULT_INDEX"
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$(dirname "$(readlink -f "$PIP")")/uv" "$HOME/.local/bin/uv"
+  else
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  fi
+fi
 [ -x .venv/bin/python ] || uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python "torch==2.8.*" $TORCH_INDEX
 uv pip install --python .venv/bin/python toml tqdm tensorboard numpy
